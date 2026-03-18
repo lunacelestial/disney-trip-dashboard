@@ -1,0 +1,468 @@
+/* ============================================================
+   CARDS — Hero, info, activity, next-activity, image cards,
+   card grid, section headings, clickable cards, empty state.
+   ============================================================ */
+
+.hero-card, .info-card, .activity-card {
+  background: rgba(255, 253, 244, 0.92);
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: var(--card-shadow);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+}
+
+.hero-card { margin-bottom: 1.75rem; }
+
+.hero-card h2, .info-card h3, .activity-card h3 {
+  margin: 0.4rem 0 0.5rem;
+}
+
+/* ============================================================
+   NEXT ACTIVITY HERO — Themed Magic Card
+   ============================================================ */
+#next-activity-card {
+  background: linear-gradient(135deg, var(--parchment) 0%, #fff8d6 100%);
+  border: 2px solid var(--pixie-gold);
+  box-shadow: var(--gold-glow), var(--card-shadow);
+  position: relative;
+  overflow: hidden;
+  padding: 1.5rem 1.75rem;
+}
+
+/* Type-themed backgrounds */
+#next-activity-card.next-act-theme-dining {
+  background: linear-gradient(135deg, #fef9e7 0%, #fef3c7 50%, #fde68a 100%);
+  border-color: #f59e0b;
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.3), var(--card-shadow);
+}
+
+#next-activity-card.next-act-theme-ride {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 24px rgba(0, 155, 222, 0.3), var(--card-shadow);
+}
+
+#next-activity-card.next-act-theme-show {
+  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 50%, #e9d5ff 100%);
+  border-color: #a855f7;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.25), var(--card-shadow);
+}
+
+#next-activity-card.next-act-theme-travel {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%);
+  border-color: #22c55e;
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.25), var(--card-shadow);
+}
+
+#next-activity-card.next-act-theme-merch {
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%);
+  border-color: #ec4899;
+  box-shadow: 0 0 24px rgba(236, 72, 153, 0.25), var(--card-shadow);
+}
+
+#next-activity-card.next-act-theme-break {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+  border-color: #f59e0b;
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.2), var(--card-shadow);
+}
+
+/* Shimmer sweep animation */
+.next-act-shimmer {
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmerSweep 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmerSweep {
+  0%   { left: -60%; }
+  40%  { left: 120%; }
+  100% { left: 120%; }
+}
+
+/* Layout */
+.next-act-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 0.25rem;
+}
+
+.next-act-body {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.next-act-type-icon {
+  font-size: 3rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.12));
+  animation: iconBob 3s ease-in-out infinite;
+}
+
+@keyframes iconBob {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-4px) scale(1.05); }
+}
+
+.next-act-info {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 2.5rem;
+}
+
+.next-act-info h2 {
+  margin: 0 0 0.25rem;
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.next-act-info p {
+  margin: 0;
+}
+
+.next-act-date {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 0.35rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Countdown */
+.next-act-countdown {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.75rem;
+  right: 1.75rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.urgency-phrase {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.50;
+  font-weight: 800;
+  color: var(--slate);
+  text-align: left;
+  margin-right: auto;
+  line-height: 1.1;
+}
+
+.countdown-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.countdown-value {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.6rem;
+  color: var(--castle-blue);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.countdown-now {
+  display: block;
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.3rem;
+  color: var(--magic-red);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+/* Remove old sparkle pseudo-element */
+#next-activity-card::before { display: none; }
+
+@keyframes floatUp {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-5px); }
+}
+
+#next-activity-card h2,
+#next-activity-card p,
+#next-activity-card .card-label { color: var(--ink); }
+
+/* Tap hint on next activity card */
+.tap-hint {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--pixie-gold-dark);
+  letter-spacing: 0.05em;
+  text-transform: none;
+  font-family: 'Nunito', sans-serif;
+}
+
+/* Next activity card hover state to hint it's clickable */
+#next-activity-card:hover {
+  box-shadow: var(--gold-glow), 0 16px 40px rgba(26,26,46,0.15);
+}
+
+@media (max-width: 640px) {
+  .next-act-countdown {
+    bottom: 1.25rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+  }
+
+  .urgency-phrase {
+    text-align: left;
+    margin-right: auto;
+    max-width: 55%;
+    margin-bottom: 0;
+  }
+}
+
+/* ============================================================
+   DASHBOARD HERO (non-next-activity)
+   ============================================================ */
+.page-dashboard .hero-card:not(#next-activity-card) {
+  background: linear-gradient(135deg, var(--castle-blue) 0%, #1e3a8a 100%);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.page-dashboard .hero-card:not(#next-activity-card) h2,
+.page-dashboard .hero-card:not(#next-activity-card) p,
+.page-dashboard .hero-card:not(#next-activity-card) .card-label {
+  color: #e0f2fe;
+}
+
+/* ============================================================
+   CARD GRID & INFO CARDS
+   ============================================================ */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.info-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(26, 26, 46, 0.16);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ============================================================
+   SECTION HEADINGS
+   ============================================================ */
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.timeline-header { margin-bottom: 1rem; }
+
+.section-title {
+  margin: 0.3rem 0 0;
+  font-size: 1.75rem;
+  color: var(--castle-blue);
+}
+
+/* ============================================================
+   ACTIVITY CARDS — Timeline
+   ============================================================ */
+.itinerary-list { display: grid; gap: 1rem; max-width: 100%; overflow: hidden; }
+
+.activity-card { display: block; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+
+.activity-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(26, 26, 46, 0.15);
+}
+
+.activity-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.activity-time {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--castle-blue);
+}
+
+.activity-title {
+  margin: 0 0 0.4rem;
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.05rem;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.activity-location { margin: 0; color: var(--slate); line-height: 1.5; font-size: 0.95rem; }
+
+.activity-note {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+.activity-note:empty { display: none; }
+
+.activity-card-bottom { display: flex; align-items: center; margin-top: 1rem; }
+
+/* ============================================================
+   DISNEY IMAGE CARDS
+   ============================================================ */
+.disney-image-card {
+  position: relative;
+  height: 250px;
+  border-radius: 20px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
+}
+
+.card-banner {
+  background: linear-gradient(to bottom, rgba(0,48,135,0.88), rgba(0,48,135,0.6));
+  backdrop-filter: blur(4px);
+  padding: 1.25rem;
+  border-bottom: 2px solid rgba(255,199,44,0.4);
+}
+
+.card-banner .activity-title { margin: 0 0 0.5rem; color: white; font-size: 1.8rem; }
+.card-banner .activity-location { margin: 0; color: #e0f2fe; font-size: 1rem; }
+.card-footer-spacer { flex-grow: 1; }
+
+/* ============================================================
+   CLICKABLE CARDS
+   ============================================================ */
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clickable-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(26, 26, 46, 0.15);
+}
+
+.clickable-card:focus-visible {
+  outline: 2px solid var(--sky-blue);
+  outline-offset: 2px;
+}
+
+/* Small "tap for details" hint on itinerary cards */
+.card-tap-hint {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-family: 'Nunito', sans-serif;
+  letter-spacing: 0.03em;
+  opacity: 0.7;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state-card {
+  text-align: left;
+  border: 2px dashed #d1d5db;
+  background: rgba(255,253,244,0.6);
+}
+
+/* ============================================================
+   PARK DAY BANNER (legacy — hidden, superseded by header)
+   ============================================================ */
+
+.park-day-banner {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  background-size: cover;
+  background-position: center 40%;
+  background-color: var(--castle-blue);
+  background-image: linear-gradient(135deg, #003087, #009BDE);
+  transition: background-image 0.4s ease;
+  overflow: hidden;
+}
+
+.park-day-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.10) 0%,
+    rgba(0, 0, 0, 0.20) 40%,
+    rgba(0, 0, 0, 0.65) 100%
+  );
+  z-index: 1;
+}
+
+.park-day-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.25rem 1.5rem 1.4rem;
+  z-index: 2;
+}
+
+.park-day-label {
+  margin: 0 0 0.2rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--pixie-gold);
+}
+
+.park-day-title {
+  margin: 0 0 0.3rem;
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1.1;
+  color: white;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+
+.park-day-hours {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.82);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+}
+
+.park-day-banner.no-park {
+  height: 100px;
+}
+
+@media (max-width: 600px) {
+  .park-day-banner { height: 180px; }
+  .park-day-title { font-size: 1.75rem; }
+}

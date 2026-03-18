@@ -1,0 +1,25 @@
+services:
+  itinerary-web:
+    image: nginx:alpine
+    container_name: disney_itinerary_dev
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./site-content:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - disney-api
+
+  disney-api:
+    build: ./disney-api
+    container_name: disney_api_dev
+    restart: unless-stopped
+    volumes:
+      - disney-db-dev:/data
+      - /mnt/motherbrain/ironwolf_01/disney-site/storage:/storage
+    expose:
+      - "3001"
+
+volumes:
+  disney-db-dev:

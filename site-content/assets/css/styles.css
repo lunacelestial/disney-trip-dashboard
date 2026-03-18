@@ -1,0 +1,19 @@
+/* ============================================================
+   DISNEY TRIP COMPANION — Master Stylesheet
+   
+   Split by feature/component for maintainability.
+   Each file owns one concern, with its own media queries inline.
+   
+   Load order matters: base.css must come first (variables, reset,
+   typography). Everything else is independent.
+   ============================================================ */
+
+@import url('base.css');       /* Variables, reset, typography, layout, buttons, forms, badges, utilities, animations */
+@import url('header.css');     /* Site header, characters, park entrance arch, utility bar, user badge, park-day bar */
+@import url('nav.css');        /* E-ticket nav links, hamburger pill, collapsible ticket tray, overlay */
+@import url('cards.css');      /* Hero, info, activity, next-activity, image cards, section headings, empty state */
+@import url('eticket.css');    /* Vintage coupon ticket cards (dashboard/itinerary), scroll rows, edit button */
+@import url('modals.css');     /* Activity detail modal, weather forecast modal */
+@import url('budget.css');     /* Budget pill, quick-add popover, budget page layout, transactions */
+@import url('wizard.css');     /* Trip planner wizard (progress, steps, forms, toggles, review) */
+@import url('venues.css');     /* Venue autocomplete, venue browser, trip switcher bubbles */
