@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney Photos</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=15" />
+  <link rel="stylesheet" href="assets/css/header.css?v=15" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+  <link rel="stylesheet" href="assets/css/photos.css?v=15" />
+</head>
+<body class="page-photos">
+<!-- Top Utility Bar — user greeting + weather -->
+  <div class="utility-bar">
+    <div class="utility-bar-inner">
+      <div id="utility-user-slot"></div>
+      <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+        <span class="weather-badge-icon" id="weather-badge-icon">🌤️</span>
+        <div class="weather-badge-text">
+          <span class="weather-badge-temp" id="weather-badge-temp">--°F</span>
+          <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container">
+      <!-- Park Entrance Arch -->
+      <div class="park-entrance">
+        <img src="assets/images/mickey-mouse-pose1.png" class="character-img mickey" alt="Mickey Mouse" />
+
+        <div class="entrance-sign">
+          <div class="entrance-arch">
+            <span class="entrance-eyebrow">Walt Disney World</span>
+            <h1 class="entrance-title">Photos</h1>
+            <span class="entrance-subtitle">✨ Your Magical Trip Dashboard ✨</span>
+          </div>
+        </div>
+
+        <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
+      </div>
+
+      <!-- Hamburger Nav Pill -->
+      <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu">
+        <div class="nav-pill-hamburger">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="nav-pill-label">Photos</span>
+      </div>
+
+      <!-- E-Ticket Nav Row -->
+      <div class="nav-ticket-tray" id="nav-ticket-tray">
+        <div class="nav-ticket-scroll hide-scrollbar">
+          <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="itinerary.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="photos.html" class="nav-link active"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><span class="ticket-hole"></span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+        </div>
+      </div>
+
+      <!-- Budget Quick-Add Pill -->
+      <div class="budget-pill" id="budget-pill" role="button" tabindex="0" aria-label="Quick add expense">
+        <span class="budget-pill-icon">💰</span>
+        <span class="budget-pill-amount" id="budget-pill-amount">Loading...</span>
+        <span class="budget-pill-label">remaining</span>
+        <span class="budget-pill-tap-hint">tap to add</span>
+      </div>
+
+      <div id="park-day-bar" class="park-day-bar">
+        <span class="park-day-bar-label" id="park-day-label">PARK DAY</span>
+        <span class="park-day-bar-title" id="park-day-title"></span>
+        <span class="park-day-bar-hours" id="park-day-hours"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page-content">
+
+    <!-- Trip Picker -->
+    <section class="photos-trip-picker">
+      <div class="section-heading">
+        <div>
+          <p class="site-eyebrow">Magical Memories</p>
+          <h2 class="section-title">Trip Photos</h2>
+        </div>
+      </div>
+      <div id="photos-trip-bubbles" class="trip-bubbles"></div>
+    </section>
+
+    <!-- Upload Area (shown when a trip is selected) -->
+    <section id="photos-upload-section" class="photos-upload-section hidden">
+      <div class="photos-upload-card">
+        <div class="photos-upload-zone" id="photos-upload-zone">
+          <input type="file" id="photos-file-input" accept="image/*" multiple class="hidden" />
+          <div class="photos-upload-prompt">
+            <span class="photos-upload-icon">📸</span>
+            <span class="photos-upload-text">Tap to add photos</span>
+            <span class="photos-upload-hint">or drag & drop • up to 20 at a time</span>
+          </div>
+        </div>
+        <div id="photos-upload-preview" class="photos-upload-preview hidden"></div>
+        <div id="photos-upload-actions" class="photos-upload-actions hidden">
+          <input type="text" id="photos-caption" class="photos-caption-input" placeholder="Add a caption (optional)" />
+          <button type="button" id="photos-upload-btn" class="primary-button">Upload ✨</button>
+          <button type="button" id="photos-upload-cancel" class="secondary-button small-button">Cancel</button>
+        </div>
+        <div id="photos-upload-progress" class="photos-upload-progress hidden">
+          <div class="photos-progress-bar"><div class="photos-progress-fill" id="photos-progress-fill"></div></div>
+          <span class="photos-progress-text" id="photos-progress-text">Uploading...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Photo Grid -->
+    <section id="photos-grid-section" class="photos-grid-section hidden">
+      <div class="photos-grid-header">
+        <span id="photos-count" class="photos-count"></span>
+      </div>
+      <div id="photos-grid" class="photos-grid"></div>
+    </section>
+
+    <!-- No Trip Selected State -->
+    <section id="photos-empty-state" class="photos-empty-state">
+      <div class="photos-empty-icon">📷</div>
+      <h3>Select a trip above to see photos</h3>
+      <p>Everyone on the trip can upload and download photos here.</p>
+    </section>
+
+  </main>
+
+  <!-- Photo Lightbox Modal -->
+  <div id="photo-lightbox" class="photo-lightbox hidden" role="dialog" aria-modal="true">
+    <div class="photo-lightbox-backdrop"></div>
+    <div class="photo-lightbox-content">
+      <button class="photo-lightbox-close" id="photo-lightbox-close" aria-label="Close">✕</button>
+      <button class="photo-lightbox-nav photo-lightbox-prev" id="photo-lightbox-prev" aria-label="Previous">‹</button>
+      <img class="photo-lightbox-img" id="photo-lightbox-img" alt="" />
+      <button class="photo-lightbox-nav photo-lightbox-next" id="photo-lightbox-next" aria-label="Next">›</button>
+      <div class="photo-lightbox-info">
+        <span class="photo-lightbox-caption" id="photo-lightbox-caption"></span>
+        <span class="photo-lightbox-meta" id="photo-lightbox-meta"></span>
+      </div>
+      <div class="photo-lightbox-actions">
+        <a id="photo-lightbox-download" class="primary-button small-button" download>⬇ Download</a>
+        <button id="photo-lightbox-delete" class="danger-button small-button">🗑 Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/script.js?v=15"></script>
+  <script src="assets/js/photos.js?v=15"></script>
+  <script src="assets/js/header.js?v=15"></script>
+  <script src="assets/js/budget.js?v=15"></script>
+
+  <!-- Weather Forecast Modal -->
+  <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="weather-modal-card">
+      <button class="weather-modal-close" id="weather-modal-close" aria-label="Close">✕</button>
+      <div id="weather-modal-content">
+        <div class="weather-loading">🌤️ Fetching forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Budget Quick-Add Popover -->
+  <div class="budget-quick-add" id="budget-quick-add">
+    <button class="budget-quick-add-close" id="budget-quick-add-close" aria-label="Close">✕</button>
+    <p class="budget-quick-add-title">Add Magical Expense</p>
+    <form class="budget-quick-add-form" id="budget-quick-add-form">
+      <input type="text" id="bqa-description" placeholder="What did Mickey talk us into?" required />
+      <div class="budget-quick-add-row">
+        <input type="number" id="bqa-amount" placeholder="Cost ($)" step="0.01" min="0.01" required />
+        <select id="bqa-category">
+          <option value="Food">Dining 🍔</option>
+          <option value="Merch">Souvenirs 🛍️</option>
+          <option value="Hotel">Hotel 🏨</option>
+          <option value="Extras">Enchanting Extras ✨</option>
+          <option value="Tickets">Tickets/Genie+ 🎟️</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <input type="date" id="bqa-date" value="" style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid #d1d5db;border-radius:10px;font-family:Nunito,sans-serif;font-size:0.95rem;color:#1a1a2e;background:#fff;" />
+      <button type="submit" class="budget-quick-add-btn">Add Expense ✨</button>
+      <a href="budget.html" class="budget-quick-add-link">View Full Budget →</a>
+    </form>
+  </div>
+
+  <!-- Backdrop overlay -->
+  <div class="nav-overlay hidden" id="nav-overlay"></div>
+</body>
+</html>

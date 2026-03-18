@@ -1,0 +1,207 @@
+/* ============================================================
+   VENUES — Autocomplete dropdown, venue browser modal,
+   trip switcher bubbles.
+   ============================================================ */
+
+.venue-autocomplete {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: white;
+  border: 1.5px solid #d1d5db;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.venue-autocomplete.hidden { display: none; }
+
+.venue-suggestion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: none;
+  background: white;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  text-align: left;
+  transition: background 0.15s;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.venue-suggestion:hover {
+  background: #f0f9ff;
+}
+
+.venue-suggestion-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.venue-suggestion-location {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.venue-browse-btn {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: #f8fafc;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--castle-blue);
+  text-align: center;
+  border-radius: 0 0 12px 12px;
+  transition: background 0.15s;
+}
+
+.venue-browse-btn:hover { background: #e0f2fe; }
+
+/* Venue Browser Modal */
+.venue-browser-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  text-align: left;
+  margin-bottom: 0.5rem;
+  transition: all 0.15s;
+}
+
+.venue-browser-item:hover {
+  border-color: var(--sky-blue);
+  background: #f0f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.venue-browser-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.venue-browser-item-info strong {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.venue-browser-item-info span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.venue-browser-item-url {
+  color: var(--sky-blue) !important;
+  font-weight: 600;
+}
+
+.venue-browser-item-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   TRIP SWITCHER — bubble cards for each trip
+   ============================================================ */
+
+.trip-switcher {
+  margin-bottom: 1.5rem;
+}
+
+.trip-bubbles {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.trip-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 150px;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.trip-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.trip-bubble.selected {
+  border-color: var(--castle-blue);
+  background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+  box-shadow: 0 4px 20px rgba(0, 48, 135, 0.15);
+}
+
+.trip-bubble.trip-active { border-color: var(--sky-blue); }
+.trip-bubble.trip-active.selected { border-color: var(--castle-blue); }
+.trip-bubble.trip-past { opacity: 0.65; }
+.trip-bubble.trip-past.selected { opacity: 1; }
+
+.trip-bubble-emoji { font-size: 1.5rem; }
+
+.trip-bubble-dates {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--ink);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.trip-bubble-status {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  padding: 0.15rem 0.5rem;
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.trip-bubble.selected .trip-bubble-status { background: var(--castle-blue); color: white; }
+.trip-bubble.trip-active .trip-bubble-status { background: #dbeafe; color: var(--castle-blue); }
+.trip-bubble.trip-active.selected .trip-bubble-status { background: var(--castle-blue); color: white; }
+
+.trip-bubble-count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.trip-bubble-countdown {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--sky-blue);
+  letter-spacing: 0.03em;
+}

@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney Trip History</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=15" />
+  <link rel="stylesheet" href="assets/css/header.css?v=15" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* ============================================================
+       TRIP HISTORY — Styles scoped to this page
+       ============================================================ */
+
+    .history-intro {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .history-intro p {
+      color: var(--slate);
+      font-size: 1rem;
+      max-width: 500px;
+      margin: 0.5rem auto 0;
+    }
+
+    .history-back-row {
+      margin-bottom: 1.5rem;
+    }
+
+    /* Trip cards grid */
+    .history-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Individual trip card */
+    .history-trip-card {
+      background: rgba(255, 253, 244, 0.92);
+      border-radius: 20px;
+      box-shadow: var(--card-shadow);
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      overflow: hidden;
+      animation: fadeSlideUp 0.4s ease both;
+    }
+
+    .history-trip-card:nth-child(2) { animation-delay: 0.05s; }
+    .history-trip-card:nth-child(3) { animation-delay: 0.1s; }
+    .history-trip-card:nth-child(4) { animation-delay: 0.15s; }
+
+    /* Card header — date range + status */
+    .history-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 1.5rem 0.75rem;
+      gap: 1rem;
+    }
+
+    .history-trip-dates {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 1.6rem;
+      color: var(--castle-blue);
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+    }
+
+    .history-trip-duration {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+
+    .history-trip-status {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .history-trip-status.past {
+      background: #f1f5f9;
+      color: var(--muted);
+    }
+
+    .history-trip-status.active {
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      color: var(--castle-blue);
+    }
+
+    .history-trip-status.upcoming {
+      background: linear-gradient(135deg, #fef3c7, #fef9c3);
+      color: #92400e;
+    }
+
+    /* Resort info */
+    .history-resort-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0 1.5rem 0.75rem;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--slate);
+    }
+
+    .history-resort-row span:first-child {
+      font-size: 1.1rem;
+    }
+
+    /* Expandable pills row */
+    .history-pills {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0 1.5rem 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .history-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 800;
+      cursor: pointer;
+      border: 1.5px solid;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .history-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .history-pill:active {
+      transform: scale(0.97);
+    }
+
+    .history-pill-dining {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fbbf24;
+    }
+
+    .history-pill-parks {
+      background: #dbeafe;
+      color: #1e40af;
+      border-color: #60a5fa;
+    }
+
+    .history-pill-photos {
+      background: #f3e8ff;
+      color: #6b21a8;
+      border-color: #c084fc;
+    }
+
+    .history-pill-delete {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fca5a5;
+    }
+
+    .history-pill-delete:hover {
+      background: #fecaca;
+      box-shadow: 0 4px 12px rgba(185, 28, 28, 0.15);
+    }
+
+    .history-pill-count {
+      font-size: 0.7rem;
+      font-weight: 700;
+      opacity: 0.7;
+    }
+
+    /* Expandable panels */
+    .history-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+      padding: 0 1.5rem;
+      background: rgba(0, 0, 0, 0.02);
+      border-top: 0px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .history-panel.open {
+      max-height: 600px;
+      padding: 1rem 1.5rem;
+      border-top-width: 1.5px;
+    }
+
+    .history-panel-title {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--castle-blue);
+      margin: 0 0 0.6rem;
+    }
+
+    /* Dining list */
+    .history-dining-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .history-dining-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-dining-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .history-dining-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-dining-name {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--ink);
+    }
+
+    .history-dining-meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* Park days list */
+    .history-park-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.45rem 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .history-park-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-park-emoji {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .history-park-name {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--ink);
+      flex: 1;
+    }
+
+    .history-park-date {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Empty state */
+    .history-empty {
+      text-align: center;
+      padding: 3rem 1.5rem;
+      background: rgba(255, 253, 244, 0.7);
+      border-radius: 20px;
+      border: 2px dashed #d1d5db;
+    }
+
+    .history-empty-icon {
+      font-size: 3.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .history-empty h3 {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 1.6rem;
+      color: var(--castle-blue);
+      margin: 0 0 0.5rem;
+    }
+
+    .history-empty p {
+      color: var(--slate);
+      max-width: 400px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 640px) {
+      .history-card-header {
+        padding: 1rem 1.25rem 0.6rem;
+        flex-wrap: wrap;
+      }
+      .history-trip-dates { font-size: 1.35rem; }
+      .history-resort-row { padding: 0 1.25rem 0.6rem; font-size: 0.85rem; }
+      .history-pills { padding: 0 1.25rem 1rem; }
+      .history-panel { padding-left: 1.25rem; padding-right: 1.25rem; }
+      .history-panel.open { padding: 0.85rem 1.25rem; }
+    }
+  </style>
+</head>
+<body class="page-history">
+<!-- Top Utility Bar — user greeting + weather -->
+  <div class="utility-bar">
+    <div class="utility-bar-inner">
+      <div id="utility-user-slot"></div>
+      <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+        <span class="weather-badge-icon" id="weather-badge-icon">🌤️</span>
+        <div class="weather-badge-text">
+          <span class="weather-badge-temp" id="weather-badge-temp">--°F</span>
+          <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container">
+      <!-- Park Entrance Arch -->
+      <div class="park-entrance">
+        <img src="assets/images/mickey-mouse-pose1.png" class="character-img mickey" alt="Mickey Mouse" />
+
+        <div class="entrance-sign">
+          <div class="entrance-arch">
+            <span class="entrance-eyebrow">Walt Disney World</span>
+            <h1 class="entrance-title">Trip History</h1>
+            <span class="entrance-subtitle">✨ Your Magical Memories ✨</span>
+          </div>
+        </div>
+
+        <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
+      </div>
+
+      <!-- Hamburger Nav Pill -->
+      <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu">
+        <div class="nav-pill-hamburger">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="nav-pill-label">History</span>
+      </div>
+
+      <!-- E-Ticket Nav Row -->
+      <div class="nav-ticket-tray" id="nav-ticket-tray">
+        <div class="nav-ticket-scroll hide-scrollbar">
+          <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="itinerary.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="photos.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+        </div>
+      </div>
+
+      <!-- Budget Quick-Add Pill -->
+      <div class="budget-pill" id="budget-pill" role="button" tabindex="0" aria-label="Quick add expense">
+        <span class="budget-pill-icon">💰</span>
+        <span class="budget-pill-amount" id="budget-pill-amount">Loading...</span>
+        <span class="budget-pill-label">remaining</span>
+        <span class="budget-pill-tap-hint">tap to add</span>
+      </div>
+
+      <div id="park-day-bar" class="park-day-bar">
+        <span class="park-day-bar-label" id="park-day-label">PARK DAY</span>
+        <span class="park-day-bar-title" id="park-day-title"></span>
+        <span class="park-day-bar-hours" id="park-day-hours"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page-content">
+
+    <div class="history-back-row">
+      <a href="planner.html" class="secondary-button" style="text-decoration:none; display:inline-block;">
+        ← Back to Planner
+      </a>
+    </div>
+
+    <div class="history-intro">
+      <p class="site-eyebrow">Looking Back</p>
+      <h2 class="section-title" style="margin:0.25rem 0 0;">Your Disney Trips</h2>
+      <p>Every magical adventure, all in one place.</p>
+    </div>
+
+    <div id="history-list" class="history-grid">
+      <p style="text-align:center; color:var(--muted);">Loading trips...</p>
+    </div>
+
+  </main>
+
+  <script src="assets/js/script.js?v=15"></script>
+  <script src="assets/js/header.js?v=15"></script>
+  <script src="assets/js/budget.js?v=15"></script>
+  <script>
+  // ============================================================
+  // TRIP HISTORY PAGE — loads all trips and renders expandable cards
+  // ============================================================
+
+  const PARK_INFO = {
+    "magic-kingdom":     { emoji: "🏰", name: "Magic Kingdom" },
+    "epcot":             { emoji: "🌍", name: "EPCOT" },
+    "hollywood-studios": { emoji: "🎬", name: "Hollywood Studios" },
+    "animal-kingdom":    { emoji: "🌿", name: "Animal Kingdom" },
+    "disney-springs":    { emoji: "🛍️", name: "Disney Springs" },
+    "rest-day":          { emoji: "☀️", name: "Rest / Pool Day" },
+    "travel":            { emoji: "🚗", name: "Travel Day" },
+  };
+
+  function formatDateRange(startDate, endDate) {
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const [ey, em, ed] = endDate.split("-").map(Number);
+    const s = new Date(sy, sm - 1, sd);
+    const e = new Date(ey, em - 1, ed);
+    const opts = { month: "short", day: "numeric" };
+    const startStr = s.toLocaleDateString("en-US", opts);
+    const endStr = e.toLocaleDateString("en-US", { ...opts, year: "numeric" });
+    return `${startStr} – ${endStr}`;
+  }
+
+  function getDayCount(startDate, endDate) {
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const [ey, em, ed] = endDate.split("-").map(Number);
+    const s = new Date(sy, sm - 1, sd);
+    const e = new Date(ey, em - 1, ed);
+    return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  function formatDateShort(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  function detectResort(activities) {
+    // Look for travel-type activities that mention a resort in their location
+    const resortKeywords = ["resort", "hotel", "lodge", "inn", "villa", "cabin"];
+    for (const a of activities) {
+      const type = (a.type || "").toLowerCase();
+      const loc = (a.location || "").toLowerCase();
+      const title = (a.title || "").toLowerCase();
+      if (type === "travel" && loc) {
+        if (resortKeywords.some(k => loc.includes(k))) return a.location;
+      }
+      if (title.includes("check in") || title.includes("check-in") || title.includes("checkout") || title.includes("check out")) {
+        if (loc && resortKeywords.some(k => loc.includes(k))) return a.location;
+      }
+    }
+    return null;
+  }
+
+  function getDiningActivities(activities) {
+    return activities.filter(a => {
+      const type = (a.type || "").toLowerCase();
+      return type === "dining";
+    });
+  }
+
+  function togglePanel(cardEl, panelClass) {
+    const panel = cardEl.querySelector(`.${panelClass}`);
+    if (!panel) return;
+    const isOpen = panel.classList.contains("open");
+
+    // Close all panels in this card first
+    cardEl.querySelectorAll(".history-panel").forEach(p => p.classList.remove("open"));
+
+    // Toggle the clicked one
+    if (!isOpen) panel.classList.add("open");
+  }
+
+  async function deleteTrip(tripId, tripLabel) {
+    if (!tripId) return;
+
+    // First confirmation
+    const confirmed = await showConfirmDialog(
+      `Delete trip "${tripLabel}"?\n\nThis will permanently delete ALL activities, park days, budget, transactions, trip members, and photos for this trip.\n\nThis cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    // Double confirmation — this is nuclear
+    const reallyConfirmed = await showConfirmDialog(
+      `Are you absolutely sure? Everything for this trip will be gone forever.`
+    );
+    if (!reallyConfirmed) return;
+
+    try {
+      await apiFetch(`/trips/${tripId}/cancel`, { method: "DELETE" });
+      showToast("🗑️ Trip deleted — all data removed.");
+
+      // Remove the card from the DOM with a fade-out
+      const card = document.querySelector(`.history-trip-card[data-trip-id="${tripId}"]`);
+      if (card) {
+        card.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+        card.style.opacity = "0";
+        card.style.transform = "translateX(-20px)";
+        setTimeout(() => {
+          card.remove();
+          // Check if list is now empty
+          const remaining = document.querySelectorAll(".history-trip-card");
+          if (remaining.length === 0) {
+            document.getElementById("history-list").innerHTML = `
+              <div class="history-empty">
+                <div class="history-empty-icon">🗺️</div>
+                <h3>No Trips Yet</h3>
+                <p>Once you plan your first trip, it'll show up here for you to look back on.</p>
+                <a href="planner.html" class="primary-button" style="display:inline-block; margin-top:1rem; text-decoration:none;">Plan a Trip ✨</a>
+              </div>
+            `;
+          }
+        }, 350);
+      }
+    } catch (err) {
+      console.error("Trip deletion failed:", err);
+      showToast("❌ Failed to delete trip. It may not have a budget entry — try deleting from the Budget page.");
+    }
+  }
+
+  async function loadHistory() {
+    const container = document.getElementById("history-list");
+
+    // ── Single source of truth: buildTripsFromBudgets ──
+    // This is the same function used by the itinerary trip switcher,
+    // dashboard, and budget page. It uses trip_budgets as the primary
+    // trip boundaries and only falls back to gap-detection for orphaned
+    // activities that don't belong to any budgeted trip.
+    const allSorted = sortItineraryByTime(await getStoredItinerary());
+    const tripBudgets = await loadTripBudgets();
+    const tripGroups = buildTripsFromBudgets(allSorted, tripBudgets);
+
+    if (tripGroups.length === 0) {
+      container.innerHTML = `
+        <div class="history-empty">
+          <div class="history-empty-icon">🗺️</div>
+          <h3>No Trips Yet</h3>
+          <p>Once you plan your first trip, it'll show up here for you to look back on.</p>
+          <a href="planner.html" class="primary-button" style="display:inline-block; margin-top:1rem; text-decoration:none;">Plan a Trip ✨</a>
+        </div>
+      `;
+      return;
+    }
+
+    // Get park days for all trips
+    const allParkDays = await ParkDaysDB.getAll();
+
+    // Sort trips: chronological (oldest first)
+    const sortedTrips = [...tripGroups].sort((a, b) => a.start.localeCompare(b.start));
+
+    // Get user role for admin features
+    const currentUser = Auth.getUser();
+    const isAdmin = currentUser && currentUser.role === "admin";
+
+    let html = "";
+
+    for (let i = 0; i < sortedTrips.length; i++) {
+      const tg = sortedTrips[i];
+      const startDate = tg.start;
+      const endDate = tg.end;
+      const activities = tg.activities;
+      const dayCount = getDayCount(startDate, endDate);
+      const status = getTripGroupStatus(tg);
+      const resort = detectResort(activities);
+      const dining = getDiningActivities(activities);
+      const tripId = tg.trip_id;
+      const tripLabel = tg.label || formatDateRange(startDate, endDate);
+
+      // Get park days that fall within this trip's date range
+      const parkDaysForTrip = allParkDays
+        .filter(pd => pd.date >= startDate && pd.date <= endDate)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Status label
+      let statusLabel = "";
+      if (status === "past") statusLabel = `<span class="history-trip-status past">✅ Past</span>`;
+      else if (status === "active") statusLabel = `<span class="history-trip-status active">🌟 Current</span>`;
+      else statusLabel = `<span class="history-trip-status upcoming">🗓️ Upcoming</span>`;
+
+      // Resort row
+      let resortHtml = "";
+      if (resort) {
+        resortHtml = `<div class="history-resort-row"><span>🏨</span> ${escapeHtml(resort)}</div>`;
+      }
+
+      // Dining panel
+      let diningPanelHtml = "";
+      if (dining.length > 0) {
+        diningPanelHtml = dining.map(d => `
+          <div class="history-dining-item">
+            <span class="history-dining-icon">🍽️</span>
+            <div class="history-dining-info">
+              <div class="history-dining-name">${escapeHtml(d.title)}</div>
+              <div class="history-dining-meta">${d.date ? formatDateShort(d.date) : ""}${d.time ? " · " + formatTimeForDisplay(d.time) : ""}${d.location ? " · " + escapeHtml(d.location) : ""}</div>
+            </div>
+          </div>
+        `).join("");
+      } else {
+        diningPanelHtml = `<p style="color:var(--muted); font-style:italic; font-size:0.88rem;">No dining reservations for this trip.</p>`;
+      }
+
+      // Park days panel
+      let parksPanelHtml = "";
+      if (parkDaysForTrip.length > 0) {
+        parksPanelHtml = parkDaysForTrip.map(pd => {
+          const info = PARK_INFO[pd.park] || { emoji: "🎡", name: pd.park };
+          return `
+            <div class="history-park-item">
+              <span class="history-park-emoji">${info.emoji}</span>
+              <span class="history-park-name">${info.name}</span>
+              <span class="history-park-date">${formatDateShort(pd.date)}</span>
+            </div>
+          `;
+        }).join("");
+      } else {
+        parksPanelHtml = `<p style="color:var(--muted); font-style:italic; font-size:0.88rem;">No park days assigned for this trip.</p>`;
+      }
+
+      // Photo count — we'll try to fetch, but gracefully handle failure
+      let photoCount = 0;
+      try {
+        const photos = await apiFetch(`/trips/${tripId}/photos`);
+        photoCount = photos.length;
+      } catch (e) { /* no photos endpoint or no photos */ }
+
+      html += `
+        <div class="history-trip-card" data-trip-id="${tripId}">
+          <div class="history-card-header">
+            <div>
+              <div class="history-trip-dates">${formatDateRange(startDate, endDate)}</div>
+              <div class="history-trip-duration">${dayCount} day${dayCount !== 1 ? "s" : ""} · ${activities.length} activit${activities.length !== 1 ? "ies" : "y"}</div>
+            </div>
+            ${statusLabel}
+          </div>
+
+          ${resortHtml}
+
+          <div class="history-pills">
+            <button class="history-pill history-pill-dining" onclick="togglePanel(this.closest('.history-trip-card'), 'history-dining-panel')">
+              🍽️ Dining <span class="history-pill-count">(${dining.length})</span>
+            </button>
+            <button class="history-pill history-pill-parks" onclick="togglePanel(this.closest('.history-trip-card'), 'history-parks-panel')">
+              🎢 Park Days <span class="history-pill-count">(${parkDaysForTrip.length})</span>
+            </button>
+            <a class="history-pill history-pill-photos" href="photos.html?trip=${encodeURIComponent(tripId)}">
+              📸 Photos ${photoCount > 0 ? `<span class="history-pill-count">(${photoCount})</span>` : ""}
+            </a>
+            ${isAdmin ? `<button class="history-pill history-pill-delete" onclick="deleteTrip('${tripId}', '${escapeHtml(formatDateRange(startDate, endDate))}')">
+              🗑️ Delete Trip
+            </button>` : ""}
+          </div>
+
+          <div class="history-panel history-dining-panel">
+            <div class="history-panel-title">🍽️ Dining Reservations</div>
+            ${diningPanelHtml}
+          </div>
+
+          <div class="history-panel history-parks-panel">
+            <div class="history-panel-title">🎢 Park Day Schedule</div>
+            ${parksPanelHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+  }
+
+  // Hook into the main script.js initialization flow.
+  // script.js DOMContentLoaded already handles auth, renderUserBadge(), and initApp().
+  // We just need to call loadHistory() after that completes.
+  const _origInitApp = window.initApp || initApp;
+  initApp = function() {
+    _origInitApp();
+    // initApp uses getStoredItinerary().then(...) internally,
+    // so we also wait for itinerary data before loading history
+    getStoredItinerary().then(() => loadHistory());
+  };
+  </script>
+
+  <!-- Weather Forecast Modal -->
+  <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="weather-modal-card">
+      <button class="weather-modal-close" id="weather-modal-close" aria-label="Close">✕</button>
+      <div id="weather-modal-content">
+        <div class="weather-loading">🌤️ Fetching forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Budget Quick-Add Popover -->
+  <div class="budget-quick-add" id="budget-quick-add">
+    <button class="budget-quick-add-close" id="budget-quick-add-close" aria-label="Close">✕</button>
+    <p class="budget-quick-add-title">Add Magical Expense</p>
+    <form class="budget-quick-add-form" id="budget-quick-add-form">
+      <input type="text" id="bqa-description" placeholder="What did Mickey talk us into?" required />
+      <div class="budget-quick-add-row">
+        <input type="number" id="bqa-amount" placeholder="Cost ($)" step="0.01" min="0.01" required />
+        <select id="bqa-category">
+          <option value="Food">Dining 🍔</option>
+          <option value="Merch">Souvenirs 🛍️</option>
+          <option value="Hotel">Hotel 🏨</option>
+          <option value="Extras">Enchanting Extras ✨</option>
+          <option value="Tickets">Tickets/Genie+ 🎟️</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <input type="date" id="bqa-date" value="" style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid #d1d5db;border-radius:10px;font-family:Nunito,sans-serif;font-size:0.95rem;color:#1a1a2e;background:#fff;" />
+      <button type="submit" class="budget-quick-add-btn">Add Expense ✨</button>
+      <a href="budget.html" class="budget-quick-add-link">View Full Budget →</a>
+    </form>
+  </div>
+
+  <!-- Backdrop overlay -->
+  <div class="nav-overlay hidden" id="nav-overlay"></div>
+</body>
+</html>

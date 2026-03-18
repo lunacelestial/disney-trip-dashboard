@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney Itinerary</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=15" />
+  <link rel="stylesheet" href="assets/css/header.css?v=15" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="page-itinerary">
+<!-- Top Utility Bar — user greeting + weather -->
+  <div class="utility-bar">
+    <div class="utility-bar-inner">
+      <div id="utility-user-slot"></div>
+      <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+        <span class="weather-badge-icon" id="weather-badge-icon">🌤️</span>
+        <div class="weather-badge-text">
+          <span class="weather-badge-temp" id="weather-badge-temp">--°F</span>
+          <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container">
+      <!-- Park Entrance Arch -->
+      <div class="park-entrance">
+        <img src="assets/images/mickey-mouse-pose1.png" class="character-img mickey" alt="Mickey Mouse" />
+
+        <div class="entrance-sign">
+          <div class="entrance-arch">
+            <span class="entrance-eyebrow">Walt Disney World</span>
+            <h1 class="entrance-title">Itinerary</h1>
+            <span class="entrance-subtitle">✨ Your Magical Trip Dashboard ✨</span>
+          </div>
+        </div>
+
+        <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
+      </div>
+
+            <!-- Hamburger Nav Pill -->
+      <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu">
+        <div class="nav-pill-hamburger">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="nav-pill-label">Itinerary</span>
+      </div>
+
+      <!-- E-Ticket Nav Row — slides open when hamburger is tapped -->
+      <div class="nav-ticket-tray" id="nav-ticket-tray">
+        <div class="nav-ticket-scroll hide-scrollbar">
+          <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="itinerary.html" class="nav-link active"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><span class="ticket-hole"></span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="photos.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+        </div>
+      </div>
+
+      <!-- Budget Quick-Add Pill -->
+      <div class="budget-pill" id="budget-pill" role="button" tabindex="0" aria-label="Quick add expense">
+        <span class="budget-pill-icon">💰</span>
+        <span class="budget-pill-amount" id="budget-pill-amount">Loading...</span>
+        <span class="budget-pill-label">remaining</span>
+        <span class="budget-pill-tap-hint">tap to add</span>
+      </div>
+      <!-- Park day info bar — lives at bottom of header, populated by JS -->
+      <div id="park-day-bar" class="park-day-bar">
+        <span class="park-day-bar-label" id="park-day-label">PARK DAY</span>
+        <span class="park-day-bar-title" id="park-day-title"></span>
+        <span class="park-day-bar-hours" id="park-day-hours"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page-content">
+
+    <!-- Trip Switcher — shows bubbles for each trip -->
+    <section id="trip-switcher" class="trip-switcher hidden"></section>
+
+    <section class="section-heading timeline-header">
+      <div>
+        <p class="card-label">Trip Schedule</p>
+        <h2 class="section-title">Activity Timeline</h2>
+      </div>
+
+      <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+        <button type="button" id="edit-trip-btn" class="primary-button add-activity-toggle" style="background:linear-gradient(135deg, var(--castle-blue), var(--sky-blue));">
+          ✏️ Edit Your Trip
+        </button>
+        <button type="button" id="open-activity-form-btn" class="primary-button add-activity-toggle">
+          + Add Activity
+        </button>
+      </div>
+    </section>
+
+    <section class="info-card form-card hidden" id="activity-form-card">
+      <div class="section-heading">
+        <div>
+          <p class="card-label">Manage Activities</p>
+          <h3 id="form-heading">Add Activity</h3>
+        </div>
+        <button type="button" id="cancel-edit-btn" class="secondary-button">
+          Cancel
+        </button>
+      </div>
+
+      <form id="activity-form" class="activity-form">
+        <input type="hidden" id="activity-id" />
+
+        <div class="form-grid">
+          
+          <div class="form-field form-field-full">
+            <label for="activity-date-input">Date</label>
+            <input id="activity-date-input" name="date" type="date" required />
+          </div>
+
+          <div class="form-field">
+            <label for="activity-time-input">Time</label>
+            <input id="activity-time-input" name="time" type="time" required />
+          </div>
+
+          <div class="form-field">
+            <label for="activity-type-input">Type</label>
+            <select id="activity-type-input" name="type" required>
+              <option value="Ride">Ride</option>
+              <option value="Dining">Dining</option>
+              <option value="Show">Show</option>
+              <option value="Merch">Shopping</option>
+              <option value="Travel">Travel</option>
+              <option value="Break">Break</option>
+            </select>
+          </div>
+
+          <div class="form-field form-field-full">
+            <label for="activity-title-input">Title</label>
+            <input
+              id="activity-title-input"
+              name="title"
+              type="text"
+              placeholder="Peter Pan's Flight Lightning Lane"
+              required
+            />
+          </div>
+
+          <div class="form-field form-field-full">
+            <label for="activity-location-input">Location</label>
+            <input
+              id="activity-location-input"
+              name="location"
+              type="text"
+              placeholder="Fantasyland"
+              required
+            />
+          </div>
+
+          <div class="form-field form-field-full">
+            <label for="activity-notes-input">Notes</label>
+            <textarea
+              id="activity-notes-input"
+              name="notes"
+              rows="3"
+              placeholder="Optional notes, reminders, or tips"
+            ></textarea>
+          </div>
+
+          <div class="form-field form-field-full">
+            <label for="activity-url-input">Link (optional)</label>
+            <input
+              id="activity-url-input"
+              name="url"
+              type="url"
+              placeholder="https://disneyworld.disney.go.com/dining/..."
+            />
+          </div>
+        </div>
+
+        <div class="form-actions form-actions-split">
+          <button type="submit" class="primary-button" id="save-activity-btn">
+            Save Activity
+          </button>
+
+          <button type="button" class="danger-button hidden" id="delete-activity-btn">
+            Delete Activity
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="itinerary-list" id="itinerary-list"></section>
+  </main>
+
+  <!-- Activity Detail Modal -->
+  <div id="activity-modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="modal-close-btn" aria-label="Close">✕</button>
+      <div class="modal-header">
+        <p class="card-label" id="modal-badge-label">📌 Activity</p>
+        <h2 id="modal-title">Activity Name</h2>
+        <p class="modal-meta" id="modal-meta"></p>
+      </div>
+      <p class="modal-notes hidden" id="modal-notes"></p>
+      <div class="modal-walk-banner hidden" id="modal-walk-banner">
+        <span class="walk-icon">🚶</span>
+        <div>
+          <p class="walk-time" id="modal-walk-time">Calculating walk time...</p>
+          <p class="walk-leave" id="modal-walk-leave"></p>
+        </div>
+      </div>
+      <div class="modal-map-container">
+        <iframe id="modal-map-iframe" class="modal-map" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" src=""></iframe>
+        <div class="modal-map-loading" id="modal-map-loading"><p>🗺️ Loading map...</p></div>
+      </div>
+      <div class="modal-actions">
+        <a id="modal-venue-link" class="primary-button modal-btn hidden" href="#" target="_blank" rel="noopener">🔗 View Details</a>
+        <a id="modal-navigate-btn" class="primary-button modal-btn" href="#" target="_blank" rel="noopener">🧭 Navigate There</a>
+        <a href="itinerary.html" class="secondary-button modal-btn">📋 View Full Itinerary</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/script.js?v=15"></script>
+  <script src="assets/js/dashboard.js?v=15"></script>
+  <script src="assets/js/itinerary.js?v=15"></script>
+  <script src="assets/js/modals.js?v=15"></script>
+  <script src="assets/js/header.js?v=15"></script>
+  <script src="assets/js/budget.js?v=15"></script>
+  <!-- Weather Forecast Modal -->
+  <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="weather-modal-card">
+      <button class="weather-modal-close" id="weather-modal-close" aria-label="Close">✕</button>
+      <div id="weather-modal-content">
+        <div class="weather-loading">🌤️ Fetching forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Budget Quick-Add Popover (body-level so it's never clipped) -->
+  <div class="budget-quick-add" id="budget-quick-add">
+    <button class="budget-quick-add-close" id="budget-quick-add-close" aria-label="Close">✕</button>
+    <p class="budget-quick-add-title">Add Magical Expense</p>
+    <form class="budget-quick-add-form" id="budget-quick-add-form">
+      <input type="text" id="bqa-description" placeholder="What did Mickey talk us into?" required />
+      <div class="budget-quick-add-row">
+        <input type="number" id="bqa-amount" placeholder="Cost ($)" step="0.01" min="0.01" required />
+        <select id="bqa-category">
+          <option value="Food">Dining 🍔</option>
+          <option value="Merch">Souvenirs 🛍️</option>
+          <option value="Hotel">Hotel 🏨</option>
+          <option value="Extras">Enchanting Extras ✨</option>
+          <option value="Tickets">Tickets/Genie+ 🎟️</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <input type="date" id="bqa-date" value="" style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid #d1d5db;border-radius:10px;font-family:Nunito,sans-serif;font-size:0.95rem;color:#1a1a2e;background:#fff;" />
+      <button type="submit" class="budget-quick-add-btn">Add Expense ✨</button>
+      <a href="budget.html" class="budget-quick-add-link">View Full Budget →</a>
+    </form>
+  </div>
+
+  <!-- Backdrop overlay for budget popover -->
+  <div class="nav-overlay hidden" id="nav-overlay"></div>
+
+  <!-- Edit Trip — Park Day Editor Modal -->
+  <div id="edit-trip-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width:550px; width:95vw;">
+      <button class="modal-close-btn" id="edit-trip-close" aria-label="Close">✕</button>
+      <div class="modal-header">
+        <p class="card-label">✏️ Edit Your Trip</p>
+        <h2>Park Day Schedule</h2>
+        <p class="modal-meta">Change which park you're visiting each day.</p>
+      </div>
+      <div id="edit-trip-body" style="padding: 0 1.75rem 1.75rem;"></div>
+    </div>
+  </div>
+
+  <!-- Park Change Confirm Dialog -->
+  <div id="park-change-confirm-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" style="z-index:1100;">
+    <div class="modal-card" style="max-width:420px; text-align:center;">
+      <div style="font-size:2.5rem; margin: 1.5rem 0 0.5rem;">🔄</div>
+      <h2 style="font-size:1.5rem; margin:0 0 0.5rem;" id="park-change-title">Change Park?</h2>
+      <p style="color:var(--slate); margin:0 0 1.5rem; padding:0 1rem;" id="park-change-msg">
+        You have activities scheduled for this day. Would you like to cancel them?
+      </p>
+      <div style="display:flex; gap:0.75rem; padding:0 1.75rem 1.75rem; flex-wrap:wrap;">
+        <button type="button" class="secondary-button" id="park-change-keep" style="flex:1; min-width:120px;">
+          Keep Activities
+        </button>
+        <button type="button" class="danger-button" id="park-change-cancel-activities" style="flex:1; min-width:120px;">
+          Cancel &amp; Replan Day
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

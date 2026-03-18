@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney — My Profile</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=15" />
+  <link rel="stylesheet" href="assets/css/header.css?v=15" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+</head>
+<body class="page-profile">
+  <div class="utility-bar">
+    <div class="utility-bar-inner">
+      <div id="utility-user-slot"></div>
+      <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+        <span class="weather-badge-icon" id="weather-badge-icon">🌤️</span>
+        <div class="weather-badge-text">
+          <span class="weather-badge-temp" id="weather-badge-temp">--°F</span>
+          <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="park-entrance">
+        <img src="assets/images/mickey-mouse-pose1.png" class="character-img mickey" alt="Mickey Mouse" />
+        <div class="entrance-sign">
+          <div class="entrance-arch">
+            <span class="entrance-eyebrow">Walt Disney World</span>
+            <h1 class="entrance-title">My Profile</h1>
+            <span class="entrance-subtitle">✨ Your Magical Trip Dashboard ✨</span>
+          </div>
+        </div>
+        <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
+      </div>
+
+      <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu">
+        <div class="nav-pill-hamburger"><span></span><span></span><span></span></div>
+        <span class="nav-pill-label">Profile</span>
+      </div>
+
+      <div class="nav-ticket-tray" id="nav-ticket-tray">
+        <div class="nav-ticket-scroll hide-scrollbar">
+          <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="itinerary.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="photos.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+        </div>
+      </div>
+
+      <div class="budget-pill" id="budget-pill" role="button" tabindex="0" aria-label="Quick add expense">
+        <span class="budget-pill-icon">💰</span>
+        <span class="budget-pill-amount" id="budget-pill-amount">Loading...</span>
+        <span class="budget-pill-label">remaining</span>
+        <span class="budget-pill-tap-hint">tap to add</span>
+      </div>
+
+      <div id="park-day-bar" class="park-day-bar">
+        <span class="park-day-bar-label" id="park-day-label">PARK DAY</span>
+        <span class="park-day-bar-title" id="park-day-title"></span>
+        <span class="park-day-bar-hours" id="park-day-hours"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page-content">
+    <div id="profile-app">
+      <p style="text-align:center; color:var(--muted);">Loading profile...</p>
+    </div>
+  </main>
+
+  <script src="assets/js/script.js?v=15"></script>
+  <script src="assets/js/header.js?v=15"></script>
+  <script src="assets/js/budget.js?v=15"></script>
+  <style>
+    .profile-pill-section { border-radius: 16px; overflow: hidden; }
+    .profile-pill {
+      display: flex; align-items: center; gap: 0.75rem; width: 100%;
+      padding: 1rem 1.25rem; border: none; cursor: pointer;
+      font-family: 'Mouse Memoirs', sans-serif; font-size: 1.4rem;
+      color: var(--castle-blue); letter-spacing: 0.03em;
+      background: rgba(255, 253, 244, 0.92); border-radius: 16px;
+      box-shadow: var(--card-shadow); border-bottom: 1.5px solid rgba(255,255,255,0.85);
+      transition: background 0.15s, transform 0.15s;
+    }
+    .profile-pill:hover { background: rgba(255, 253, 244, 1); transform: translateY(-1px); }
+    .profile-pill-open { border-radius: 16px 16px 0 0; }
+    .profile-pill-count {
+      font-family: 'Nunito', sans-serif; font-size: 0.75rem; font-weight: 800;
+      background: var(--castle-blue); color: white; padding: 0.15rem 0.5rem;
+      border-radius: 999px; margin-left: auto;
+    }
+    .profile-pill-arrow { font-size: 1rem; color: var(--muted); transition: transform 0.2s; }
+    .profile-pill-content {
+      background: rgba(255, 253, 244, 0.85); border-radius: 0 0 16px 16px;
+      box-shadow: var(--card-shadow); border-top: 1px solid rgba(0,0,0,0.04);
+    }
+    .profile-pill-content.hidden { display: none; }
+  </style>
+  <script>
+    // ============================================================
+    // USER PROFILE PAGE
+    // Shows user info, dining history, trip memberships
+    // ============================================================
+
+    async function initProfilePage() {
+      const app = document.getElementById("profile-app");
+      if (!app) return;
+
+      const user = Auth.getUser();
+      if (!user) {
+        app.innerHTML = `<p style="text-align:center; color:var(--muted);">Please log in to view your profile.</p>`;
+        return;
+      }
+
+      // Fetch data in parallel
+      const [trips, diningMemories, favoriteRides] = await Promise.all([
+        apiFetch(`/users/${user.id}/trips`).catch(() => []),
+        apiFetch(`/dining-memories/${user.id}`).catch(() => []),
+        apiFetch(`/favorite-rides/${user.id}`).catch(() => []),
+      ]);
+
+      const initial = (user.name || "?")[0].toUpperCase();
+
+      // Group dining memories by venue
+      const venueMap = {};
+      diningMemories.forEach(m => {
+        const key = m.venue_name.toLowerCase();
+        if (!venueMap[key]) venueMap[key] = { name: m.venue_name, visits: [] };
+        venueMap[key].visits.push(m);
+      });
+      const venues = Object.values(venueMap).sort((a, b) => b.visits.length - a.visits.length);
+
+      // Group favorite rides by park
+      const PARK_LABELS = {
+        "magic-kingdom": "🏰 Magic Kingdom",
+        "epcot": "🌍 EPCOT",
+        "hollywood-studios": "🎬 Hollywood Studios",
+        "animal-kingdom": "🌿 Animal Kingdom",
+      };
+      const ridesByPark = {};
+      favoriteRides.forEach(r => {
+        if (!ridesByPark[r.park]) ridesByPark[r.park] = [];
+        ridesByPark[r.park].push(r);
+      });
+
+      app.innerHTML = `
+        <!-- Profile Header -->
+        <section style="margin-bottom:2rem;">
+          <div class="hero-card" style="display:flex; align-items:center; gap:1.5rem; background:linear-gradient(135deg, var(--castle-blue) 0%, #1e3a8a 100%); border-color:rgba(255,255,255,0.15);">
+            <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, var(--pixie-gold), #f59e0b); color:var(--castle-blue); display:flex; align-items:center; justify-content:center; font-family:'Mouse Memoirs',sans-serif; font-size:2.5rem; flex-shrink:0; box-shadow:0 4px 16px rgba(255,199,44,0.4);">
+              ${initial}
+            </div>
+            <div>
+              <h2 style="color:white; margin:0 0 0.25rem; font-size:2rem;">${escapeHtml(user.name)}</h2>
+              <p style="color:#e0f2fe; margin:0 0 0.15rem; font-size:0.95rem;">${escapeHtml(user.email)}</p>
+              <span style="font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; background:${user.role === "admin" ? "var(--pixie-gold)" : "rgba(255,255,255,0.15)"}; color:${user.role === "admin" ? "var(--castle-blue)" : "white"}; padding:0.2rem 0.6rem; border-radius:999px;">
+                ${user.role === "admin" ? "✨ Admin" : "Member"}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Collapsible Sections -->
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+
+          <!-- My Trips Pill -->
+          <div class="profile-pill-section">
+            <button type="button" class="profile-pill" data-target="profile-trips-content">
+              <span>🗺️ My Trips</span>
+              <span class="profile-pill-count">${trips.length}</span>
+              <span class="profile-pill-arrow">▸</span>
+            </button>
+            <div class="profile-pill-content hidden" id="profile-trips-content">
+              ${trips.length === 0 ? `
+                <div style="text-align:center; padding:1.5rem; color:var(--muted);">
+                  No trips yet! <a href="planner.html" style="color:var(--castle-blue); font-weight:700;">Plan one</a>.
+                </div>
+              ` : `
+                <div class="card-grid" style="padding:1rem;">
+                  ${trips.map(t => {
+                    const start = new Date(t.start_date + "T12:00:00");
+                    const end = new Date(t.end_date + "T12:00:00");
+                    const days = Math.round((end - start) / (1000*60*60*24)) + 1;
+                    const fmt = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const status = todayStr >= t.start_date && todayStr <= t.end_date ? "active" :
+                                   t.start_date > todayStr ? "upcoming" : "past";
+                    const statusEmoji = status === "active" ? "🌟" : status === "upcoming" ? "🗓️" : "✅";
+                    const total = (t.hotel||0) + (t.food||0) + (t.extras||0) + (t.souvenirs||0);
+                    return `
+                      <article class="info-card">
+                        <p class="card-label">${statusEmoji} ${status === "active" ? "Current" : status === "upcoming" ? "Upcoming" : "Past"}</p>
+                        <h3>${fmt(start)} – ${fmt(end)}</h3>
+                        <p style="color:var(--slate);">${days} days${total > 0 ? ` • $${total.toFixed(0)} budget` : ""}</p>
+                      </article>`;
+                  }).join("")}
+                </div>
+              `}
+            </div>
+          </div>
+
+          <!-- Dining History Pill -->
+          <div class="profile-pill-section">
+            <button type="button" class="profile-pill" data-target="profile-dining-content">
+              <span>🍽️ Dining History</span>
+              <span class="profile-pill-count">${venues.length} restaurant${venues.length !== 1 ? "s" : ""}</span>
+              <span class="profile-pill-arrow">▸</span>
+            </button>
+            <div class="profile-pill-content hidden" id="profile-dining-content">
+              ${venues.length === 0 ? `
+                <div style="text-align:center; padding:1.5rem; color:var(--muted);">
+                  No dining memories yet! After your next meal, we'll ask what you thought.
+                </div>
+              ` : `
+                <div style="display:flex; flex-direction:column; gap:0.75rem; padding:1rem;">
+                  ${venues.map(v => {
+                    const allItems = [...new Set(v.visits.flatMap(vis => JSON.parse(vis.items || "[]")))];
+                    const avgRating = Math.round(v.visits.reduce((s, vis) => s + (vis.rating||0), 0) / v.visits.length);
+                    return `
+                      <article class="info-card" style="padding:1rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                          <div>
+                            <h3 style="margin:0 0 0.15rem; font-size:1.2rem;">${escapeHtml(v.name)}</h3>
+                            <p style="color:var(--muted); font-size:0.78rem; margin:0;">${v.visits.length} visit${v.visits.length>1?"s":""} ${"⭐".repeat(Math.min(5, avgRating))}</p>
+                          </div>
+                          <span style="font-size:1.8rem;">🍽️</span>
+                        </div>
+                        ${allItems.length ? `<div style="display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.5rem;">${allItems.map(i => `<span style="font-size:0.75rem; font-weight:700; background:#fef3c7; color:#92400e; padding:0.12rem 0.45rem; border-radius:999px;">${escapeHtml(i)}</span>`).join("")}</div>` : ""}
+                        ${v.visits[0].notes ? `<p style="color:var(--slate); font-size:0.85rem; font-style:italic; margin:0.4rem 0 0;">"${escapeHtml(v.visits[0].notes)}"</p>` : ""}
+                      </article>`;
+                  }).join("")}
+                </div>
+              `}
+            </div>
+          </div>
+
+          <!-- Favorite Rides Pill -->
+          <div class="profile-pill-section">
+            <button type="button" class="profile-pill" data-target="profile-rides-content">
+              <span>🎢 Favorite Rides</span>
+              <span class="profile-pill-count">${favoriteRides.length}</span>
+              <span class="profile-pill-arrow">▸</span>
+            </button>
+            <div class="profile-pill-content hidden" id="profile-rides-content">
+              <div style="padding:1rem;">
+                <!-- Add Favorite Ride Form -->
+                <div style="background:#f8fafc; border-radius:14px; padding:1rem; margin-bottom:1rem; border:1px solid #e2e8f0;">
+                  <p style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--castle-blue); margin:0 0 0.6rem;">Add a Favorite</p>
+                  <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                    <select id="fav-park" style="padding:0.5rem 0.75rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.9rem; font-weight:600;">
+                      <option value="magic-kingdom">🏰 Magic Kingdom</option>
+                      <option value="epcot">🌍 EPCOT</option>
+                      <option value="hollywood-studios">🎬 Hollywood Studios</option>
+                      <option value="animal-kingdom">🌿 Animal Kingdom</option>
+                    </select>
+                    <input type="text" id="fav-ride-name" placeholder="Ride name" style="flex:1; min-width:140px; padding:0.5rem 0.75rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.9rem;" />
+                    <button type="button" id="fav-add-btn" class="primary-button small-button">Add ⭐</button>
+                  </div>
+                </div>
+
+                <!-- Ride List by Park -->
+                ${Object.keys(PARK_LABELS).map(parkKey => {
+                  const rides = ridesByPark[parkKey] || [];
+                  if (rides.length === 0) return "";
+                  return `
+                    <div style="margin-bottom:1rem;">
+                      <p style="font-size:0.85rem; font-weight:800; color:var(--castle-blue); margin:0 0 0.4rem;">${PARK_LABELS[parkKey]}</p>
+                      <div style="display:flex; flex-direction:column; gap:0.3rem;">
+                        ${rides.map(r => `
+                          <div style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.75rem; background:white; border-radius:10px; border:1px solid #e2e8f0;">
+                            <span style="font-weight:700; font-size:0.9rem; color:var(--ink);">🎢 ${escapeHtml(r.ride_name)}</span>
+                            <button type="button" class="fav-delete-btn" data-id="${r.id}" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.85rem; padding:2px 6px; border-radius:6px;">✕</button>
+                          </div>
+                        `).join("")}
+                      </div>
+                    </div>`;
+                }).join("")}
+                ${favoriteRides.length === 0 ? `<p style="color:var(--muted); text-align:center; font-style:italic; padding:0.5rem 0;">No favorites yet — add your must-ride attractions!</p>` : ""}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      // Wire collapsible pills
+      app.querySelectorAll(".profile-pill").forEach(pill => {
+        pill.addEventListener("click", () => {
+          const target = document.getElementById(pill.dataset.target);
+          const arrow = pill.querySelector(".profile-pill-arrow");
+          if (target) {
+            const isOpen = !target.classList.contains("hidden");
+            target.classList.toggle("hidden");
+            if (arrow) arrow.textContent = isOpen ? "▸" : "▾";
+            pill.classList.toggle("profile-pill-open", !isOpen);
+          }
+        });
+      });
+
+      // Wire add favorite ride
+      document.getElementById("fav-add-btn")?.addEventListener("click", async () => {
+        const park = document.getElementById("fav-park").value;
+        const rideName = document.getElementById("fav-ride-name").value.trim();
+        if (!rideName) return;
+
+        await apiFetch("/favorite-rides", {
+          method: "POST",
+          body: JSON.stringify({ user_id: user.id, park, ride_name: rideName }),
+        });
+        document.getElementById("fav-ride-name").value = "";
+        initProfilePage(); // re-render
+      });
+
+      // Wire delete favorite ride
+      app.querySelectorAll(".fav-delete-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          await apiFetch(`/favorite-rides/${btn.dataset.id}`, { method: "DELETE" });
+          initProfilePage();
+        });
+      });
+    }
+
+    // Initialize after auth
+    document.addEventListener("DOMContentLoaded", async () => {
+      // Wait for script.js initApp to run first
+      setTimeout(initProfilePage, 500);
+    });
+  </script>
+
+  <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="weather-modal-card">
+      <button class="weather-modal-close" id="weather-modal-close" aria-label="Close">✕</button>
+      <div id="weather-modal-content">
+        <div class="weather-loading">🌤️ Fetching forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="budget-quick-add" id="budget-quick-add">
+    <button class="budget-quick-add-close" id="budget-quick-add-close" aria-label="Close">✕</button>
+    <p class="budget-quick-add-title">Add Magical Expense</p>
+    <form class="budget-quick-add-form" id="budget-quick-add-form">
+      <input type="text" id="bqa-description" placeholder="What did Mickey talk us into?" required />
+      <div class="budget-quick-add-row">
+        <input type="number" id="bqa-amount" placeholder="Cost ($)" step="0.01" min="0.01" required />
+        <select id="bqa-category">
+          <option value="Food">Dining 🍔</option>
+          <option value="Merch">Souvenirs 🛍️</option>
+          <option value="Hotel">Hotel 🏨</option>
+          <option value="Extras">Enchanting Extras ✨</option>
+          <option value="Tickets">Tickets/Genie+ 🎟️</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <input type="date" id="bqa-date" value="" style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid #d1d5db;border-radius:10px;font-family:Nunito,sans-serif;font-size:0.95rem;color:#1a1a2e;background:#fff;" />
+      <button type="submit" class="budget-quick-add-btn">Add Expense ✨</button>
+      <a href="budget.html" class="budget-quick-add-link">View Full Budget →</a>
+    </form>
+  </div>
+
+  <div class="nav-overlay hidden" id="nav-overlay"></div>
+</body>
+</html>

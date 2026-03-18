@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney Trip — TV Dashboard</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=15" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
+  <style>
+    body { margin:0; overflow:hidden; background:linear-gradient(135deg,#0f1930,#1a2e5a 50%,#0d3a6e); font-family:'Nunito',sans-serif; color:white; height:100vh; width:100vw; }
+    body::before { display:none; }
+    .tv { display:flex; flex-direction:column; height:100vh; box-sizing:border-box; overflow:hidden; }
+
+    .tv-top { display:flex; justify-content:space-between; align-items:center; padding:1.8vh 3vw; border-bottom:2px solid rgba(255,199,44,0.25); flex-shrink:0; }
+    .tv-clock { font-family:'Mouse Memoirs',sans-serif; font-size:3.8vh; }
+    .tv-date { font-size:1.6vh; color:rgba(255,255,255,0.5); font-weight:700; text-transform:uppercase; letter-spacing:0.1em; }
+    .tv-weather { display:flex; align-items:center; gap:1vw; }
+    .tv-weather-icon { font-size:4vh; }
+    .tv-weather-temp { font-family:'Mouse Memoirs',sans-serif; font-size:3.2vh; }
+    .tv-weather-desc { font-size:1.4vh; color:rgba(255,255,255,0.5); font-weight:600; }
+
+    .tv-park { display:flex; align-items:center; gap:1.2vw; padding:1.5vh 3vw; flex-shrink:0; }
+    .tv-park-emoji { font-size:3.5vh; }
+    .tv-park-name { font-family:'Mouse Memoirs',sans-serif; font-size:2.8vh; color:var(--pixie-gold); }
+
+    .tv-next { display:flex; align-items:center; gap:2vw; margin:0.5vh 3vw; padding:1.8vh 2.5vw; background:linear-gradient(135deg,rgba(255,199,44,0.12),rgba(255,199,44,0.04)); border:2px solid rgba(255,199,44,0.3); border-radius:1.8vh; flex-shrink:0; position:relative; overflow:hidden; }
+    .tv-next-icon { font-size:5vh; flex-shrink:0; }
+    .tv-next-info { flex:1; min-width:0; }
+    .tv-next-label { font-size:1.3vh; font-weight:800; text-transform:uppercase; letter-spacing:0.15em; color:rgba(255,255,255,0.5); }
+    .tv-next-title { font-family:'Mouse Memoirs',sans-serif; font-size:3.2vh; color:white; line-height:1.1; margin:0.3vh 0; }
+    .tv-next-meta { font-size:1.6vh; color:rgba(255,255,255,0.7); font-weight:600; }
+    .tv-next-travel { font-size:1.3vh; color:rgba(255,255,255,0.4); font-weight:600; margin-top:0.3vh; }
+    .tv-next-countdown { font-family:'Mouse Memoirs',sans-serif; font-size:3.8vh; color:var(--pixie-gold); text-align:right; flex-shrink:0; min-width:8vw; }
+    .shimmer { position:absolute; top:0; left:-100%; width:60%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.05),transparent); animation:shimmer 5s ease-in-out infinite; pointer-events:none; }
+    @keyframes shimmer { 0%{left:-60%} 40%{left:120%} 100%{left:120%} }
+
+    .tv-carousel { flex:1; display:flex; flex-direction:column; justify-content:center; overflow:hidden !important; padding:1.5vh 0; position:relative; }
+    .tv-carousel-label { font-size:1.4vh; font-weight:800; text-transform:uppercase; letter-spacing:0.15em; color:rgba(255,255,255,0.35); padding:0 3vw 1vh; }
+
+    /* The track spans full viewport width and clips everything */
+    .tv-track {
+      position:relative; height:30vh;
+      overflow:hidden !important;
+      width:100vw; left:0;
+    }
+
+    /* E-ticket overrides for TV */
+    .tv-track .eticket {
+      position:absolute !important; top:0;
+      width:22vw !important; min-width:22vw !important; max-width:22vw !important;
+      height:auto; cursor:default;
+      /* Kill ALL default eticket animations and hover transforms */
+      animation:none !important;
+      transition:none !important;
+      box-shadow:0 4px 20px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.15),inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+    .tv-track .eticket:hover,
+    .tv-track .eticket:active,
+    .tv-track .eticket:focus { box-shadow:0 4px 20px rgba(0,0,0,0.35) !important; }
+    .tv-track .et-name { font-size:1.3rem; -webkit-line-clamp:2; }
+    .tv-track .et-time { font-size:1.5rem; }
+    .tv-track .et-letter { font-size:2.2rem; }
+    .tv-track .et-location { font-size:0.65rem; }
+    /* Hide edit button on TV */
+    .tv-track .et-edit { display:none !important; }
+
+    .tv-relax { text-align:center; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .tv-relax-emoji { font-size:10vh; margin-bottom:2vh; }
+    .tv-relax-title { font-family:'Mouse Memoirs',sans-serif; font-size:5vh; color:var(--pixie-gold); }
+    .tv-relax-sub { font-size:2.2vh; color:rgba(255,255,255,0.45); font-weight:600; margin-top:1vh; }
+
+    @media (max-width:768px) { .tv-track .eticket { width:55vw !important; min-width:55vw !important; max-width:55vw !important; } }
+  </style>
+</head>
+<body>
+<div class="tv">
+  <div class="tv-top">
+    <div><div class="tv-clock" id="tv-clock"></div><div class="tv-date" id="tv-date"></div></div>
+    <div class="tv-weather"><span class="tv-weather-icon" id="tv-w-icon">🌤️</span><div><div class="tv-weather-temp" id="tv-w-temp">--°F</div><div class="tv-weather-desc" id="tv-w-desc"></div></div></div>
+  </div>
+  <div id="tv-park" class="tv-park" style="display:none;"></div>
+  <div id="tv-next-wrap" style="display:none;"></div>
+  <div id="tv-main" class="tv-carousel"></div>
+</div>
+
+<script src="assets/js/script.js?v=15"></script>
+<script src="assets/js/dashboard.js?v=15"></script>
+<script src="assets/js/header.js?v=15"></script>
+<script src="assets/js/budget.js?v=15"></script>
+<script>
+const PT={"magic-kingdom":{bus:20},"epcot":{bus:15},"hollywood-studios":{bus:20},"animal-kingdom":{bus:25},"disney-springs":{bus:15}};
+const PKD={"magic-kingdom":{e:"🏰",n:"Magic Kingdom"},"epcot":{e:"🌍",n:"EPCOT"},"hollywood-studios":{e:"🎬",n:"Hollywood Studios"},"animal-kingdom":{e:"🌿",n:"Animal Kingdom"},"disney-springs":{e:"🛍️",n:"Disney Springs"},"rest-day":{e:"☀️",n:"Rest Day"},"travel":{e:"🚗",n:"Travel Day"}};
+const ADUR={ride:10,dining:45,show:30,merch:20,shopping:20,travel:30,break:30};
+const CARD_VW=22, GAP_VW=1.5, SPEED=0.4;
+
+function dpk(loc){if(!loc)return null;const l=loc.toLowerCase();const m={"magic kingdom":"magic-kingdom",fantasyland:"magic-kingdom",tomorrowland:"magic-kingdom","main street":"magic-kingdom",epcot:"epcot","world showcase":"epcot","hollywood studios":"hollywood-studios","galaxy":"hollywood-studios","toy story":"hollywood-studios","animal kingdom":"animal-kingdom",pandora:"animal-kingdom","disney springs":"disney-springs"};for(const[k,v]of Object.entries(m))if(l.includes(k))return v;return null;}
+
+function uc(){const n=new Date(),h=n.getHours(),m=String(n.getMinutes()).padStart(2,"0");document.getElementById("tv-clock").textContent=`${h%12===0?12:h%12}:${m} ${h>=12?"PM":"AM"}`;document.getElementById("tv-date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});}
+uc();setInterval(uc,30000);
+(async()=>{try{const r=await fetch("https://api.open-meteo.com/v1/forecast?latitude=28.3772&longitude=-81.5707&current=temperature_2m,weather_code&temperature_unit=celsius&timezone=auto");const d=await r.json();const{icon,desc}=getWeatherIcon(d.current.weather_code);document.getElementById("tv-w-icon").textContent=icon;document.getElementById("tv-w-temp").textContent=celsiusToF(d.current.temperature_2m)+"°F";document.getElementById("tv-w-desc").textContent=desc;}catch(e){}})();
+
+function makeETicket(a){
+  const cfg=getETicketConfig(a.type,a.title),br=getTicketParkBranding(a.location),dn=getDisplayNotes(a);
+  const el=document.createElement("article");el.className="eticket";
+  el.style.cssText=`background:${cfg.bg};border-color:${cfg.border};--et-text:${cfg.text};--et-accent:${cfg.accent};--et-stripe:${cfg.stripe};--et-label-bg:${cfg.labelBg};`;
+  el.innerHTML=`<div class="et-header"><span class="et-letter">${cfg.letter}</span><div class="et-branding"><span class="et-disney-mark">${br.mark}</span>${br.coupon?`<span class="et-coupon-label">${br.coupon}</span>`:""}</div></div><div class="et-body"><span class="et-icon">${cfg.icon}</span><div class="et-info"><h3 class="et-name">${escapeHtml(a.title)}</h3><p class="et-location">${escapeHtml(a.location)}</p></div></div><div class="et-time-strip"><span class="et-time">${formatTimeForDisplay(a.time)}</span>${dn?`<span class="et-note">${escapeHtml(dn)}</span>`:""}</div><div class="et-footer"><span class="et-admit">ADMIT ONE</span><span class="et-serial">${String(a.id||"").slice(-5).toUpperCase()}</span></div>`;
+  return el;
+}
+
+let rafId=null;
+
+function startMarquee(acts,label){
+  const main=document.getElementById("tv-main");
+  if(!acts.length){main.innerHTML="";return;}
+  if(rafId)cancelAnimationFrame(rafId);
+
+  main.innerHTML=`<div class="tv-carousel-label">${label} — ${acts.length} activit${acts.length===1?"y":"ies"}</div><div class="tv-track" id="tv-track"></div>`;
+  const track=document.getElementById("tv-track");
+
+  const vw=window.innerWidth/100;
+  const cardW=CARD_VW*vw, gapW=GAP_VW*vw, step=cardW+gapW;
+  const trackW=track.offsetWidth;
+
+  // All cards start just beyond the right edge of the track
+  const cards=[];
+  acts.forEach((a,i)=>{
+    const el=makeETicket(a);
+    track.appendChild(el);
+    const startX=trackW+(i*step);
+    cards.push({el, x:startX});
+    el.style.left=startX+"px";
+  });
+
+  function animate(){
+    cards.forEach(c=>{
+      c.x -= SPEED;
+
+      // Card fully exited left — recycle to right
+      if(c.x + cardW < 0){
+        let maxX=-Infinity;
+        cards.forEach(o=>{if(o!==c && o.x>maxX) maxX=o.x;});
+        const afterLast=maxX+step;
+        // Always place off-screen right
+        c.x=Math.max(afterLast, trackW);
+      }
+
+      // Position using left (not transform) to avoid eticket CSS transform conflicts
+      c.el.style.left=c.x+"px";
+    });
+    rafId=requestAnimationFrame(animate);
+  }
+  rafId=requestAnimationFrame(animate);
+}
+
+async function loadTV(){
+  const allSorted=sortItineraryByTime(await getStoredItinerary());
+  const trip=filterToCurrentTrip(allSorted);
+  if(!trip.length){showRelax("No activities planned yet","");return;}
+
+  const now=new Date(),todayStr=getTodayString(),nowMins=now.getHours()*60+now.getMinutes();
+  const todayActive=trip.filter(a=>{if(a.date!==todayStr)return false;const s=timeStringToMinutes(a.time),d=ADUR[(a.type||"").toLowerCase()]||15;return s+d>nowMins;});
+  const futureDays=trip.filter(a=>(a.date||"")>todayStr);
+  const nextDate=futureDays.length?futureDays[0].date:null;
+  const nextDayActs=nextDate?futureDays.filter(a=>a.date===nextDate):[];
+
+  let activities,mode,dayLabel;
+  if(todayActive.length>0){activities=todayActive;mode="today";dayLabel="Coming Up Today";}
+  else if(nextDayActs.length>0){activities=nextDayActs;mode="future";const[y,m,d]=nextDate.split("-").map(Number);dayLabel=new Date(y,m-1,d).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});}
+  else{showRelax("All done with this trip!","Hope it was magical ✨");return;}
+
+  const parkDays=await ParkDaysDB.getAll();const relDate=mode==="today"?todayStr:nextDate;
+  const tp=parkDays.find(p=>p.date===relDate);const pe=document.getElementById("tv-park");
+  if(tp&&PKD[tp.park]){const pi=PKD[tp.park];pe.innerHTML=`<span class="tv-park-emoji">${pi.e}</span><span class="tv-park-name">${pi.n}</span>`;pe.style.display="";}else pe.style.display="none";
+
+  let resort=null;
+  trip.forEach(a=>{if((a.type||"").toLowerCase()==="travel"&&a.location){const l=a.location.toLowerCase();if(l.includes("resort")||l.includes("hotel")||l.includes("lodge"))resort=a.location;}});
+
+  const na=activities[0],ne=document.getElementById("tv-next-wrap");
+  const nCfg=getETicketConfig(na.type,na.title);
+  let cd="";if(mode==="today"&&na.time){const diff=timeStringToMinutes(na.time)-nowMins;cd=diff<=0?"NOW!":diff<60?diff+"m":Math.floor(diff/60)+"h "+(diff%60)+"m";}
+  let tr="";if(resort&&na.location){const pk=dpk(na.location);if(pk&&PT[pk])tr=`🚌 ~${PT[pk].bus} min by bus from ${resort.split(" - ")[0].split(",")[0]}`;}
+
+  ne.style.display="";
+  ne.innerHTML=`<div class="tv-next"><div class="shimmer"></div><span class="tv-next-icon">${nCfg.icon}</span><div class="tv-next-info"><div class="tv-next-label">⭐ Next Up</div><div class="tv-next-title">${escapeHtml(na.title)}</div><div class="tv-next-meta">${formatTimeForDisplay(na.time)} • ${escapeHtml(na.location)}</div>${tr?`<div class="tv-next-travel">${tr}</div>`:""}</div>${cd?`<div class="tv-next-countdown" id="tv-cd">${cd}</div>`:""}</div>`;
+
+  const rest=mode==="today"?activities.slice(1):activities;
+  if(rest.length===0&&mode==="today"){
+    if(nextDayActs.length>0){const[y,m,d]=nextDate.split("-").map(Number);startMarquee(nextDayActs,"Tomorrow — "+new Date(y,m-1,d).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}));}
+    else document.getElementById("tv-main").innerHTML=`<div style="text-align:center;padding:4vh 0;color:rgba(255,255,255,0.4);font-size:2.2vh;">🌙 Last activity of the day!</div>`;
+  }else{startMarquee(rest,mode==="today"?"Coming Up Today":dayLabel);}
+
+  if(mode==="today"){if(window._tvCd)clearInterval(window._tvCd);window._tvCd=setInterval(()=>{const nm=new Date().getHours()*60+new Date().getMinutes(),d=timeStringToMinutes(na.time)-nm,el=document.getElementById("tv-cd");if(el)el.textContent=d<=0?"NOW!":d<60?d+"m":Math.floor(d/60)+"h "+(d%60)+"m";},30000);}
+}
+
+function showRelax(t,s){document.getElementById("tv-park").style.display="none";document.getElementById("tv-next-wrap").style.display="none";if(rafId)cancelAnimationFrame(rafId);document.getElementById("tv-main").innerHTML=`<div class="tv-relax"><div class="tv-relax-emoji">🌙</div><div class="tv-relax-title">${t}</div><div class="tv-relax-sub">${s}</div></div>`;}
+
+async function initTV(){await Auth.verify();await loadTV();setInterval(loadTV,5*60*1000);}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initTV);else initTV();
+</script>
+</body>
+</html>

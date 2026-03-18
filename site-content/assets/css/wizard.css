@@ -1,0 +1,450 @@
+/* ============================================================
+   TRIP PLANNER WIZARD — Progress bar, step cards, form grid,
+   toggle buttons, park day grid, day sections, review step.
+   ============================================================ */
+
+/* Progress bar */
+.wizard-progress {
+  margin-bottom: 2rem;
+}
+
+.wizard-progress-track {
+  height: 6px;
+  background: rgba(0, 48, 135, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.wizard-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--castle-blue), var(--sky-blue), var(--pixie-gold));
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.wizard-progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.wizard-progress-dots {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.wizard-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+  transition: all 0.3s ease;
+}
+
+.wizard-dot.current {
+  width: 18px;
+  height: 18px;
+  background: var(--castle-blue);
+  border-color: var(--castle-blue);
+  box-shadow: 0 0 12px rgba(0, 48, 135, 0.35);
+}
+
+.wizard-dot.done {
+  background: var(--sky-blue);
+  border-color: var(--sky-blue);
+  color: white;
+  font-size: 0.55rem;
+  font-weight: 800;
+}
+
+.wizard-progress-current {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.wizard-progress-step-num {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.wizard-progress-step-name {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.35rem;
+  color: var(--castle-blue);
+  letter-spacing: 0.03em;
+}
+
+/* Step card */
+.wizard-step-card {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(0, 48, 135, 0.06);
+  animation: wizardFadeIn 0.35s ease;
+}
+
+@keyframes wizardFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wizard-step-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.75rem;
+}
+
+.wizard-step-emoji {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.wizard-step-header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 2rem;
+}
+
+.wizard-step-subtitle {
+  margin: 0;
+  color: var(--slate);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Form elements */
+.wizard-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 500px) {
+  .wizard-form-grid { grid-template-columns: 1fr; }
+}
+
+.wizard-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.wizard-field label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--slate);
+}
+
+.wizard-field input,
+.wizard-field select,
+.wizard-field textarea {
+  padding: 0.65rem 0.9rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fafbfc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wizard-field input:focus,
+.wizard-field select:focus {
+  outline: none;
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 0 3px rgba(0, 155, 222, 0.15);
+}
+
+/* Toggle buttons (flying/driving, yes/no) */
+.wizard-toggle-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wizard-toggle {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  border: 2px solid #d1d5db;
+  border-radius: 12px;
+  background: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--slate);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wizard-toggle:hover {
+  border-color: var(--sky-blue);
+}
+
+.wizard-toggle.active {
+  border-color: var(--castle-blue);
+  background: var(--castle-blue);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 48, 135, 0.25);
+}
+
+/* Park day grid */
+.park-day-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.park-day-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.park-day-date {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+}
+
+.park-day-note {
+  font-size: 0.75rem;
+  color: var(--sky-blue);
+  font-weight: 700;
+}
+
+.park-day-select {
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: white;
+  min-width: 180px;
+}
+
+@media (max-width: 500px) {
+  .park-day-row { flex-direction: column; align-items: stretch; }
+  .park-day-select { min-width: unset; }
+}
+
+/* Day sections (dining, LL, extras) */
+.wizard-day-section {
+  padding: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  margin-bottom: 1rem;
+}
+
+.wizard-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.wizard-day-park {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--castle-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Entry rows (individual reservations/activities) */
+.wizard-entry-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.wizard-entry-row input[type="time"] {
+  width: 110px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+}
+
+.wizard-entry-row input[type="text"] {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+}
+
+.wizard-entry-row select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  background: white;
+}
+
+.wizard-remove-entry {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.wizard-remove-entry:hover {
+  color: var(--magic-red);
+  background: #fef2f2;
+}
+
+/* Navigation buttons */
+.wizard-nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Wizard step visibility */
+.wizard-step.hidden { display: none; }
+
+/* Review step */
+.review-summary {
+  margin: 1.5rem 0;
+}
+
+.review-meta {
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+  border-radius: 14px;
+  margin-bottom: 1.5rem;
+}
+
+.review-meta p {
+  margin: 0.3rem 0;
+  font-size: 1rem;
+}
+
+.review-day {
+  margin-bottom: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.review-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  background: #f1f5f9;
+  font-size: 1rem;
+}
+
+.review-day-activities {
+  padding: 0.5rem 1.25rem;
+}
+
+.review-activity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.review-activity:last-child { border-bottom: none; }
+
+.review-time {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--sky-blue);
+  min-width: 80px;
+}
+
+.review-title { flex: 1; font-weight: 600; }
+
+.review-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.review-badge-ride { background: #dbeafe; color: #1e40af; }
+.review-badge-dining { background: #fef3c7; color: #92400e; }
+.review-badge-show { background: #f3e8ff; color: #6b21a8; }
+.review-badge-travel { background: #e0f2fe; color: #075985; }
+.review-badge-merch { background: #fce7f3; color: #9d174d; }
+.review-badge-break { background: #ecfccb; color: #3f6212; }
+
+.review-empty {
+  padding: 0.75rem 1.25rem;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.review-count {
+  text-align: center;
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0;
+}
+
+@media (max-width: 640px) {
+  .wizard-step-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.25rem;
+  }
+
+  .wizard-step-emoji {
+    font-size: 2.5rem;
+    margin-top: 0;
+    margin-bottom: 0.25rem; 
+  }
+}

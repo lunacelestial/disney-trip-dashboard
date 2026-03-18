@@ -1,0 +1,397 @@
+/* ============================================================
+   PHOTOS — Trip picker, upload zone, photo grid, lightbox.
+   ============================================================ */
+
+/* ---- Trip Picker ---- */
+.photos-trip-picker {
+  margin-bottom: 1.5rem;
+}
+
+/* ---- Upload Section ---- */
+.photos-upload-section {
+  margin-bottom: 1.5rem;
+}
+
+.photos-upload-card {
+  background: rgba(255, 253, 244, 0.92);
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: var(--card-shadow);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+}
+
+.photos-upload-zone {
+  border: 2.5px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: #f8fafc;
+}
+
+.photos-upload-zone:hover,
+.photos-upload-zone.drag-over {
+  border-color: var(--sky-blue);
+  background: #f0f9ff;
+}
+
+.photos-upload-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.photos-upload-icon {
+  font-size: 2.5rem;
+}
+
+.photos-upload-text {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.3rem;
+  color: var(--castle-blue);
+}
+
+.photos-upload-hint {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Upload preview thumbnails */
+.photos-upload-preview {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 12px;
+}
+
+.photos-preview-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Upload actions */
+.photos-upload-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.photos-caption-input {
+  flex: 1;
+  min-width: 150px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.photos-caption-input:focus {
+  outline: none;
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 0 3px rgba(0, 155, 222, 0.2);
+}
+
+/* Progress bar */
+.photos-upload-progress {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.photos-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.photos-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--castle-blue), var(--sky-blue));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.photos-progress-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---- Photo Grid ---- */
+.photos-grid-section {
+  margin-bottom: 2rem;
+}
+
+.photos-grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.photos-count {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.photo-card {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  animation: fadeSlideUp 0.4s ease both;
+}
+
+.photo-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+}
+
+.photo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.5rem 0.6rem;
+  background: linear-gradient(transparent, rgba(0,0,0,0.65));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.photo-card:hover .photo-card-overlay {
+  opacity: 1;
+}
+
+.photo-card-uploader {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* ---- Empty State ---- */
+.photos-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: rgba(255, 253, 244, 0.7);
+  border-radius: 20px;
+  border: 2px dashed #d1d5db;
+}
+
+.photos-empty-icon {
+  font-size: 3.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.photos-empty-state h3 {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.6rem;
+  color: var(--castle-blue);
+  margin: 0 0 0.5rem;
+}
+
+.photos-empty-state p {
+  color: var(--slate);
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* No photos in selected trip */
+.photos-grid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- Lightbox ---- */
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-lightbox.hidden { display: none !important; }
+
+.photo-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.photo-lightbox-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+}
+
+.photo-lightbox-img {
+  max-width: 90vw;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 16px 60px rgba(0,0,0,0.5);
+  animation: modalCardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.photo-lightbox-close {
+  position: absolute;
+  top: -2.5rem;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  z-index: 2;
+}
+
+.photo-lightbox-close:hover { background: rgba(255,255,255,0.3); }
+
+/* Nav arrows */
+.photo-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-size: 1.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  z-index: 2;
+}
+
+.photo-lightbox-nav:hover { background: rgba(255,255,255,0.25); }
+
+.photo-lightbox-prev { left: -3.5rem; }
+.photo-lightbox-next { right: -3.5rem; }
+
+.photo-lightbox-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.75rem;
+}
+
+.photo-lightbox-caption {
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.photo-lightbox-meta {
+  color: rgba(255,255,255,0.6);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.photo-lightbox-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+  .photos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.4rem;
+  }
+
+  .photo-card { border-radius: 10px; }
+
+  .photo-card-overlay { opacity: 1; }
+
+  .photo-lightbox-prev { left: 0.5rem; }
+  .photo-lightbox-next { right: 0.5rem; }
+
+  .photo-lightbox-close {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+
+  .photo-lightbox-img {
+    max-width: 95vw;
+    max-height: 65vh;
+  }
+
+  .photos-upload-actions {
+    flex-direction: column;
+  }
+
+  .photos-caption-input { min-width: unset; width: 100%; }
+}

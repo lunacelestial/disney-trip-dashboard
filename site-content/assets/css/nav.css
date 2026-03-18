@@ -1,0 +1,500 @@
+/* ============================================================
+   NAVIGATION — Vintage Disney E-Ticket Style
+   Original nav-link tickets, hamburger pill, collapsible tray.
+   ============================================================ */
+
+/* Original site-nav hidden — replaced by hamburger + tray */
+.site-nav {
+  display: none !important;
+}
+
+/* ---- BASE NAV-LINK (E-Ticket) ---- */
+.nav-link {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  min-width: 140px;
+  height: 58px;
+  padding: 0 1.4rem;
+  border-radius: 4px;
+  overflow: hidden;
+
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.012) 2px,
+      rgba(0,0,0,0.012) 4px
+    ),
+    linear-gradient(160deg, #f5edd6 0%, #ede0bc 60%, #e2d4a8 100%);
+
+  border: 1.5px solid #c8b87a;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -1px 0 rgba(0,0,0,0.08),
+    0 3px 8px rgba(0,0,0,0.12),
+    0 1px 2px rgba(0,0,0,0.08);
+
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* "ADMIT ONE" micro label above the page name */
+.nav-link::before {
+  content: "ADMIT ONE";
+  display: block;
+  text-align: center;
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.22em;
+  color: #7a5a10;
+  line-height: 1;
+  margin-bottom: 3px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Remove the dark stub entirely */
+.nav-link::after {
+  display: none;
+}
+
+/* Label text */
+.nav-link,
+.nav-link span {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.25rem;
+  letter-spacing: 0.06em;
+  color: #2a1800;
+  line-height: 1;
+}
+
+/* Perforated left tear edge — pronounced notches */
+.nav-link .ticket-perf {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 14px;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.nav-link .ticket-perf::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 0;
+  height: 100%;
+  width: 10px;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 6px,
+    var(--bg-color-1) 6px,
+    var(--bg-color-1) 12px
+  );
+  border-right: 2px dashed #a8945a;
+  filter: drop-shadow(1px 0 0 rgba(0,0,0,0.15));
+}
+
+.nav-link:hover {
+  transform: translateY(-3px) rotate(-0.5deg);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    0 8px 20px rgba(0,0,0,0.18),
+    0 3px 6px rgba(0,0,0,0.1);
+}
+
+/* ---- ACTIVE TICKET — the "used / punched" orange one ---- */
+.nav-link.active {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.015) 2px,
+      rgba(0,0,0,0.015) 4px
+    ),
+    linear-gradient(160deg, #f4913a 0%, #e87820 55%, #d96810 100%);
+  border-color: #b05510;
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,100,0.5),
+    inset 0 -1px 0 rgba(0,0,0,0.12),
+    0 4px 14px rgba(200, 100, 10, 0.4),
+    0 1px 3px rgba(0,0,0,0.12);
+}
+
+.nav-link.active::before {
+  content: "ADMIT ONE";
+  color: #6b2a00;
+}
+
+.nav-link.active::after {
+  display: none;
+}
+
+.nav-link.active,
+.nav-link.active span {
+  color: #1a0800;
+  font-size: 1.25rem;
+}
+
+.nav-link.active .ticket-perf::before {
+  border-right-color: #b05510;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 5px,
+    var(--bg-color-1) 5px,
+    var(--bg-color-1) 9px
+  );
+}
+
+/* Punched hole on active ticket */
+.nav-link.active .ticket-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,0,0,0.2);
+  background: rgba(0,0,0,0.08);
+  pointer-events: none;
+}
+
+/* Castle — large, centered, behind everything */
+.nav-link .ticket-castle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.12;
+  width: 52px;
+  height: 52px;
+  pointer-events: none;
+  color: #3a2200;
+  z-index: 0;
+}
+
+/* Text label bar — sits in front of the castle */
+.nav-link .ticket-label-bar {
+  position: relative;
+  z-index: 1;
+  display: block;
+  text-align: center;
+  background: rgba(255, 248, 220, 0.82);
+  border: 1px solid rgba(180, 140, 60, 0.4);
+  border-radius: 2px;
+  padding: 2px 8px;
+  backdrop-filter: blur(1px);
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.25rem;
+  letter-spacing: 0.06em;
+  color: #2a1800;
+  line-height: 1;
+}
+
+.nav-link.active .ticket-castle {
+  color: #4a1800;
+  opacity: 0.15;
+}
+
+.nav-link.active .ticket-label-bar {
+  background: rgba(220, 100, 20, 0.25);
+  border-color: rgba(120, 50, 0, 0.35);
+}
+
+/* Mobile: equal-size 2x2 ticket grid */
+@media (max-width: 600px) {
+  .site-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+  .nav-link {
+    min-width: unset;
+    width: 100%;
+    height: 52px;
+    padding: 0 0.75rem;
+  }
+  .nav-link, .nav-link span { font-size: 1rem; }
+}
+
+/* ============================================================
+   HAMBURGER NAV PILL — toggles E-ticket tray
+   ============================================================ */
+
+.nav-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  z-index: 50;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-pill:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.nav-pill:active { transform: scale(0.98); }
+
+.nav-pill-label {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1rem;
+  color: white;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.nav-pill-hamburger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: white;
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+  transform-origin: center;
+}
+
+/* Hamburger icon */
+.nav-pill-hamburger {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5px;
+  width: 18px;
+  flex-shrink: 0;
+}
+
+/* Animate to X when open */
+.nav-pill.open .nav-pill-hamburger span:nth-child(1) {
+  transform: translateY(5.5px) rotate(45deg);
+}
+.nav-pill.open .nav-pill-hamburger span:nth-child(2) { opacity: 0; }
+.nav-pill.open .nav-pill-hamburger span:nth-child(3) {
+  transform: translateY(-5.5px) rotate(-45deg);
+}
+
+/* ============================================================
+   E-TICKET TRAY — vertical list of original tickets
+   Hidden by default, slides open when hamburger pill is tapped.
+   ============================================================ */
+
+.nav-ticket-tray {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 850;
+  background: linear-gradient(180deg, #0f1930 0%, #1a2e5a 100%);
+  border-bottom: 2px solid rgba(255, 199, 44, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding-top: 2.5rem;
+}
+
+.nav-ticket-tray.open {
+  display: block;
+  animation: traySlideDown 0.25s ease both;
+}
+
+@keyframes traySlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* The scroll container — vertical on mobile, horizontal on desktop */
+.nav-ticket-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem;
+}
+
+/* Each ticket in the tray uses the original .nav-link styles
+   but we override some things for the tray context */
+.nav-ticket-tray .nav-link {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: unset;
+  width: 100%;
+  height: 56px;
+  flex-shrink: 0;
+  text-decoration: none;
+  position: relative;
+  padding: 0 1.2rem;
+  border-radius: 4px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.012) 2px, rgba(0,0,0,0.012) 4px),
+    linear-gradient(160deg, #f5edd6 0%, #ede0bc 60%, #e2d4a8 100%);
+  border: 1.5px solid #c8b87a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(0,0,0,0.08), 0 3px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nav-ticket-tray .nav-link::before {
+  content: "ADMIT ONE";
+  display: block;
+  text-align: center;
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.22em;
+  color: #7a5a10;
+  line-height: 1;
+  margin-bottom: 3px;
+  position: relative;
+  z-index: 1;
+}
+
+.nav-ticket-tray .nav-link::after { display: none; }
+
+.nav-ticket-tray .nav-link,
+.nav-ticket-tray .nav-link span {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  color: #2a1800;
+  line-height: 1;
+}
+
+.nav-ticket-tray .nav-link:hover {
+  transform: translateY(-3px) rotate(-0.5deg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 8px 20px rgba(0,0,0,0.18), 0 3px 6px rgba(0,0,0,0.1);
+}
+
+/* Active ticket in tray */
+.nav-ticket-tray .nav-link.active {
+  background:
+    repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.015) 2px, rgba(0,0,0,0.015) 4px),
+    linear-gradient(160deg, #f4913a 0%, #e87820 55%, #d96810 100%);
+  border-color: #b05510;
+  box-shadow: inset 0 1px 0 rgba(255,200,100,0.5), inset 0 -1px 0 rgba(0,0,0,0.12), 0 4px 14px rgba(200, 100, 10, 0.4), 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.nav-ticket-tray .nav-link.active::before { color: #6b2a00; }
+.nav-ticket-tray .nav-link.active,
+.nav-ticket-tray .nav-link.active span { color: #1a0800; }
+
+/* Perforated edge */
+.nav-ticket-tray .nav-link .ticket-perf {
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%; width: 14px;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+.nav-ticket-tray .nav-link .ticket-perf::before {
+  content: "";
+  position: absolute;
+  left: -5px; top: 0;
+  height: 100%; width: 10px;
+  background: repeating-linear-gradient(to bottom, transparent 0px, transparent 6px, var(--bg-color-1) 6px, var(--bg-color-1) 12px);
+  border-right: 2px dashed #a8945a;
+  filter: drop-shadow(1px 0 0 rgba(0,0,0,0.15));
+}
+
+.nav-ticket-tray .nav-link.active .ticket-perf::before {
+  border-right-color: #b05510;
+  background: repeating-linear-gradient(to bottom, transparent 0px, transparent 5px, var(--bg-color-1) 5px, var(--bg-color-1) 9px);
+}
+
+/* Ticket label bar */
+.nav-ticket-tray .nav-link .ticket-label-bar {
+  position: relative;
+  z-index: 1;
+  display: block;
+  text-align: center;
+  background: rgba(255, 248, 220, 0.82);
+  border: 1px solid rgba(180, 140, 60, 0.4);
+  border-radius: 2px;
+  padding: 2px 8px;
+  backdrop-filter: blur(1px);
+}
+
+.nav-ticket-tray .nav-link.active .ticket-label-bar {
+  background: rgba(220, 100, 20, 0.25);
+  border-color: rgba(120, 50, 0, 0.35);
+}
+
+/* Castle watermark */
+.nav-ticket-tray .nav-link .ticket-castle {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.12;
+  width: 52px; height: 52px;
+  pointer-events: none;
+  color: #3a2200;
+  z-index: 0;
+}
+.nav-ticket-tray .nav-link.active .ticket-castle { color: #4a1800; opacity: 0.15; }
+
+/* Punched hole */
+.nav-ticket-tray .nav-link.active .ticket-hole {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,0,0,0.2);
+  background: rgba(0,0,0,0.08);
+  pointer-events: none;
+}
+
+/* Backdrop overlay — dims page when budget popover is open */
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  background: rgba(10, 15, 40, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: opacity 0.2s ease;
+}
+.nav-overlay.hidden { display: none; }
+
+/* Desktop: wrapping ticket tray with centered layout */
+@media (min-width: 641px) {
+  .nav-ticket-tray {
+    overflow: visible;
+    max-height: none;
+  }
+  .nav-ticket-scroll {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem 1rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .nav-ticket-tray .nav-link {
+    width: 140px !important;
+    min-width: 140px !important;
+    flex: 0 0 140px !important;
+  }
+}

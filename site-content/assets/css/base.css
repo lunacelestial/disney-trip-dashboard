@@ -1,0 +1,347 @@
+/* ============================================================
+   DISNEY TRIP COMPANION — Base Styles
+   Variables, reset, typography, layout, buttons, forms,
+   badges, utilities, animations, base responsive.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Mouse+Memoirs&family=Nunito:wght@400;600;700;800&display=swap');
+
+/* ============================================================
+   CSS VARIABLES — Disney Color System
+   ============================================================ */
+:root {
+  --castle-blue:     #003087;
+  --sky-blue:        #009BDE;
+  --pixie-gold:      #FFC72C;
+  --pixie-gold-dark: #c8960a;
+  --magic-red:       #C41E3A;
+  --cream:           #FFFDF4;
+  --parchment:       #FEF9E7;
+  --ink:             #1a1a2e;
+  --slate:           #334155;
+  --muted:           #64748b;
+
+  --bg-color-1: #c9e8f7;
+  --bg-color-2: #f0e6f6;
+  --bg-color-3: #fef3c7;
+
+  --gold-glow:  0 0 24px rgba(255, 199, 44, 0.5);
+  --blue-glow:  0 0 20px rgba(0, 155, 222, 0.3);
+  --card-shadow: 0 8px 32px rgba(26, 26, 46, 0.12);
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  font-size: 17px;
+  margin: 0;
+  color: var(--ink);
+  background: linear-gradient(175deg, var(--bg-color-1) 0%, var(--bg-color-2) 50%, var(--bg-color-3) 100%);
+  min-height: 100vh;
+  transition: background 1.2s ease-in-out;
+}
+
+/* Hidden Mickey watermark */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100vh;
+  z-index: -1;
+  opacity: 0.055;
+  pointer-events: none;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="0 0 100 100"><circle cx="50" cy="58" r="20" fill="%23003087"/><circle cx="24" cy="26" r="13" fill="%23003087"/><circle cx="76" cy="26" r="13" fill="%23003087"/></svg>');
+  background-size: 90px 90px;
+}
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+h1, h2, h3 {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+h4 {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  font-size: 4.5rem;
+  color: #A3FF00; 
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3), 10px 10px 10px rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+}
+
+h2 { font-size: 2.2rem; }
+h3 { font-size: 1.6rem; }
+
+.site-eyebrow, .card-label, .activity-time, .nav-link {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.site-eyebrow {
+  font-size: 0.72rem;
+  color: var(--sky-blue);
+  margin: 0 0 0.25rem;
+}
+
+.card-label {
+  font-size: 0.72rem;
+  color: var(--castle-blue);
+  margin: 0 0 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.site-description {
+  max-width: 680px;
+  margin-top: 0.75rem;
+  color: var(--slate);
+  line-height: 1.65;
+  font-size: 1rem;
+}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.container {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* Allow header container to overflow for the nav ticket tray */
+.site-header .container {
+  overflow: visible;
+}
+
+/* Prevent the itinerary page from scrolling sideways */
+body.page-itinerary {
+  overflow-x: hidden;
+}
+
+.page-content {
+  padding-bottom: 4rem;
+}
+
+/* ============================================================
+   PARK THEMES (double-click to cycle)
+   ============================================================ */
+body.theme-mk   { --bg-color-1: #bfdbfe; --bg-color-2: #fce7f3; --bg-color-3: #fef9c3; }
+body.theme-epcot{ --bg-color-1: #e0f2fe; --bg-color-2: #c4b5fd; --bg-color-3: #a7f3d0; }
+body.theme-hs   { --bg-color-1: #fecaca; --bg-color-2: #fef08a; --bg-color-3: #e7e5e4; }
+body.theme-ak   { --bg-color-1: #bbf7d0; --bg-color-2: #fef3c7; --bg-color-3: #fed7aa; }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.primary-button, .secondary-button, .danger-button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.4rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  letter-spacing: 0.03em;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, var(--castle-blue), #1e40af);
+  color: white;
+  box-shadow: 0 4px 14px rgba(0, 48, 135, 0.35);
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 48, 135, 0.45);
+}
+
+.secondary-button {
+  background: var(--parchment);
+  color: var(--slate);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border: 1.5px solid #e2e1d8;
+}
+
+.secondary-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.1);
+}
+
+.danger-button {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1.5px solid #fca5a5;
+}
+
+.danger-button:hover { transform: translateY(-2px); }
+
+.small-button { padding: 0.45rem 0.9rem; font-size: 0.82rem; }
+.add-activity-toggle { flex-shrink: 0; }
+
+/* ============================================================
+   SQUASH & STRETCH
+   ============================================================ */
+.squash-target {
+  transition: transform 0.1s ease-out;
+  transform-origin: bottom center;
+}
+
+.squash-target.is-squished {
+  transform: scale(1.05, 0.90) !important;
+  animation: none !important;
+}
+
+.squash-target.is-bouncing {
+  animation: stretchBounce 0.4s ease-out forwards !important;
+}
+
+@keyframes stretchBounce {
+  0%   { transform: scale(1.05, 0.90); }
+  40%  { transform: scale(0.95, 1.10); }
+  70%  { transform: scale(1.02, 0.98); }
+  100% { transform: scale(1, 1); }
+}
+
+/* ============================================================
+   FORMS
+   ============================================================ */
+.form-card { margin-bottom: 1.5rem; }
+
+.activity-form { margin-top: 1rem; }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.form-field { display: flex; flex-direction: column; gap: 0.4rem; }
+.form-field-full { grid-column: 1 / -1; }
+
+.form-field label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--castle-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  border: 1.5px solid #d1d5db;
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  color: var(--ink);
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-field textarea { resize: vertical; min-height: 100px; }
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 0 3px rgba(0, 155, 222, 0.2);
+}
+
+.form-actions { margin-top: 1rem; display: flex; gap: 0.75rem; }
+.form-actions-split { justify-content: space-between; align-items: center; }
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+.activity-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.activity-badge.ride    { background: #dbeafe; color: #1d4ed8; }
+.activity-badge.dining  { background: #fef3c7; color: #92400e; }
+.activity-badge.show    { background: #ede9fe; color: #6d28d9; }
+.activity-badge.merch   { background: #fce7f3; color: #be185d; }
+.activity-badge.travel  { background: #dcfce7; color: #15803d; }
+.activity-badge.break   { background: #f1f5f9; color: #475569; }
+.activity-badge.default { background: #f1f5f9; color: var(--slate); }
+
+/* ============================================================
+   UTILITY
+   ============================================================ */
+.hidden { display: none !important; }
+
+/* Hide scrollbar for horizontal carousels */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ============================================================
+   PAGE-LOAD ENTRANCE ANIMATIONS
+   ============================================================ */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.site-header            { animation: fadeSlideUp 0.45s ease both; }
+.hero-card              { animation: fadeSlideUp 0.5s 0.05s ease both; }
+.info-card:nth-child(1) { animation: fadeSlideUp 0.5s 0.08s ease both; }
+.info-card:nth-child(2) { animation: fadeSlideUp 0.5s 0.15s ease both; }
+.info-card:nth-child(3) { animation: fadeSlideUp 0.5s 0.22s ease both; }
+
+/* ============================================================
+   BASE RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+  .site-header h1 { font-size: 2.4rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.35rem; }
+
+  .hero-card, .info-card, .activity-card {
+    padding: 1.25rem;
+    border-radius: 18px;
+  }
+
+  .nav-link { padding: 0.6rem 0.9rem; font-size: 0.72rem; }
+
+  .form-grid { grid-template-columns: 1fr; }
+
+  .section-heading { flex-direction: column; align-items: stretch; }
+
+  .form-actions, .form-actions-split { flex-direction: column; }
+
+  .primary-button, .secondary-button, .danger-button, .add-activity-toggle {
+    width: 100%;
+    text-align: center;
+  }
+}

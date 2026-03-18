@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney Trip Prep</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=15" />
+  <link rel="stylesheet" href="assets/css/header.css?v=15" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* ============================================================
+       PRE-TRIP DASHBOARD — TV-inspired prep mode
+       ============================================================ */
+
+    body.page-pretrip {
+      background: linear-gradient(135deg, #0f1930 0%, #1a2e5a 50%, #0d3a6e 100%);
+      color: white;
+    }
+
+    body.page-pretrip::before { opacity: 0.03; }
+
+    /* Desktop: two-column layout with nav on left */
+    .pretrip-layout {
+      display: flex;
+      gap: 2rem;
+      min-height: calc(100vh - 4rem);
+    }
+
+    /* Left nav column — desktop only */
+    .pretrip-nav-column {
+      display: none;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 160px;
+      flex-shrink: 0;
+      padding-top: 1rem;
+    }
+
+    @media (min-width: 900px) {
+      .pretrip-nav-column { display: flex; }
+    }
+
+    .pretrip-nav-column .nav-link {
+      min-width: unset;
+      width: 100%;
+      height: 52px;
+      padding: 0 0.75rem;
+    }
+
+    /* Main content area */
+    .pretrip-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ── Countdown Hero ── */
+    .pretrip-countdown-hero {
+      text-align: center;
+      padding: 2.5rem 1.5rem 2rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .pretrip-countdown-label {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: rgba(255, 255, 255, 0.45);
+      margin-bottom: 0.5rem;
+    }
+
+    .pretrip-countdown-number {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 8rem;
+      color: var(--pixie-gold);
+      line-height: 1;
+      text-shadow: 0 0 40px rgba(255, 199, 44, 0.3), 0 4px 20px rgba(0, 0, 0, 0.3);
+      margin: 0;
+    }
+
+    .pretrip-countdown-unit {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 2.5rem;
+      color: rgba(255, 255, 255, 0.7);
+      letter-spacing: 0.06em;
+      margin-top: -0.5rem;
+    }
+
+    .pretrip-trip-name {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 0.75rem;
+    }
+
+    .pretrip-trip-dates {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.35);
+    }
+
+    /* Shimmer on the countdown */
+    .pretrip-countdown-hero::after {
+      content: "";
+      position: absolute;
+      top: 0; left: -100%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+      animation: shimmer 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes shimmer {
+      0%   { left: -60%; }
+      40%  { left: 120%; }
+      100% { left: 120%; }
+    }
+
+    /* ── Card Grid ── */
+    .pretrip-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 700px) {
+      .pretrip-cards { grid-template-columns: 1fr; }
+    }
+
+    /* ── Glass Card ── */
+    .pretrip-card {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 1.5rem;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .pretrip-card-label {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(255, 255, 255, 0.45);
+      margin: 0 0 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* ── Steps Card ── */
+    .steps-target-number {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 3.5rem;
+      color: var(--pixie-gold);
+      line-height: 1;
+      margin: 0 0 0.25rem;
+    }
+
+    .steps-target-unit {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.6);
+      margin: 0 0 1rem;
+    }
+
+    .steps-explanation {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.5;
+      margin: 0 0 1.25rem;
+    }
+
+    .steps-range-bar {
+      position: relative;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+    }
+
+    .steps-range-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22c55e, #fbbf24, #ef4444);
+      transition: width 0.5s ease;
+    }
+
+    .steps-range-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.35);
+      margin-bottom: 1.25rem;
+    }
+
+    .steps-health-links {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .steps-health-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 999px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.7);
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .steps-health-link:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: white;
+    }
+
+    /* ── Budget Card ── */
+    .budget-saved-number {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 3rem;
+      color: white;
+      line-height: 1;
+      margin: 0;
+    }
+
+    .budget-goal-text {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.5);
+      margin: 0.25rem 0 1rem;
+    }
+
+    .budget-progress-track {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 0.4rem;
+    }
+
+    .budget-progress-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--castle-blue), var(--sky-blue), var(--pixie-gold));
+      transition: width 0.5s ease;
+    }
+
+    .budget-progress-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.4);
+      margin: 0 0 1rem;
+    }
+
+    .budget-pace-status {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 800;
+      padding: 0.5rem 0.85rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .budget-pace-status.on-track {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+
+    .budget-pace-status.behind {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+
+    .budget-pace-status.ahead {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    .budget-pace-status.complete {
+      background: rgba(255, 199, 44, 0.15);
+      color: var(--pixie-gold);
+      border: 1px solid rgba(255, 199, 44, 0.3);
+    }
+
+    /* Add contribution form */
+    .contrib-form {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .contrib-form input {
+      flex: 1;
+      min-width: 100px;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      color: white;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .contrib-form input::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+    .contrib-form input:focus {
+      outline: none;
+      border-color: var(--pixie-gold);
+      box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.2);
+    }
+
+    .contrib-btn {
+      padding: 0.55rem 1rem;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--castle-blue), #1e40af);
+      color: white;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.15s;
+      white-space: nowrap;
+    }
+
+    .contrib-btn:hover { box-shadow: 0 4px 14px rgba(0, 48, 135, 0.4); }
+    .contrib-btn:active { transform: scale(0.97); }
+
+    /* Recent contributions list */
+    .contrib-list {
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .contrib-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.82rem;
+    }
+
+    .contrib-item:last-child { border-bottom: none; }
+
+    .contrib-item-info {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .contrib-item-amount {
+      font-weight: 800;
+      color: #4ade80;
+    }
+
+    .contrib-item-delete {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      margin-left: 0.5rem;
+    }
+
+    .contrib-item-delete:hover {
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    /* ── No Budget State ── */
+    .no-budget-state {
+      text-align: center;
+      padding: 1rem 0;
+    }
+
+    .no-budget-state p {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 0.9rem;
+      margin: 0 0 1rem;
+    }
+
+    /* ── No Trip State ── */
+    .pretrip-empty {
+      text-align: center;
+      padding: 4rem 2rem;
+    }
+
+    .pretrip-empty-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+
+    .pretrip-empty h2 {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 2rem;
+      color: var(--pixie-gold);
+      margin: 0 0 0.5rem;
+    }
+
+    .pretrip-empty p {
+      color: rgba(255, 255, 255, 0.5);
+      max-width: 400px;
+      margin: 0 auto 1.5rem;
+      line-height: 1.6;
+    }
+
+    /* ── Quick Links Row ── */
+    .pretrip-links {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .pretrip-link {
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.7);
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .pretrip-link:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+      color: white;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .pretrip-countdown-number { font-size: 5.5rem; }
+      .pretrip-countdown-unit { font-size: 1.8rem; }
+      .steps-target-number { font-size: 2.8rem; }
+      .budget-saved-number { font-size: 2.5rem; }
+      .pretrip-card { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body class="page-pretrip">
+<!-- Top Utility Bar -->
+  <div class="utility-bar">
+    <div class="utility-bar-inner">
+      <div id="utility-user-slot"></div>
+      <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+        <span class="weather-badge-icon" id="weather-badge-icon">🌤️</span>
+        <div class="weather-badge-text">
+          <span class="weather-badge-temp" id="weather-badge-temp">--°F</span>
+          <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hamburger Nav Pill (mobile only — desktop uses sidebar) -->
+  <div style="padding:0.5rem 1rem 0;">
+    <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu" style="margin:0;">
+      <div class="nav-pill-hamburger">
+        <span></span><span></span><span></span>
+      </div>
+      <span class="nav-pill-label">Trip Prep</span>
+    </div>
+  </div>
+
+  <!-- E-Ticket Nav Tray (hamburger opens this on mobile) -->
+  <div class="nav-ticket-tray" id="nav-ticket-tray">
+    <div class="nav-ticket-scroll hide-scrollbar">
+      <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+      <a href="itinerary.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+      <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+      <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+      <a href="photos.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+      <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+    </div>
+  </div>
+
+  <main class="container" style="padding-bottom:3rem;">
+    <div class="pretrip-layout">
+
+      <!-- Desktop nav column -->
+      <nav class="pretrip-nav-column" id="pretrip-nav-column"></nav>
+
+      <!-- Main content -->
+      <div class="pretrip-main" id="pretrip-main">
+        <p style="text-align:center; color:rgba(255,255,255,0.4); padding:3rem 0;">Loading trip prep...</p>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="assets/js/script.js?v=15"></script>
+  <script src="assets/js/header.js?v=15"></script>
+  <script src="assets/js/budget.js?v=15"></script>
+  <script>
+  // ============================================================
+  // PRE-TRIP DASHBOARD
+  // ============================================================
+
+  // Steps formula: ramps from 10k (90+ days) to 20k (7 days)
+  function getStepTarget(daysAway) {
+    if (daysAway >= 90) return 10000;
+    if (daysAway <= 7)  return 20000;
+    // Linear ramp: 10k at 90 days → 20k at 7 days
+    const progress = (90 - daysAway) / (90 - 7); // 0 at 90 days, 1 at 7 days
+    return Math.round((10000 + progress * 10000) / 500) * 500; // Round to nearest 500
+  }
+
+  function getStepExplanation(daysAway, target) {
+    if (daysAway >= 60) return `With ${daysAway} days to go, focus on building a walking habit. ${target.toLocaleString()} steps is a comfortable baseline.`;
+    if (daysAway >= 30) return `You're a month out! Time to ramp up. ${target.toLocaleString()} steps daily will get your legs ready for park days.`;
+    if (daysAway >= 14) return `Two weeks out — this is crunch time. ${target.toLocaleString()} steps will prep you for 10+ mile park days.`;
+    return `Almost there! ${target.toLocaleString()} steps mirrors what you'll actually walk at Disney. Your feet will thank you.`;
+  }
+
+  // Step target as a percentage of the bar (10k = 0%, 20k = 100%)
+  function getStepBarPercent(target) {
+    return Math.round(((target - 10000) / 10000) * 100);
+  }
+
+  function formatMoney(n) {
+    return "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  async function loadPretrip() {
+    const main = document.getElementById("pretrip-main");
+    const navCol = document.getElementById("pretrip-nav-column");
+
+    // Populate desktop nav column with ticket links (clone from tray)
+    const trayLinks = document.querySelectorAll(".nav-ticket-tray .nav-link");
+    if (navCol) {
+      navCol.innerHTML = "";
+      trayLinks.forEach(link => {
+        navCol.appendChild(link.cloneNode(true));
+      });
+    }
+
+    // Find the next upcoming trip from trip_budgets (single source of truth)
+    const todayStr = getTodayString();
+    let allTrips = [];
+    try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { }
+
+    // Find the next upcoming trip
+    const upcomingTrips = allTrips
+      .filter(t => t.start_date > todayStr)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+    const nextTripBudget = upcomingTrips[0];
+
+    if (!nextTripBudget) {
+      main.innerHTML = `
+        <div class="pretrip-empty">
+          <div class="pretrip-empty-icon">✨</div>
+          <h2>No Upcoming Trips</h2>
+          <p>Plan your next Disney adventure and come back here to track your prep!</p>
+          <a href="planner.html" class="primary-button" style="display:inline-block; text-decoration:none;">Plan a Trip ✨</a>
+        </div>
+      `;
+      return;
+    }
+
+    const startDate = nextTripBudget.start_date;
+    const endDate = nextTripBudget.end_date;
+    const tripId = nextTripBudget.trip_id;
+
+    // Calculate days away
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const tripStart = new Date(sy, sm - 1, sd);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysAway = Math.ceil((tripStart - today) / (1000 * 60 * 60 * 24));
+
+    // Format dates
+    const startFmt = tripStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const [ey, em, ed] = endDate.split("-").map(Number);
+    const endFmt = new Date(ey, em - 1, ed).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const dayCount = Math.round((new Date(ey, em - 1, ed) - tripStart) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Steps
+    const stepTarget = getStepTarget(daysAway);
+    const stepExplanation = getStepExplanation(daysAway, stepTarget);
+    const stepBarPct = getStepBarPercent(stepTarget);
+
+    // Budget — find trip budget
+    let tripBudget = null;
+    try {
+      const budgets = await apiFetch("/trip-budgets");
+      tripBudget = budgets.find(b => b.trip_id === tripId);
+    } catch (e) { }
+
+    const totalBudget = tripBudget ? (tripBudget.hotel + tripBudget.food + tripBudget.extras + tripBudget.souvenirs) : 0;
+
+    // Get contributions
+    let contributions = [];
+    try {
+      contributions = await apiFetch(`/trips/${tripId}/contributions`);
+    } catch (e) { }
+
+    const totalSaved = contributions.reduce((sum, c) => sum + c.amount, 0);
+    const pctSaved = totalBudget > 0 ? Math.min((totalSaved / totalBudget) * 100, 100) : 0;
+
+    // Pace calculation
+    let paceHtml = "";
+    if (totalBudget > 0) {
+      const remaining = totalBudget - totalSaved;
+      if (remaining <= 0) {
+        paceHtml = `<div class="budget-pace-status complete">🎉 Fully funded! You're all set.</div>`;
+      } else {
+        const perDay = remaining / Math.max(daysAway, 1);
+        if (perDay <= (totalBudget / 90)) {
+          paceHtml = `<div class="budget-pace-status on-track">✅ On track — ${formatMoney(perDay)}/day to reach your goal</div>`;
+        } else if (perDay <= (totalBudget / 30)) {
+          paceHtml = `<div class="budget-pace-status behind">⚠️ A bit behind — need ${formatMoney(perDay)}/day to catch up</div>`;
+        } else {
+          paceHtml = `<div class="budget-pace-status behind">🚨 ${formatMoney(remaining)} still needed — ${formatMoney(perDay)}/day</div>`;
+        }
+      }
+    }
+
+    // Recent contributions list
+    const recentContribsHtml = contributions.slice(0, 8).map(c => {
+      const dateFmt = c.date ? new Date(c.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+      return `
+        <div class="contrib-item">
+          <span class="contrib-item-info">${dateFmt}${c.note ? " — " + escapeHtml(c.note) : ""}${c.contributed_by_name ? " · " + escapeHtml(c.contributed_by_name) : ""}</span>
+          <span>
+            <span class="contrib-item-amount">+${formatMoney(c.amount)}</span>
+            <button class="contrib-item-delete" onclick="deleteContribution('${c.id}')" title="Remove">✕</button>
+          </span>
+        </div>
+      `;
+    }).join("");
+
+    // Budget card content
+    let budgetCardBody = "";
+    if (totalBudget > 0) {
+      budgetCardBody = `
+        <div class="budget-saved-number">${formatMoney(totalSaved)}</div>
+        <div class="budget-goal-text">saved of ${formatMoney(totalBudget)} goal</div>
+        <div class="budget-progress-track">
+          <div class="budget-progress-bar" style="width:${pctSaved}%"></div>
+        </div>
+        <div class="budget-progress-label">${Math.round(pctSaved)}% funded</div>
+        ${paceHtml}
+        <div class="contrib-form" id="contrib-form">
+          <input type="number" id="contrib-amount" placeholder="Amount ($)" step="0.01" min="0.01" />
+          <input type="text" id="contrib-note" placeholder="Note (optional)" />
+          <button class="contrib-btn" onclick="addContribution()">+ Add</button>
+        </div>
+        ${recentContribsHtml ? `<div class="contrib-list">${recentContribsHtml}</div>` : ""}
+      `;
+    } else {
+      budgetCardBody = `
+        <div class="no-budget-state">
+          <p>No budget set for this trip yet.</p>
+          <a href="budget.html" class="primary-button small-button" style="text-decoration:none; display:inline-block;">Set Trip Budget</a>
+        </div>
+      `;
+    }
+
+    main.innerHTML = `
+      <!-- Countdown Hero -->
+      <div class="pretrip-countdown-hero">
+        <div class="pretrip-countdown-label">Your Next Disney Trip</div>
+        <div class="pretrip-countdown-number">${daysAway}</div>
+        <div class="pretrip-countdown-unit">day${daysAway !== 1 ? "s" : ""} away</div>
+        <div class="pretrip-trip-name">${startFmt} – ${endFmt} · ${dayCount} day${dayCount !== 1 ? "s" : ""}</div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="pretrip-links">
+        <a href="itinerary.html" class="pretrip-link">📋 Itinerary</a>
+        <a href="wishlist.html" class="pretrip-link">⭐ Wishlist</a>
+        <a href="planner.html" class="pretrip-link">🗺️ Planner</a>
+        <a href="history.html" class="pretrip-link">📖 Past Trips</a>
+      </div>
+
+      <!-- Cards -->
+      <div class="pretrip-cards">
+        <!-- Steps Card -->
+        <div class="pretrip-card">
+          <div class="pretrip-card-label">👟 Step Training</div>
+          <div class="steps-target-number">${stepTarget.toLocaleString()}</div>
+          <div class="steps-target-unit">steps per day target</div>
+          <div class="steps-range-bar">
+            <div class="steps-range-fill" style="width:${stepBarPct}%"></div>
+          </div>
+          <div class="steps-range-labels">
+            <span>10k (baseline)</span>
+            <span>20k (park-ready)</span>
+          </div>
+          <div class="steps-explanation">${stepExplanation}</div>
+          <div class="steps-health-links">
+            <a href="https://apps.apple.com/app/apple-health/id1242424083" target="_blank" rel="noopener" class="steps-health-link">
+              🍎 Apple Health
+            </a>
+            <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.fitness" target="_blank" rel="noopener" class="steps-health-link">
+              💚 Google Fit
+            </a>
+          </div>
+        </div>
+
+        <!-- Budget Card -->
+        <div class="pretrip-card">
+          <div class="pretrip-card-label">💰 Trip Fund</div>
+          ${budgetCardBody}
+        </div>
+      </div>
+    `;
+  }
+
+  // Store trip ID globally for contribution functions
+  let _pretripTripId = null;
+
+  async function addContribution() {
+    const amountInput = document.getElementById("contrib-amount");
+    const noteInput = document.getElementById("contrib-note");
+    const amount = parseFloat(amountInput.value);
+    if (!amount || amount <= 0) { amountInput.focus(); return; }
+
+    const user = Auth.getUser();
+
+    // Determine trip ID from the page
+    if (!_pretripTripId) return;
+
+    try {
+      await apiFetch(`/trips/${_pretripTripId}/contributions`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount,
+          note: noteInput.value.trim(),
+          contributed_by: user ? user.id : "",
+          contributed_by_name: user ? user.name : "Guest",
+          date: new Date().toISOString().split("T")[0],
+        }),
+      });
+      showToast(`✅ Added ${formatMoney(amount)} to trip fund!`);
+      loadPretrip(); // Refresh
+    } catch (err) {
+      console.error("Contribution failed:", err);
+      showToast("❌ Failed to add contribution.");
+    }
+  }
+
+  async function deleteContribution(id) {
+    try {
+      await apiFetch(`/contributions/${id}`, { method: "DELETE" });
+      showToast("🗑️ Contribution removed.");
+      loadPretrip();
+    } catch (err) {
+      showToast("❌ Failed to remove contribution.");
+    }
+  }
+
+  // Wrap initApp to also run loadPretrip
+  const _origInitApp = window.initApp || initApp;
+  initApp = function() {
+    _origInitApp();
+    getStoredItinerary().then(async () => {
+      // Determine the next trip ID from trip_budgets
+      const todayStr = getTodayString();
+      try {
+        const allTrips = await apiFetch("/trip-budgets");
+        const upcoming = allTrips
+          .filter(t => t.start_date > todayStr)
+          .sort((a, b) => a.start_date.localeCompare(b.start_date));
+        if (upcoming.length > 0) {
+          _pretripTripId = upcoming[0].trip_id;
+        }
+      } catch (e) { }
+      loadPretrip();
+    });
+  };
+  </script>
+
+  <!-- Weather Forecast Modal -->
+  <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="weather-modal-card">
+      <button class="weather-modal-close" id="weather-modal-close" aria-label="Close">✕</button>
+      <div id="weather-modal-content">
+        <div class="weather-loading">🌤️ Fetching forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backdrop overlay -->
+  <div class="nav-overlay hidden" id="nav-overlay"></div>
+</body>
+</html>

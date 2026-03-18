@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney — Trip Calendar</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=15" />
+  <link rel="stylesheet" href="assets/css/header.css?v=15" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+  <style>
+    /* ── Trip Calendar Styles ─────────────────────────── */
+    .cal-trip-pill { margin-bottom: 1.5rem; }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .cal-day {
+      background: rgba(255, 253, 244, 0.92);
+      border-radius: 16px;
+      box-shadow: var(--card-shadow);
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      overflow: hidden;
+      transition: transform 0.15s;
+    }
+    .cal-day:hover { transform: translateY(-2px); }
+    .cal-day.is-today { border-color: var(--pixie-gold); box-shadow: 0 0 0 2px rgba(255,193,37,0.3), var(--card-shadow); }
+    .cal-day.is-past { opacity: 0.6; }
+
+    .cal-day-header {
+      padding: 0.75rem 1rem;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1.5px solid rgba(0,0,0,0.05);
+    }
+    .cal-day-name {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 1.2rem; color: var(--castle-blue);
+      letter-spacing: 0.02em;
+    }
+    .cal-day-date {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.78rem; font-weight: 700; color: var(--muted);
+    }
+    .cal-day-today-badge {
+      font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
+      background: var(--pixie-gold); color: #1a1a2e;
+      padding: 0.15rem 0.5rem; border-radius: 999px;
+      letter-spacing: 0.06em;
+    }
+
+    .cal-park-banner {
+      padding: 0.5rem 1rem;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.88rem; font-weight: 800;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+
+    .cal-day-body {
+      padding: 0.75rem 1rem 1rem;
+      display: flex; flex-direction: column; gap: 0.4rem;
+      min-height: 60px;
+    }
+
+    .cal-event {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+      font-family: 'Nunito', sans-serif;
+    }
+    .cal-event:last-child { border-bottom: none; }
+    .cal-event-icon { font-size: 1rem; flex-shrink: 0; }
+    .cal-event-info { flex: 1; min-width: 0; }
+    .cal-event-title {
+      font-size: 0.85rem; font-weight: 700; color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cal-event-time {
+      font-size: 0.72rem; font-weight: 600; color: var(--muted);
+    }
+
+    .cal-empty-day {
+      color: var(--muted); font-style: italic;
+      font-size: 0.85rem; padding: 0.5rem 0;
+    }
+
+    .cal-legend {
+      display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem;
+      padding: 1rem; background: rgba(255,253,244,0.7); border-radius: 12px;
+      justify-content: center;
+    }
+    .cal-legend-item {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-family: 'Nunito', sans-serif; font-size: 0.75rem;
+      font-weight: 700; color: var(--slate);
+    }
+
+    @media (max-width: 640px) {
+      .cal-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="page-tripcalendar">
+  <div class="utility-bar">
+    <div class="utility-bar-inner">
+      <div id="utility-user-slot"></div>
+      <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+        <span class="weather-badge-icon" id="weather-badge-icon">🌤️</span>
+        <div class="weather-badge-text">
+          <span class="weather-badge-temp" id="weather-badge-temp">--°F</span>
+          <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="park-entrance">
+        <img src="assets/images/mickey-mouse-pose1.png" class="character-img mickey" alt="Mickey Mouse" />
+        <div class="entrance-sign">
+          <div class="entrance-arch">
+            <span class="entrance-eyebrow">Walt Disney World</span>
+            <h1 class="entrance-title">Trip Calendar</h1>
+            <span class="entrance-subtitle">✨ Your Week at a Glance ✨</span>
+          </div>
+        </div>
+        <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
+      </div>
+
+      <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu">
+        <div class="nav-pill-hamburger"><span></span><span></span><span></span></div>
+        <span class="nav-pill-label">Calendar</span>
+      </div>
+
+      <div class="nav-ticket-tray" id="nav-ticket-tray">
+        <div class="nav-ticket-scroll hide-scrollbar">
+          <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="itinerary.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="photos.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+          <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
+        </div>
+      </div>
+
+      <div class="budget-pill" id="budget-pill" role="button" tabindex="0" aria-label="Quick add expense">
+        <span class="budget-pill-icon">💰</span>
+        <span class="budget-pill-amount" id="budget-pill-amount">Loading...</span>
+        <span class="budget-pill-label">remaining</span>
+        <span class="budget-pill-tap-hint">tap to add</span>
+      </div>
+
+      <div id="park-day-bar" class="park-day-bar">
+        <span class="park-day-bar-label" id="park-day-label">PARK DAY</span>
+        <span class="park-day-bar-title" id="park-day-title"></span>
+        <span class="park-day-bar-hours" id="park-day-hours"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page-content">
+    <div id="cal-app">
+      <p style="text-align:center; color:var(--muted);">Loading calendar...</p>
+    </div>
+  </main>
+
+  <script src="assets/js/script.js?v=15"></script>
+  <script src="assets/js/header.js?v=15"></script>
+  <script src="assets/js/budget.js?v=15"></script>
+  <script>
+  // ============================================================
+  // TRIP CALENDAR — Week-at-a-glance view
+  // ============================================================
+
+  const CAL_PARK_INFO = {
+    "magic-kingdom":     { emoji: "🏰", label: "Magic Kingdom",     color: "#1e40af", bg: "rgba(30,64,175,0.08)" },
+    "epcot":             { emoji: "🌍", label: "EPCOT",             color: "#7c3aed", bg: "rgba(124,58,237,0.08)" },
+    "hollywood-studios": { emoji: "🎬", label: "Hollywood Studios", color: "#b91c1c", bg: "rgba(185,28,28,0.08)" },
+    "animal-kingdom":    { emoji: "🌿", label: "Animal Kingdom",    color: "#15803d", bg: "rgba(21,128,61,0.08)" },
+    "disney-springs":    { emoji: "🛍️", label: "Disney Springs",    color: "#0369a1", bg: "rgba(3,105,161,0.08)" },
+    "rest-day":          { emoji: "☀️", label: "Rest / Pool Day",   color: "#ca8a04", bg: "rgba(202,138,4,0.08)" },
+    "travel":            { emoji: "🚗", label: "Travel Day",        color: "#475569", bg: "rgba(71,85,105,0.08)" },
+  };
+
+  const CAL_TYPE_ICONS = {
+    ride: "🎢", dining: "🍽️", show: "🎭", merch: "🛍️",
+    shopping: "🛍️", travel: "🚗", break: "☀️",
+  };
+
+  async function loadCalendar() {
+    const app = document.getElementById("cal-app");
+
+    // Get trip from URL param, or auto-detect
+    const urlParams = new URLSearchParams(window.location.search);
+    let tripId = urlParams.get("trip");
+
+    // Load trips
+    let allTrips = [];
+    try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { }
+
+    if (allTrips.length === 0) {
+      app.innerHTML = `
+        <div style="text-align:center; padding:3rem 1.5rem;">
+          <div style="font-size:3rem; margin-bottom:0.75rem;">🗺️</div>
+          <h3 style="font-family:'Mouse Memoirs',sans-serif; font-size:1.5rem; color:var(--castle-blue);">No Trips Yet</h3>
+          <p style="color:var(--slate);">Create a trip in the Planner to see your calendar here.</p>
+          <a href="planner.html" class="primary-button" style="display:inline-block; margin-top:1rem; text-decoration:none;">Plan a Trip ✨</a>
+        </div>
+      `;
+      return;
+    }
+
+    // If no trip specified, pick the current/upcoming one
+    if (!tripId) {
+      const today = new Date().toISOString().split("T")[0];
+      const trip = allTrips.find(t => today >= t.start_date && today <= t.end_date)
+        || allTrips.find(t => t.start_date > today)
+        || allTrips[0];
+      tripId = trip?.trip_id;
+    }
+
+    const selectedTrip = allTrips.find(t => t.trip_id === tripId) || allTrips[0];
+    if (!selectedTrip) return;
+
+    // Trip selector
+    const today = new Date().toISOString().split("T")[0];
+    const tripOptions = allTrips.map(t => {
+      const tag = today >= t.start_date && today <= t.end_date ? " 🌟 Now" :
+                  t.start_date > today ? " 🗓️ Upcoming" : " ✅ Past";
+      return `<option value="${t.trip_id}" ${t.trip_id === selectedTrip.trip_id ? "selected" : ""}>${t.label}${tag}</option>`;
+    }).join("");
+
+    // Load activities and park days
+    const allActivities = sortItineraryByTime(await getStoredItinerary());
+    const allParkDays = await ParkDaysDB.getAll();
+
+    // Build date range
+    const [sy, sm, sd] = selectedTrip.start_date.split("-").map(Number);
+    const [ey, em, ed] = selectedTrip.end_date.split("-").map(Number);
+    const startDate = new Date(sy, sm - 1, sd);
+    const endDate = new Date(ey, em - 1, ed);
+
+    const dates = [];
+    const cursor = new Date(startDate);
+    while (cursor <= endDate) {
+      dates.push(cursor.toISOString().split("T")[0]);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // Group activities by date
+    const actsByDate = {};
+    allActivities.forEach(a => {
+      if (a.date >= selectedTrip.start_date && a.date <= selectedTrip.end_date) {
+        if (!actsByDate[a.date]) actsByDate[a.date] = [];
+        actsByDate[a.date].push(a);
+      }
+    });
+
+    // Park days map
+    const parkMap = {};
+    allParkDays.forEach(pd => { parkMap[pd.date] = pd.park; });
+
+    // Build grid HTML
+    const todayStr = getTodayString();
+
+    let gridHtml = dates.map((date, i) => {
+      const [dy, dm, dd] = date.split("-").map(Number);
+      const dateObj = new Date(dy, dm - 1, dd);
+      const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+      const dateLabel = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const isToday = date === todayStr;
+      const isPast = date < todayStr;
+      const dayNum = i + 1;
+
+      const park = parkMap[date];
+      const parkInfo = park ? CAL_PARK_INFO[park] : null;
+      const activities = (actsByDate[date] || []).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+      // Filter to key events: dining + travel + shows (skip individual rides to keep it clean)
+      const keyEvents = activities.filter(a => {
+        const t = (a.type || "").toLowerCase();
+        return t === "dining" || t === "travel" || t === "show";
+      });
+
+      // Also show rides but only count
+      const rideCount = activities.filter(a => (a.type || "").toLowerCase() === "ride").length;
+
+      let parkBannerHtml = "";
+      if (parkInfo) {
+        parkBannerHtml = `
+          <div class="cal-park-banner" style="color:${parkInfo.color}; background:${parkInfo.bg};">
+            ${parkInfo.emoji} ${parkInfo.label}
+          </div>
+        `;
+      }
+
+      let eventsHtml = "";
+      if (keyEvents.length > 0) {
+        eventsHtml = keyEvents.map(a => {
+          const type = (a.type || "").toLowerCase();
+          const icon = CAL_TYPE_ICONS[type] || "📌";
+          return `
+            <div class="cal-event">
+              <span class="cal-event-icon">${icon}</span>
+              <div class="cal-event-info">
+                <div class="cal-event-title">${escapeHtml(a.title)}</div>
+                <div class="cal-event-time">${formatTimeForDisplay(a.time)}${a.location ? " · " + escapeHtml(a.location) : ""}</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      if (rideCount > 0) {
+        eventsHtml += `
+          <div class="cal-event">
+            <span class="cal-event-icon">🎢</span>
+            <div class="cal-event-info">
+              <div class="cal-event-title">${rideCount} ride${rideCount !== 1 ? "s" : ""} planned</div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (!eventsHtml && !parkBannerHtml) {
+        eventsHtml = `<p class="cal-empty-day">No plans yet</p>`;
+      }
+
+      return `
+        <div class="cal-day${isToday ? " is-today" : ""}${isPast ? " is-past" : ""}">
+          <div class="cal-day-header">
+            <div>
+              <span class="cal-day-name">${dayName}</span>
+              <span class="cal-day-date">Day ${dayNum} · ${dateLabel}</span>
+            </div>
+            ${isToday ? '<span class="cal-day-today-badge">Today</span>' : ''}
+          </div>
+          ${parkBannerHtml}
+          <div class="cal-day-body">
+            ${eventsHtml}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    app.innerHTML = `
+      <div class="cal-trip-pill">
+        <div class="budget-trip-pill">
+          <label class="card-label">Trip Calendar For</label>
+          <select id="cal-trip-select">${tripOptions}</select>
+        </div>
+      </div>
+
+      <div class="cal-grid">
+        ${gridHtml}
+      </div>
+
+      <div class="cal-legend">
+        <span class="cal-legend-item">🍽️ Dining</span>
+        <span class="cal-legend-item">🎭 Show</span>
+        <span class="cal-legend-item">🎢 Rides</span>
+        <span class="cal-legend-item">🚗 Travel</span>
+      </div>
+
+      <div style="text-align:center; margin-top:1.5rem;">
+        <a href="itinerary.html" class="secondary-button" style="display:inline-block; text-decoration:none;">
+          View Full Itinerary →
+        </a>
+      </div>
+    `;
+
+    // Wire trip selector
+    document.getElementById("cal-trip-select")?.addEventListener("change", (e) => {
+      const newTripId = e.target.value;
+      window.history.replaceState({}, "", `tripcalendar.html?trip=${encodeURIComponent(newTripId)}`);
+      loadCalendar();
+    });
+  }
+
+  // Hook into initApp
+  const _origInitApp = window.initApp || initApp;
+  initApp = function() {
+    _origInitApp();
+    getStoredItinerary().then(() => loadCalendar());
+  };
+  </script>
+
+  <!-- Weather Forecast Modal -->
+  <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="weather-modal-card">
+      <button class="weather-modal-close" id="weather-modal-close" aria-label="Close">✕</button>
+      <div id="weather-modal-content">
+        <div class="weather-loading">🌤️ Fetching forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Budget Quick-Add Popover -->
+  <div class="budget-quick-add" id="budget-quick-add">
+    <button class="budget-quick-add-close" id="budget-quick-add-close" aria-label="Close">✕</button>
+    <p class="budget-quick-add-title">Add Magical Expense</p>
+    <form class="budget-quick-add-form" id="budget-quick-add-form">
+      <input type="text" id="bqa-description" placeholder="What did Mickey talk us into?" required />
+      <div class="budget-quick-add-row">
+        <input type="number" id="bqa-amount" placeholder="Cost ($)" step="0.01" min="0.01" required />
+        <select id="bqa-category">
+          <option value="Food">Dining 🍔</option>
+          <option value="Merch">Souvenirs 🛍️</option>
+          <option value="Hotel">Hotel 🏨</option>
+          <option value="Extras">Enchanting Extras ✨</option>
+          <option value="Tickets">Tickets/Genie+ 🎟️</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <input type="date" id="bqa-date" value="" style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid #d1d5db;border-radius:10px;font-family:Nunito,sans-serif;font-size:0.95rem;color:#1a1a2e;background:#fff;" />
+      <button type="submit" class="budget-quick-add-btn">Add Expense ✨</button>
+      <a href="budget.html" class="budget-quick-add-link">View Full Budget →</a>
+    </form>
+  </div>
+
+  <div class="nav-overlay hidden" id="nav-overlay"></div>
+</body>
+</html>
