@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disney — Packing List</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=16" />
+  <link rel="stylesheet" href="assets/css/header.css?v=16" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=16" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=16" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=16" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=16" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=16" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=16" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=16" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="page-packing">
+
+  <!-- Top Utility Bar -->
+  <div class="utility-bar">
+    <div class="utility-bar-inner">
+      <div id="utility-user-slot"></div>
+      <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+        <span class="weather-badge-icon" id="weather-badge-icon">🌤️</span>
+        <div class="weather-badge-text">
+          <span class="weather-badge-temp" id="weather-badge-temp">--°F</span>
+          <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="park-entrance">
+        <img src="assets/images/mickey-mouse-pose1.png" class="character-img mickey" alt="Mickey Mouse" />
+        <div class="entrance-sign">
+          <div class="entrance-arch">
+            <span class="entrance-eyebrow">Walt Disney World</span>
+            <h1 class="entrance-title">Packing List</h1>
+            <span class="entrance-subtitle">✨ Don't forget the magic ✨</span>
+          </div>
+        </div>
+        <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
+      </div>
+
+      <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu">
+        <div class="nav-pill-hamburger"><span></span><span></span><span></span></div>
+        <span class="nav-pill-label">Packing</span>
+      </div>
+
+      <!-- E-Ticket Nav Tray — populated by renderNav() in header.js -->
+      <div class="nav-ticket-tray" id="nav-ticket-tray">
+        <div class="nav-ticket-scroll hide-scrollbar"></div>
+      </div>
+
+      <div class="budget-pill" id="budget-pill" role="button" tabindex="0" aria-label="Quick add expense">
+        <span class="budget-pill-icon">💰</span>
+        <span class="budget-pill-amount" id="budget-pill-amount">Loading...</span>
+        <span class="budget-pill-label">remaining</span>
+        <span class="budget-pill-tap-hint">tap to add</span>
+      </div>
+
+      <div id="park-day-bar" class="park-day-bar">
+        <span class="park-day-bar-label" id="park-day-label">PARK DAY</span>
+        <span class="park-day-bar-title" id="park-day-title"></span>
+        <span class="park-day-bar-hours" id="park-day-hours"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page-content">
+    <div id="packing-app">
+      <p style="text-align:center; color:var(--muted); padding:3rem 0;">Loading your packing list...</p>
+    </div>
+  </main>
+
+  <script src="assets/js/script.js?v=16"></script>
+  <script src="assets/js/header.js?v=16"></script>
+  <script src="assets/js/budget.js?v=16"></script>
+
+  <style>
+    .pack-trip-pill { margin-bottom: 1.5rem; }
+
+    .pack-progress-bar {
+      height: 8px;
+      background: #f1f5f9;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 0.35rem;
+    }
+    .pack-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--castle-blue), var(--pixie-gold));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .pack-category-section { margin-bottom: 1.25rem; }
+    .pack-category-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin: 0 0 0.5rem;
+    }
+
+    .pack-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 1rem;
+      background: rgba(255,253,244,0.92);
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1.5px solid rgba(255,255,255,0.85);
+      margin-bottom: 0.4rem;
+      transition: opacity 0.2s;
+    }
+    .pack-item.is-checked { opacity: 0.5; }
+    .pack-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--castle-blue);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .pack-item-label {
+      flex: 1;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .pack-item.is-checked .pack-item-label {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+    .pack-item-delete {
+      background: none;
+      border: none;
+      color: #cbd5e1;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .pack-item-delete:hover { color: #ef4444; background: #fee2e2; }
+
+    .pack-add-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .pack-add-row input {
+      flex: 1;
+    }
+
+    .pack-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+    .pack-suggestion-chip {
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      border: 1.5px solid #e2e8f0;
+      background: white;
+      color: var(--castle-blue);
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .pack-suggestion-chip:hover { background: #eff6ff; border-color: #bfdbfe; }
+
+    .pack-empty {
+      text-align: center;
+      padding: 2rem 1rem;
+    }
+    .pack-empty-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+    .pack-stats {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .pack-clear-btn {
+      background: none;
+      border: 1.5px solid #fca5a5;
+      color: #b91c1c;
+      padding: 0.35rem 0.85rem;
+      border-radius: 8px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .pack-clear-btn:hover { background: #fee2e2; }
+  </style>
+
+  <script>
+  // ============================================================
+  // PACKING LIST PAGE
+  // Per-user, per-trip checklist. Items sync to the server.
+  // ============================================================
+
+  const PACKING_SUGGESTIONS = [
+    "Sunscreen", "Sunglasses", "Hat", "Comfortable shoes", "Phone charger",
+    "Rain poncho", "Portable fan", "Snacks", "Reusable water bottle",
+    "Mickey ears", "Park bag / backpack", "First aid kit", "Hand sanitizer",
+    "Autograph book", "Camera", "External battery", "Medication",
+    "Change of clothes", "Swimsuit", "Light jacket",
+  ];
+
+  const PACKING_CATEGORIES = {
+    "Clothing": ["Hat", "Mickey ears", "Comfortable shoes", "Light jacket", "Swimsuit", "Change of clothes"],
+    "Essentials": ["Sunscreen", "Sunglasses", "Phone charger", "External battery", "Medication", "Hand sanitizer"],
+    "Park Gear": ["Park bag / backpack", "Reusable water bottle", "Rain poncho", "Portable fan", "Snacks"],
+    "Memories": ["Camera", "Autograph book", "First aid kit"],
+  };
+
+  let _packingTripId = null;
+  let _packingItems = [];
+
+  async function initPackingPage() {
+    const app = document.getElementById("packing-app");
+    if (!app) return;
+
+    // Find active or upcoming trip
+    const todayStr = new Date().toISOString().split("T")[0];
+    let allTrips = [];
+    try { allTrips = await apiFetch("/trip-budgets"); } catch (e) {}
+
+    if (allTrips.length === 0) {
+      app.innerHTML = `
+        <div style="text-align:center; padding:3rem 1rem;">
+          <div style="font-size:3rem; margin-bottom:0.75rem;">🧳</div>
+          <h3 style="font-family:'Mouse Memoirs',sans-serif; color:var(--castle-blue);">No trips planned yet!</h3>
+          <p style="color:var(--slate);">Create a trip in the Planner to start your packing list.</p>
+          <a href="planner.html" class="primary-button" style="display:inline-block; margin-top:1rem; text-decoration:none;">Plan a Trip ✨</a>
+        </div>
+      `;
+      return;
+    }
+
+    // Trip selector — default to current or upcoming
+    const activeTrip = allTrips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
+    const upcomingTrip = allTrips.find(t => t.start_date > todayStr);
+    _packingTripId = (activeTrip || upcomingTrip || allTrips[0]).trip_id;
+
+    await renderPackingPage(allTrips);
+  }
+
+  async function renderPackingPage(allTrips) {
+    const app = document.getElementById("packing-app");
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    // Fetch current items
+    try { _packingItems = await apiFetch(`/trips/${_packingTripId}/packing`); } catch (e) { _packingItems = []; }
+
+    const checkedCount = _packingItems.filter(i => i.checked).length;
+    const totalCount = _packingItems.length;
+    const pct = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
+
+    // Trip selector
+    const tripOptions = allTrips.map(t => {
+      const tag = todayStr >= t.start_date && todayStr <= t.end_date ? " 🌟" :
+                  t.start_date > todayStr ? " 🗓️" : " ✅";
+      return `<option value="${t.trip_id}" ${t.trip_id === _packingTripId ? "selected" : ""}>${t.label}${tag}</option>`;
+    }).join("");
+
+    // Group items by category
+    const unchecked = _packingItems.filter(i => !i.checked);
+    const checked = _packingItems.filter(i => i.checked);
+
+    const itemRow = (item) => `
+      <div class="pack-item${item.checked ? " is-checked" : ""}" data-id="${item.id}">
+        <input type="checkbox" id="chk-${item.id}" ${item.checked ? "checked" : ""}
+          onchange="toggleItem('${item.id}', this.checked)" />
+        <label for="chk-${item.id}" class="pack-item-label">${escapeHtml(item.label)}</label>
+        <button class="pack-item-delete" onclick="removeItem('${item.id}')" title="Remove">✕</button>
+      </div>
+    `;
+
+    // Suggestions not already in the list
+    const existingLabels = new Set(_packingItems.map(i => i.label.toLowerCase()));
+    const suggestions = PACKING_SUGGESTIONS.filter(s => !existingLabels.has(s.toLowerCase())).slice(0, 10);
+
+    app.innerHTML = `
+      <!-- Trip Selector -->
+      <div class="pack-trip-pill">
+        <div class="budget-trip-pill">
+          <label class="card-label">Packing For</label>
+          <select id="pack-trip-select">${tripOptions}</select>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      ${totalCount > 0 ? `
+        <div class="card" style="margin-bottom:1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <p class="card-label" style="margin:0;">🧳 Packing Progress</p>
+            <span class="pack-stats">${checkedCount} / ${totalCount} packed</span>
+          </div>
+          <div class="pack-progress-bar">
+            <div class="pack-progress-fill" style="width:${pct}%;"></div>
+          </div>
+          ${pct === 100 ? `<p style="text-align:center; font-family:'Mouse Memoirs',sans-serif; color:var(--castle-blue); font-size:1.1rem; margin:0.5rem 0 0;">✅ All packed — you're ready for magic!</p>` : ""}
+        </div>
+      ` : ""}
+
+      <!-- Item List -->
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+          <h3 style="margin:0; font-family:'Mouse Memoirs',sans-serif; font-size:1.3rem; color:var(--castle-blue); letter-spacing:0.02em;">Your List</h3>
+          ${totalCount > 0 ? `<button class="pack-clear-btn" onclick="clearAllItems()">🗑️ Clear All</button>` : ""}
+        </div>
+
+        ${totalCount === 0 ? `
+          <div class="pack-empty">
+            <div class="pack-empty-icon">🧳</div>
+            <p style="color:var(--slate); margin:0;">Nothing added yet. Use the quick-add chips or type below!</p>
+          </div>
+        ` : `
+          ${unchecked.map(itemRow).join("")}
+          ${checked.length > 0 ? `
+            <details style="margin-top:0.75rem;">
+              <summary style="font-size:0.78rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; cursor:pointer; list-style:none; display:flex; align-items:center; gap:0.4rem; padding:0.25rem 0;">
+                ✅ Packed (${checked.length})
+              </summary>
+              <div style="margin-top:0.5rem;">
+                ${checked.map(itemRow).join("")}
+              </div>
+            </details>
+          ` : ""}
+        `}
+
+        <!-- Add New Item -->
+        <div class="pack-add-row" style="margin-top:1rem;">
+          <input type="text" id="pack-input" placeholder="Add an item..." class="wizard-field input" style="margin:0;" />
+          <button class="primary-button" style="white-space:nowrap; padding:0.65rem 1.1rem;" onclick="addItem()">+ Add</button>
+        </div>
+
+        <!-- Quick-Add Suggestions -->
+        ${suggestions.length > 0 ? `
+          <div class="pack-suggestions">
+            ${suggestions.map(s => `<button class="pack-suggestion-chip" onclick="addSuggestion('${escapeHtml(s)}')">${s}</button>`).join("")}
+          </div>
+        ` : ""}
+      </div>
+    `;
+
+    // Wire trip selector
+    document.getElementById("pack-trip-select")?.addEventListener("change", async (e) => {
+      _packingTripId = e.target.value;
+      await renderPackingPage(allTrips);
+    });
+
+    // Enter key to add
+    document.getElementById("pack-input")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addItem();
+    });
+  }
+
+  async function addItem() {
+    const input = document.getElementById("pack-input");
+    const label = input?.value.trim();
+    if (!label || !_packingTripId) return;
+    try {
+      await apiFetch(`/trips/${_packingTripId}/packing`, {
+        method: "POST",
+        body: JSON.stringify({ label }),
+      });
+      input.value = "";
+      const allTrips = await apiFetch("/trip-budgets").catch(() => []);
+      await renderPackingPage(allTrips);
+    } catch (e) { showToast("❌ Could not add item."); }
+  }
+
+  async function addSuggestion(label) {
+    if (!_packingTripId) return;
+    try {
+      await apiFetch(`/trips/${_packingTripId}/packing`, {
+        method: "POST",
+        body: JSON.stringify({ label }),
+      });
+      const allTrips = await apiFetch("/trip-budgets").catch(() => []);
+      await renderPackingPage(allTrips);
+    } catch (e) { showToast("❌ Could not add item."); }
+  }
+
+  async function toggleItem(id, checked) {
+    try {
+      await apiFetch(`/packing/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ checked }),
+      });
+      // Optimistic UI — just flip the class
+      const row = document.querySelector(`.pack-item[data-id="${id}"]`);
+      if (row) row.classList.toggle("is-checked", checked);
+      // Re-render stats
+      const allTrips = await apiFetch("/trip-budgets").catch(() => []);
+      await renderPackingPage(allTrips);
+    } catch (e) {}
+  }
+
+  async function removeItem(id) {
+    try {
+      await apiFetch(`/packing/${id}`, { method: "DELETE" });
+      const allTrips = await apiFetch("/trip-budgets").catch(() => []);
+      await renderPackingPage(allTrips);
+    } catch (e) { showToast("❌ Could not remove item."); }
+  }
+
+  async function clearAllItems() {
+    if (!_packingTripId) return;
+    const ok = await showConfirmDialog("Clear your entire packing list for this trip?");
+    if (!ok) return;
+    try {
+      await apiFetch(`/trips/${_packingTripId}/packing`, { method: "DELETE" });
+      const allTrips = await apiFetch("/trip-budgets").catch(() => []);
+      await renderPackingPage(allTrips);
+    } catch (e) { showToast("❌ Could not clear list."); }
+  }
+
+  // Hook into initApp
+  const _origPackingInitApp = window.initApp || initApp;
+  initApp = function() {
+    _origPackingInitApp();
+    getStoredItinerary().then(() => initPackingPage());
+  };
+  </script>
+
+  <!-- Weather Forecast Modal -->
+  <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="weather-modal-card">
+      <button class="weather-modal-close" id="weather-modal-close" aria-label="Close">✕</button>
+      <div id="weather-modal-content">
+        <div class="weather-loading">🌤️ Fetching forecast...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Budget Quick-Add Popover -->
+  <div class="budget-quick-add" id="budget-quick-add">
+    <button class="budget-quick-add-close" id="budget-quick-add-close" aria-label="Close">✕</button>
+    <p class="budget-quick-add-title">Add Magical Expense</p>
+    <form class="budget-quick-add-form" id="budget-quick-add-form">
+      <input type="text" id="bqa-description" placeholder="What did Mickey talk us into?" required />
+      <div class="budget-quick-add-row">
+        <input type="number" id="bqa-amount" placeholder="Cost ($)" step="0.01" min="0.01" required />
+        <select id="bqa-category">
+          <option value="Food">Dining 🍔</option>
+          <option value="Merch">Souvenirs 🛍️</option>
+          <option value="Hotel">Hotel 🏨</option>
+          <option value="Extras">Enchanting Extras ✨</option>
+          <option value="Tickets">Tickets/Genie+ 🎟️</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <input type="date" id="bqa-date" value="" style="width:100%;padding:0.65rem 0.9rem;border:1.5px solid #d1d5db;border-radius:10px;font-family:Nunito,sans-serif;font-size:0.95rem;color:#1a1a2e;background:#fff;" />
+      <button type="submit" class="budget-quick-add-btn">Add Expense ✨</button>
+      <a href="budget.html" class="budget-quick-add-link">View Full Budget →</a>
+    </form>
+  </div>
+
+  <div class="nav-overlay hidden" id="nav-overlay"></div>
+</body>
+</html>

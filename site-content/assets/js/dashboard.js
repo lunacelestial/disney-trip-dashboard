@@ -301,7 +301,7 @@ async function renderDashboardBudgetCard() {
   if (!h3) return;
 
   try {
-    const allTrips = await fetch("/api/trip-budgets").then(r => r.json());
+    const allTrips = await apiFetch("/trip-budgets");
     const today = new Date().toISOString().split("T")[0];
     const trip = allTrips.find(t => today >= t.start_date && today <= t.end_date)
       || allTrips.find(t => t.start_date > today)
@@ -495,6 +495,7 @@ function renderNormalDashboard() {
   renderDashboardItinerary();
   renderDashboardBudgetCard();
   renderDashboardWishlistCard();
+  renderWaitTimesCard();
 
   const dashList = document.getElementById("dashboard-itinerary-list");
   if (dashList) {
@@ -505,6 +506,119 @@ function renderNormalDashboard() {
         handleDashboardListClick(e);
       }
     });
+  }
+}
+
+// ── Live Wait Times Card ──────────────────────────────────────
+// Shown during an active trip when today is a park day.
+// Fetches live wait times from ThemeParks.wiki.
+
+const WAIT_TIMES_PARK_IDS = {
+  "magic-kingdom":     "75ea578a-adc8-4116-a54d-dccb60765ef9",
+  "epcot":             "47f90d2c-e191-4239-a466-5892ef59a88b",
+  "hollywood-studios": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+  "animal-kingdom":    "1c84a229-8862-4648-9c71-378ddd2c7693",
+};
+
+const WAIT_PARK_LABELS = {
+  "magic-kingdom":     "🏰 Magic Kingdom",
+  "epcot":             "🌍 EPCOT",
+  "hollywood-studios": "🎬 Hollywood Studios",
+  "animal-kingdom":    "🌿 Animal Kingdom",
+};
+
+async function renderWaitTimesCard() {
+  const section = document.getElementById("wait-times-section");
+  if (!section) return;
+
+  // Only show during active trip
+  const todayStr = new Date().toISOString().split("T")[0];
+  let allTrips = [];
+  try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { return; }
+  const activeTrip = allTrips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
+  if (!activeTrip) return;
+
+  // Only show if today is a assigned park day
+  const allParkDays = await ParkDaysDB.getAll();
+  const todayPark = allParkDays.find(pd => pd.date === todayStr);
+  if (!todayPark) return;
+
+  const parkId = WAIT_TIMES_PARK_IDS[todayPark.park];
+  const parkLabel = WAIT_PARK_LABELS[todayPark.park] || todayPark.park;
+  if (!parkId) return;
+
+  // Show skeleton while loading
+  section.style.display = "";
+  section.innerHTML = `
+    <div class="info-card" style="margin-bottom:0;">
+      <p class="card-label">⏱️ Live Wait Times · ${parkLabel}</p>
+      <p style="color:var(--muted); font-size:0.9rem;">Fetching live data...</p>
+    </div>
+  `;
+
+  try {
+    const data = await fetch(`https://api.themeparks.wiki/v1/entity/${parkId}/live`)
+      .then(r => { if (!r.ok) throw new Error("API error"); return r.json(); });
+
+    // Filter to operating rides with wait times, sort by wait ascending
+    const rides = (data.liveData || [])
+      .filter(r => r.entityType === "ATTRACTION" && r.status === "OPERATING" && r.queue?.STANDBY?.waitTime != null)
+      .sort((a, b) => a.queue.STANDBY.waitTime - b.queue.STANDBY.waitTime);
+
+    if (rides.length === 0) {
+      section.style.display = "none";
+      return;
+    }
+
+    // Show top 12 rides (shortest waits first — useful for planning)
+    const shown = rides.slice(0, 12);
+    const maxWait = Math.max(...shown.map(r => r.queue.STANDBY.waitTime), 1);
+
+    const rideRows = shown.map(r => {
+      const wait = r.queue.STANDBY.waitTime;
+      const pct = Math.round((wait / maxWait) * 100);
+      const color = wait <= 20 ? "#22c55e" : wait <= 45 ? "#f59e0b" : "#ef4444";
+      return `
+        <div style="display:flex; align-items:center; gap:0.75rem; padding:0.4rem 0; border-bottom:1px solid rgba(0,0,0,0.04);">
+          <div style="flex:1; min-width:0;">
+            <p style="margin:0; font-size:0.88rem; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(r.name)}</p>
+            <div style="height:4px; background:#f1f5f9; border-radius:999px; margin-top:3px; overflow:hidden;">
+              <div style="height:100%; width:${pct}%; background:${color}; border-radius:999px; transition:width 0.4s ease;"></div>
+            </div>
+          </div>
+          <span style="font-family:'Mouse Memoirs',sans-serif; font-size:1.05rem; color:${color}; min-width:44px; text-align:right; flex-shrink:0;">${wait}m</span>
+        </div>
+      `;
+    }).join("");
+
+    const updatedAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+    section.innerHTML = `
+      <div class="info-card" style="margin-bottom:0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+          <p class="card-label" style="margin:0;">⏱️ Live Wait Times · ${parkLabel}</p>
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <span style="font-size:0.72rem; color:var(--muted); font-weight:600;">Updated ${updatedAt}</span>
+            <button id="wait-times-refresh-btn" style="background:none; border:1.5px solid #e2e8f0; border-radius:8px; padding:0.2rem 0.6rem; cursor:pointer; font-size:0.75rem; font-weight:700; color:var(--castle-blue); font-family:'Nunito',sans-serif;">↻ Refresh</button>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem;">
+          <div>${rideRows.slice(0, Math.ceil(rideRows.length / 2)).join("")}</div>
+          <div>${rideRows.slice(Math.ceil(rideRows.length / 2)).join("")}</div>
+        </div>
+        <p style="font-size:0.7rem; color:var(--muted); margin:0.75rem 0 0; text-align:right;">
+          Shortest waits shown first · <a href="https://queue-times.com" target="_blank" rel="noopener" style="color:var(--muted);">Data: ThemeParks.wiki</a>
+        </p>
+      </div>
+    `;
+
+    document.getElementById("wait-times-refresh-btn")?.addEventListener("click", () => {
+      renderWaitTimesCard();
+    });
+
+  } catch (err) {
+    console.warn("[WaitTimes] Failed to fetch:", err);
+    section.style.display = "none";
   }
 }
 

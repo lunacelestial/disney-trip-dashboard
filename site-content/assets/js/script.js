@@ -1050,6 +1050,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function initApp() {
+  // Render nav tray from single source of truth (eliminates copy-pasted SVG in every HTML file)
+  try { if (typeof renderNav === "function") renderNav(); } catch(e) { console.error("[initApp] renderNav error:", e); }
+
   getStoredItinerary().then(() => {
     // Page-specific inits — each file registers its own if present
     try { if (typeof initializeItineraryPage === "function") initializeItineraryPage(); } catch(e) { console.error("[initApp] error:", e); }

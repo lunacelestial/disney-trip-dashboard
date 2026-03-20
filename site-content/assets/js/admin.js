@@ -200,7 +200,10 @@ async function renderUserManagement() {
               <strong>${u.name}</strong> <span style="font-size:0.8rem; color:var(--muted);">${u.email}</span>
               ${u.role === "admin" ? '<span style="font-size:0.7rem; background:var(--castle-blue); color:white; padding:0.15rem 0.4rem; border-radius:4px; margin-left:0.5rem; font-weight:700;">ADMIN</span>' : ""}
             </div>
-            <button type="button" class="delete-user-btn" data-id="${u.id}" style="background:none; border:none; cursor:pointer; color:#94a3b8; font-size:1.1rem;">✕</button>
+            <div style="display:flex; gap:0.4rem; align-items:center;">
+              <button type="button" class="revoke-sessions-btn" data-id="${u.id}" title="Force logout — revoke all sessions" style="background:none; border:1px solid #fca5a5; cursor:pointer; color:#b91c1c; font-size:0.72rem; font-weight:700; padding:0.2rem 0.55rem; border-radius:6px; font-family:'Nunito',sans-serif;">⛔ Logout</button>
+              <button type="button" class="delete-user-btn" data-id="${u.id}" style="background:none; border:none; cursor:pointer; color:#94a3b8; font-size:1.1rem;">✕</button>
+            </div>
           </div>
         `).join("")}
       </div>
@@ -248,6 +251,14 @@ async function renderUserManagement() {
       if (!confirm("Remove this user?")) return;
       await adminFetch(`/admin/users/${btn.dataset.id}`, { method: "DELETE" });
       renderUserManagement();
+    });
+  });
+
+  section.querySelectorAll(".revoke-sessions-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Force log out this user? Their current sessions will be invalidated immediately.")) return;
+      const result = await adminFetch(`/admin/users/${btn.dataset.id}/revoke-sessions`, { method: "POST" });
+      alert(`✅ Revoked ${result.revoked} session${result.revoked !== 1 ? "s" : ""}.`);
     });
   });
 }

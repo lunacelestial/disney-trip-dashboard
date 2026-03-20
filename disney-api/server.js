@@ -232,6 +232,19 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS packing_items (
+    id          TEXT PRIMARY KEY,
+    trip_id     TEXT NOT NULL,
+    user_id     TEXT NOT NULL,
+    label       TEXT NOT NULL,
+    checked     INTEGER NOT NULL DEFAULT 0,
+    category    TEXT DEFAULT 'General',
+    created     TEXT DEFAULT (datetime('now')),
+    updated     TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (trip_id) REFERENCES trip_budgets(trip_id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS trip_acknowledged (
     trip_id     TEXT NOT NULL,
     user_id     TEXT NOT NULL,
@@ -426,6 +439,16 @@ const stmts = {
 
   // Confirm user budget (flip from saving mode to spending mode)
   confirmUserBudget:             db.prepare("UPDATE user_budgets SET confirmed = 1, updated = datetime('now') WHERE trip_id = ? AND user_id = ?"),
+
+  // Packing List
+  getPackingItems:      db.prepare("SELECT * FROM packing_items WHERE trip_id = ? AND user_id = ? ORDER BY category, created"),
+  insertPackingItem:    db.prepare(`
+    INSERT INTO packing_items (id, trip_id, user_id, label, checked, category)
+    VALUES (@id, @trip_id, @user_id, @label, 0, @category)
+  `),
+  updatePackingChecked: db.prepare("UPDATE packing_items SET checked = @checked, updated = datetime('now') WHERE id = @id AND user_id = @user_id"),
+  deletePackingItem:    db.prepare("DELETE FROM packing_items WHERE id = ? AND user_id = ?"),
+  clearPackingItems:    db.prepare("DELETE FROM packing_items WHERE trip_id = ? AND user_id = ?"),
 };
 
 // ── ACTIVITIES ROUTES ──────────────────────────────────────
@@ -665,12 +688,9 @@ app.delete("/api/trip-budgets/:trip_id", (req, res) => {
 });
 
 // DELETE /api/trips/:tripId/cancel — full trip cancellation
-// Deletes: activities (by date range), parkdays, budget, transactions, members, photos (DB + files)
-// Works even if no trip_budgets entry exists — parses dates from the trip ID (trip-YYYY-MM-DD-YYYY-MM-DD)
 app.delete("/api/trips/:tripId/cancel", (req, res) => {
   const tripId = req.params.tripId;
 
-  // Try to get date range from trip_budgets first
   const trip = stmts.getTripBudget.get(tripId);
   let start_date, end_date;
 
@@ -678,7 +698,6 @@ app.delete("/api/trips/:tripId/cancel", (req, res) => {
     start_date = trip.start_date;
     end_date = trip.end_date;
   } else {
-    // Fallback: parse dates from the trip ID format "trip-YYYY-MM-DD-YYYY-MM-DD"
     const match = tripId.match(/^trip-(\d{4}-\d{2}-\d{2})-(\d{4}-\d{2}-\d{2})$/);
     if (match) {
       start_date = match[1];
@@ -689,32 +708,21 @@ app.delete("/api/trips/:tripId/cancel", (req, res) => {
   }
 
   const cancelTrip = db.transaction(() => {
-    // 1. Delete activities in the date range
     db.prepare("DELETE FROM activities WHERE date >= ? AND date <= ?").run(start_date, end_date);
-
-    // 2. Delete park day assignments in the date range
     db.prepare("DELETE FROM parkdays WHERE date >= ? AND date <= ?").run(start_date, end_date);
 
-    // 3. Find all trip_budgets rows that overlap this date range (catches mismatched trip_ids)
-    //    This handles the case where history.html constructs a tripId from activity dates
-    //    but the stored trip_budgets row has a different trip_id (e.g. from the planner wizard).
     const overlappingBudgets = db.prepare(
       "SELECT trip_id FROM trip_budgets WHERE start_date <= ? AND end_date >= ?"
     ).all(end_date, start_date);
 
     const allRelatedTripIds = new Set([tripId, ...overlappingBudgets.map(b => b.trip_id)]);
 
-    // 4. Delete transactions for all related trip IDs
     for (const tid of allRelatedTripIds) {
       db.prepare("DELETE FROM transactions WHERE trip_id = ?").run(tid);
     }
-
-    // 5. Delete trip members for all related trip IDs
     for (const tid of allRelatedTripIds) {
       db.prepare("DELETE FROM trip_members WHERE trip_id = ?").run(tid);
     }
-
-    // 6. Delete photos from DB (and try to clean up files) for all related trip IDs
     for (const tid of allRelatedTripIds) {
       const photos = db.prepare("SELECT * FROM photos WHERE trip_id = ?").all(tid);
       for (const photo of photos) {
@@ -725,23 +733,15 @@ app.delete("/api/trips/:tripId/cancel", (req, res) => {
       const tripPhotoDir = path.join(PHOTOS_DIR, tid);
       try { fs.rmdirSync(tripPhotoDir); } catch (e) { /* may not be empty or exist */ }
     }
-
-    // 7. Delete all matching trip_budgets rows (by ID and by date range)
     for (const tid of allRelatedTripIds) {
       stmts.deleteTripBudget.run(tid);
     }
-
-    // 8. Delete user_budgets for all related trip IDs
     for (const tid of allRelatedTripIds) {
       db.prepare("DELETE FROM user_budgets WHERE trip_id = ?").run(tid);
     }
-
-    // 9. Delete trip acknowledgments for all related trip IDs
     for (const tid of allRelatedTripIds) {
       db.prepare("DELETE FROM trip_acknowledged WHERE trip_id = ?").run(tid);
     }
-
-    // 10. Delete budget contributions for all related trip IDs
     for (const tid of allRelatedTripIds) {
       db.prepare("DELETE FROM budget_contributions WHERE trip_id = ?").run(tid);
     }
@@ -758,19 +758,16 @@ app.delete("/api/trips/:tripId/cancel", (req, res) => {
 
 // ── PARK DAYS ROUTES ───────────────────────────────────────
 
-// GET /api/parkdays — list all
 app.get("/api/parkdays", (req, res) => {
   res.json(stmts.getAllParkDays.all());
 });
 
-// GET /api/parkdays/:date — get one
 app.get("/api/parkdays/:date", (req, res) => {
   const row = stmts.getParkDay.get(req.params.date);
   if (!row) return res.status(404).json({ error: "Not found" });
   res.json(row);
 });
 
-// POST /api/parkdays — set one or many (upsert)
 app.post("/api/parkdays", (req, res) => {
   const body = req.body;
   const items = Array.isArray(body) ? body : [body];
@@ -792,7 +789,6 @@ app.post("/api/parkdays", (req, res) => {
   }
 });
 
-// DELETE /api/parkdays/:date — remove one
 app.delete("/api/parkdays/:date", (req, res) => {
   stmts.deleteParkDay.run(req.params.date);
   res.json({ ok: true });
@@ -800,7 +796,6 @@ app.delete("/api/parkdays/:date", (req, res) => {
 
 // ── VENUES ROUTES ──────────────────────────────────────────
 
-// GET /api/venues — list all (sorted by most used)
 app.get("/api/venues", (req, res) => {
   const q = req.query.q;
   if (q) {
@@ -810,14 +805,11 @@ app.get("/api/venues", (req, res) => {
   }
 });
 
-// POST /api/venues — upsert a venue (create or update if name exists)
-// If user is admin, applies directly. Otherwise creates a pending change.
 app.post("/api/venues", (req, res) => {
   const { name, location, url, type } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: "Name required" });
 
   try {
-    // Check if caller is admin
     const token = (req.headers.authorization || "").replace("Bearer ", "");
     const session = token ? db.prepare("SELECT s.*, u.role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.token = ?").get(token) : null;
     const isAdmin = session && session.role === "admin";
@@ -825,7 +817,6 @@ app.post("/api/venues", (req, res) => {
     const existing = stmts.getVenueByName.get(name.trim());
 
     if (isAdmin) {
-      // Admin: apply directly
       if (existing) {
         stmts.updateVenue.run({
           id: existing.id,
@@ -844,7 +835,6 @@ app.post("/api/venues", (req, res) => {
       }
       res.json(stmts.getAllVenues.all());
     } else {
-      // Non-admin: create pending change
       const changeType = existing ? "update" : "new";
       const userName = session ? db.prepare("SELECT name FROM users WHERE id = ?").get(session.user_id)?.name || "Unknown" : "Anonymous";
 
@@ -860,7 +850,6 @@ app.post("/api/venues", (req, res) => {
         userName
       );
 
-      // Still return current venues for autocomplete to work
       res.json(stmts.getAllVenues.all());
     }
   } catch (err) {
@@ -869,7 +858,6 @@ app.post("/api/venues", (req, res) => {
   }
 });
 
-// DELETE /api/venues/:id
 app.delete("/api/venues/:id", (req, res) => {
   stmts.deleteVenue.run(req.params.id);
   res.json({ ok: true });
@@ -877,7 +865,6 @@ app.delete("/api/venues/:id", (req, res) => {
 
 // ── AUTH ROUTES ────────────────────────────────────────────
 
-// POST /api/auth/login — email-based login
 app.post("/api/auth/login", (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email required" });
@@ -885,7 +872,6 @@ app.post("/api/auth/login", (req, res) => {
   const user = db.prepare("SELECT * FROM users WHERE LOWER(email) = LOWER(?)").get(email.trim());
   if (!user) return res.status(401).json({ error: "Email not authorized" });
 
-  // Create session token
   const token = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   db.prepare("INSERT INTO sessions (token, user_id) VALUES (?, ?)").run(token, user.id);
 
@@ -895,7 +881,6 @@ app.post("/api/auth/login", (req, res) => {
   });
 });
 
-// GET /api/auth/me — get current user from token
 app.get("/api/auth/me", (req, res) => {
   const token = (req.headers.authorization || "").replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Not logged in" });
@@ -909,21 +894,18 @@ app.get("/api/auth/me", (req, res) => {
   res.json(row);
 });
 
-// POST /api/auth/logout
 app.post("/api/auth/logout", (req, res) => {
   const token = (req.headers.authorization || "").replace("Bearer ", "");
   if (token) db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
   res.json({ ok: true });
 });
 
-// GET /api/users — public list of users (for trip member assignment)
 app.get("/api/users", (req, res) => {
   res.json(db.prepare("SELECT id, name, email, role FROM users ORDER BY name").all());
 });
 
 // ── ADMIN ROUTES ───────────────────────────────────────────
 
-// Middleware: require admin
 function requireAdmin(req, res, next) {
   const token = (req.headers.authorization || "").replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Not logged in" });
@@ -936,12 +918,10 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// GET /api/admin/users — list all users
 app.get("/api/admin/users", requireAdmin, (req, res) => {
   res.json(db.prepare("SELECT id, email, name, role, created FROM users ORDER BY created").all());
 });
 
-// POST /api/admin/users — add a user
 app.post("/api/admin/users", requireAdmin, (req, res) => {
   const { email, name, role } = req.body;
   if (!email || !name) return res.status(400).json({ error: "Email and name required" });
@@ -959,19 +939,21 @@ app.post("/api/admin/users", requireAdmin, (req, res) => {
   }
 });
 
-// DELETE /api/admin/users/:id
 app.delete("/api/admin/users/:id", requireAdmin, (req, res) => {
   db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
   db.prepare("DELETE FROM sessions WHERE user_id = ?").run(req.params.id);
   res.json(db.prepare("SELECT id, email, name, role, created FROM users ORDER BY created").all());
 });
 
-// GET /api/admin/pending — list pending venue changes
+app.post("/api/admin/users/:id/revoke-sessions", requireAdmin, (req, res) => {
+  const result = db.prepare("DELETE FROM sessions WHERE user_id = ?").run(req.params.id);
+  res.json({ ok: true, revoked: result.changes });
+});
+
 app.get("/api/admin/pending", requireAdmin, (req, res) => {
   res.json(db.prepare("SELECT * FROM pending_venues WHERE status = 'pending' ORDER BY created DESC").all());
 });
 
-// POST /api/admin/pending/:id/approve — approve a pending change
 app.post("/api/admin/pending/:id/approve", requireAdmin, (req, res) => {
   const pending = db.prepare("SELECT * FROM pending_venues WHERE id = ?").get(req.params.id);
   if (!pending) return res.status(404).json({ error: "Not found" });
@@ -1000,18 +982,15 @@ app.post("/api/admin/pending/:id/approve", requireAdmin, (req, res) => {
   res.json(db.prepare("SELECT * FROM pending_venues WHERE status = 'pending' ORDER BY created DESC").all());
 });
 
-// POST /api/admin/pending/:id/reject
 app.post("/api/admin/pending/:id/reject", requireAdmin, (req, res) => {
   db.prepare("UPDATE pending_venues SET status = 'rejected' WHERE id = ?").run(req.params.id);
   res.json(db.prepare("SELECT * FROM pending_venues WHERE status = 'pending' ORDER BY created DESC").all());
 });
 
-// GET /api/admin/venues — full venue management
 app.get("/api/admin/venues", requireAdmin, (req, res) => {
   res.json(stmts.getAllVenues.all());
 });
 
-// PUT /api/admin/venues/:id — edit a venue directly
 app.put("/api/admin/venues/:id", requireAdmin, (req, res) => {
   const { name, location, url, type, park, land, description, avg_wait, image_url, tags } = req.body;
   db.prepare(`UPDATE venues SET name=?, location=?, url=?, type=?, park=?, land=?, description=?, avg_wait=?, image_url=?, tags=?, updated=datetime('now') WHERE id=?`).run(
@@ -1020,7 +999,6 @@ app.put("/api/admin/venues/:id", requireAdmin, (req, res) => {
   res.json(stmts.getAllVenues.all());
 });
 
-// POST /api/admin/venues — create a single new venue
 app.post("/api/admin/venues", requireAdmin, (req, res) => {
   const { name, location, url, type, park, land, description, avg_wait, image_url, tags } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: "Name is required" });
@@ -1031,13 +1009,11 @@ app.post("/api/admin/venues", requireAdmin, (req, res) => {
   res.json({ id, name: name.trim() });
 });
 
-// DELETE /api/admin/venues/:id — delete a single venue
 app.delete("/api/admin/venues/:id", requireAdmin, (req, res) => {
   db.prepare("DELETE FROM venues WHERE id = ?").run(req.params.id);
   res.json({ ok: true });
 });
 
-// POST /api/admin/venues/seed — bulk seed venues
 app.post("/api/admin/venues/seed", requireAdmin, (req, res) => {
   const venues = req.body;
   if (!Array.isArray(venues)) return res.status(400).json({ error: "Array expected" });
@@ -1070,19 +1046,15 @@ app.post("/api/admin/venues/seed", requireAdmin, (req, res) => {
 
 // ── TRIP MEMBER ROUTES ─────────────────────────────────────
 
-// GET /api/trips/:tripId/members — list members of a trip
 app.get("/api/trips/:tripId/members", (req, res) => {
   res.json(stmts.getTripMembers.all(req.params.tripId));
 });
 
-// POST /api/trips/:tripId/members — add a member to a trip
 app.post("/api/trips/:tripId/members", (req, res) => {
   const { user_id } = req.body;
   if (!user_id) return res.status(400).json({ error: "user_id required" });
   stmts.addTripMember.run(req.params.tripId, user_id);
 
-  // Auto-acknowledge if the person adding is also the person being added
-  // (they already know about the trip — no splash needed)
   const currentUser = getUserFromToken(req);
   if (currentUser && currentUser.id === user_id) {
     stmts.acknowledgTrip.run(req.params.tripId, user_id);
@@ -1091,20 +1063,17 @@ app.post("/api/trips/:tripId/members", (req, res) => {
   res.json(stmts.getTripMembers.all(req.params.tripId));
 });
 
-// DELETE /api/trips/:tripId/members/:userId — remove a member
 app.delete("/api/trips/:tripId/members/:userId", (req, res) => {
   stmts.removeTripMember.run(req.params.tripId, req.params.userId);
   res.json(stmts.getTripMembers.all(req.params.tripId));
 });
 
-// GET /api/users/:userId/trips — get trips a user is assigned to
 app.get("/api/users/:userId/trips", (req, res) => {
   res.json(stmts.getUserTrips.all(req.params.userId));
 });
 
-// ── USER BUDGET ROUTES (per-user, per-trip) ──────────────────
+// ── USER BUDGET ROUTES ────────────────────────────────────
 
-// GET /api/trips/:tripId/my-budget — get current user's personal budget
 app.get("/api/trips/:tripId/my-budget", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
@@ -1134,7 +1103,6 @@ app.get("/api/trips/:tripId/my-budget", (req, res) => {
   });
 });
 
-// PUT /api/trips/:tripId/my-budget — set/update current user's personal budget
 app.put("/api/trips/:tripId/my-budget", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
@@ -1156,7 +1124,6 @@ app.put("/api/trips/:tripId/my-budget", (req, res) => {
   res.json({ ...ub, total, spent: mySpent, transactions: myTx, exists: true });
 });
 
-// GET /api/trips/:tripId/budgets — admin/group view: all users' budgets for a trip
 app.get("/api/trips/:tripId/budgets", (req, res) => {
   const userBudgets = stmts.getUserBudgetsByTrip.all(req.params.tripId);
   const result = userBudgets.map(ub => {
@@ -1168,16 +1135,14 @@ app.get("/api/trips/:tripId/budgets", (req, res) => {
   res.json(result);
 });
 
-// ── TRIP ACKNOWLEDGMENT ROUTES ───────────────────────────────
+// ── TRIP ACKNOWLEDGMENT ROUTES ────────────────────────────
 
-// GET /api/my/unacknowledged-trips — trips the current user hasn't seen yet
 app.get("/api/my/unacknowledged-trips", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
   res.json(stmts.getUnacknowledgedTrips.all(user.id));
 });
 
-// POST /api/trips/:tripId/acknowledge — mark a trip as seen by current user
 app.post("/api/trips/:tripId/acknowledge", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
@@ -1185,9 +1150,8 @@ app.post("/api/trips/:tripId/acknowledge", (req, res) => {
   res.json({ ok: true });
 });
 
-// ── BUDGET CONTRIBUTION ROUTES ───────────────────────────────
+// ── BUDGET CONTRIBUTION ROUTES ────────────────────────────
 
-// GET /api/trips/:tripId/my-contributions — list current user's contributions
 app.get("/api/trips/:tripId/my-contributions", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
@@ -1196,7 +1160,6 @@ app.get("/api/trips/:tripId/my-contributions", (req, res) => {
   res.json({ contributions, totalContributed });
 });
 
-// POST /api/trips/:tripId/contributions — add a contribution
 app.post("/api/trips/:tripId/contributions", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
@@ -1218,13 +1181,11 @@ app.post("/api/trips/:tripId/contributions", (req, res) => {
   res.json({ contributions, totalContributed });
 });
 
-// DELETE /api/contributions/:id — remove a contribution
 app.delete("/api/contributions/:id", (req, res) => {
   stmts.deleteContribution.run(req.params.id);
   res.json({ ok: true });
 });
 
-// POST /api/trips/:tripId/confirm-budget — lock in budget for spending mode
 app.post("/api/trips/:tripId/confirm-budget", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
@@ -1237,7 +1198,6 @@ app.post("/api/trips/:tripId/confirm-budget", (req, res) => {
 
 // ── PHOTO ROUTES ──────────────────────────────────────────
 
-// Configure multer for photo uploads
 const photoUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1251,14 +1211,13 @@ const photoUpload = multer({
       cb(null, name);
     },
   }),
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB max
+  limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /^image\/(jpeg|jpg|png|gif|webp|heic|heif)$/i;
-    cb(null, allowed.test(file.mimetype));
+    const allowed = /^image\//i;
+    cb(null, allowed.test(file.mimetype) || file.mimetype === "application/octet-stream");
   },
 });
 
-// Configure multer for wishlist image uploads
 const wishlistUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1271,19 +1230,17 @@ const wishlistUpload = multer({
       cb(null, name);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /^image\/(jpeg|jpg|png|gif|webp|heic|heif)$/i;
-    cb(null, allowed.test(file.mimetype));
+    const allowed = /^image\//i;
+    cb(null, allowed.test(file.mimetype) || file.mimetype === "application/octet-stream");
   },
 });
 
-// GET /api/trips/:tripId/photos — list photos for a trip
 app.get("/api/trips/:tripId/photos", (req, res) => {
   res.json(stmts.getPhotosByTrip.all(req.params.tripId));
 });
 
-// POST /api/trips/:tripId/photos — upload photos to a trip
 app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), (req, res) => {
   try {
     const results = [];
@@ -1305,7 +1262,6 @@ app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), (req, res
   }
 });
 
-// GET /api/photos/:id/file — serve the actual image file
 app.get("/api/photos/:id/file", (req, res) => {
   const photo = stmts.getPhoto.get(req.params.id);
   if (!photo) return res.status(404).json({ error: "Photo not found" });
@@ -1316,12 +1272,10 @@ app.get("/api/photos/:id/file", (req, res) => {
   res.sendFile(filePath);
 });
 
-// DELETE /api/photos/:id — delete a photo
 app.delete("/api/photos/:id", (req, res) => {
   const photo = stmts.getPhoto.get(req.params.id);
   if (!photo) return res.status(404).json({ error: "Not found" });
 
-  // Delete file from disk
   const filePath = path.join(PHOTOS_DIR, photo.trip_id, photo.filename);
   try { fs.unlinkSync(filePath); } catch (e) { /* file may already be gone */ }
 
@@ -1329,20 +1283,18 @@ app.delete("/api/photos/:id", (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/wishlist/upload-image — upload wishlist image to motherbrain
 app.post("/api/wishlist/upload-image", wishlistUpload.single("image"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No image uploaded" });
   res.json({ filename: req.file.filename });
 });
 
-// GET /api/wishlist/image/:filename — serve a wishlist image
 app.get("/api/wishlist/image/:filename", (req, res) => {
   const filePath = path.join(WISHLIST_DIR, req.params.filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
   res.sendFile(filePath);
 });
 
-// ── VENUE IMAGE UPLOAD ───────────────────────────────────
+// ── VENUE IMAGE UPLOAD ────────────────────────────────────
 
 const venueImageUpload = multer({
   storage: multer.diskStorage({
@@ -1356,32 +1308,28 @@ const venueImageUpload = multer({
       cb(null, name);
     },
   }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /^image\/(jpeg|jpg|png|gif|webp|heic|heif)$/i;
-    cb(null, allowed.test(file.mimetype));
+    const allowed = /^image\//i;
+    cb(null, allowed.test(file.mimetype) || file.mimetype === "application/octet-stream");
   },
 });
 
-// POST /api/admin/venues/:id/image — upload a venue image
 app.post("/api/admin/venues/:id/image", requireAdmin, venueImageUpload.single("image"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No image uploaded" });
 
   const filename = req.file.filename;
 
-  // Delete old image if exists
   const venue = stmts.getAllVenues.all().find(v => v.id === req.params.id);
   if (venue && venue.image_url) {
     const oldFile = path.join(VENUES_DIR, venue.image_url);
     try { fs.unlinkSync(oldFile); } catch (e) { /* may not exist */ }
   }
 
-  // Store just the filename in the DB
   db.prepare("UPDATE venues SET image_url = ?, updated = datetime('now') WHERE id = ?").run(filename, req.params.id);
   res.json({ filename });
 });
 
-// GET /api/venues/image/:filename — serve a venue image
 app.get("/api/venues/image/:filename", (req, res) => {
   const filePath = path.join(VENUES_DIR, req.params.filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
@@ -1390,12 +1338,10 @@ app.get("/api/venues/image/:filename", (req, res) => {
 
 // ── FAVORITE RIDES ROUTES ─────────────────────────────────
 
-// GET /api/favorite-rides/:userId
 app.get("/api/favorite-rides/:userId", (req, res) => {
   res.json(stmts.getFavoriteRides.all(req.params.userId));
 });
 
-// POST /api/favorite-rides
 app.post("/api/favorite-rides", (req, res) => {
   try {
     stmts.insertFavoriteRide.run({
@@ -1412,7 +1358,6 @@ app.post("/api/favorite-rides", (req, res) => {
   }
 });
 
-// DELETE /api/favorite-rides/:id
 app.delete("/api/favorite-rides/:id", (req, res) => {
   stmts.deleteFavoriteRide.run(req.params.id);
   res.json({ ok: true });
@@ -1420,17 +1365,14 @@ app.delete("/api/favorite-rides/:id", (req, res) => {
 
 // ── DINING MEMORY ROUTES ──────────────────────────────────
 
-// GET /api/dining-memories/:userId — all memories for a user
 app.get("/api/dining-memories/:userId", (req, res) => {
   res.json(stmts.getAllDiningMemories.all(req.params.userId));
 });
 
-// GET /api/dining-memories/:userId/:venueName — memories for a specific venue
 app.get("/api/dining-memories/:userId/:venueName", (req, res) => {
   res.json(stmts.getDiningMemories.all(req.params.userId, decodeURIComponent(req.params.venueName)));
 });
 
-// POST /api/dining-memories — save a new dining memory
 app.post("/api/dining-memories", (req, res) => {
   try {
     stmts.insertDiningMemory.run({
@@ -1448,16 +1390,340 @@ app.post("/api/dining-memories", (req, res) => {
   }
 });
 
-// DELETE /api/dining-memories/:id — delete a memory
 app.delete("/api/dining-memories/:id", (req, res) => {
   stmts.deleteDiningMemory.run(req.params.id);
   res.json({ ok: true });
 });
 
+// ── PACKING LIST ROUTES ───────────────────────────────────
+
+app.get("/api/trips/:tripId/packing", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  res.json(stmts.getPackingItems.all(req.params.tripId, user.id));
+});
+
+app.post("/api/trips/:tripId/packing", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const { label, category } = req.body;
+  if (!label || !label.trim()) return res.status(400).json({ error: "Label required" });
+
+  stmts.insertPackingItem.run({
+    id:       `pack-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+    trip_id:  req.params.tripId,
+    user_id:  user.id,
+    label:    label.trim(),
+    category: category || "General",
+  });
+  res.json(stmts.getPackingItems.all(req.params.tripId, user.id));
+});
+
+app.patch("/api/packing/:id", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const { checked } = req.body;
+  stmts.updatePackingChecked.run({ id: req.params.id, checked: checked ? 1 : 0, user_id: user.id });
+  res.json({ ok: true });
+});
+
+app.delete("/api/packing/:id", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  stmts.deletePackingItem.run(req.params.id, user.id);
+  res.json({ ok: true });
+});
+
+app.delete("/api/trips/:tripId/packing", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  stmts.clearPackingItems.run(req.params.tripId, user.id);
+  res.json({ ok: true });
+});
+
+// ── Session Cleanup ────────────────────────────────────────
+function cleanupSessions() {
+  const result = db.prepare("DELETE FROM sessions WHERE created < datetime('now', '-30 days')").run();
+  if (result.changes > 0) console.log(`[Sessions] Cleaned up ${result.changes} expired session(s).`);
+}
+cleanupSessions();
+setInterval(cleanupSessions, 24 * 60 * 60 * 1000);
+
 // ── Health check ───────────────────────────────────────────
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// ============================================================
+// WAIT TIMES API
+// Serves data from waittimes.db (ironwolf_02 bind mount).
+// All endpoints are read-only — writes are handled exclusively
+// by wait-collector.js.
+// ============================================================
+
+const WT_DIR_API = fs.existsSync("/waittimes")
+  ? "/waittimes"
+  : path.join(__dirname, "waittimes-local");
+
+const WT_DB_PATH_API = path.join(WT_DIR_API, "waittimes.db");
+
+// Lazily open the wait times DB — it may not exist yet if the
+// collector hasn't run. Return null if unavailable.
+let wtDb = null;
+function getWtDb() {
+  if (wtDb) return wtDb;
+  try {
+    if (!fs.existsSync(WT_DB_PATH_API)) return null;
+    wtDb = new Database(WT_DB_PATH_API, { readonly: true });
+    return wtDb;
+  } catch (e) {
+    console.warn("[waittimes] Could not open waittimes.db:", e.message);
+    return null;
+  }
+}
+
+// GET /api/wait-times/latest
+app.get("/api/wait-times/latest", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, parks: [] });
+
+  try {
+    const rows = wtdb.prepare(`
+      SELECT ps.*
+      FROM park_summaries ps
+      INNER JOIN (
+        SELECT park_id, MAX(sampled_at) AS latest
+        FROM park_summaries
+        GROUP BY park_id
+      ) newest ON ps.park_id = newest.park_id AND ps.sampled_at = newest.latest
+      ORDER BY ps.park_name
+    `).all();
+
+    res.json({ available: true, parks: rows, fetched_at: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/wait-times/live/:parkId
+app.get("/api/wait-times/live/:parkId", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, attractions: [] });
+
+  try {
+    const latest = wtdb.prepare(`
+      SELECT MAX(sampled_at) AS ts FROM wait_snapshots WHERE park_id = ?
+    `).get(req.params.parkId);
+
+    if (!latest?.ts) return res.json({ available: false, attractions: [] });
+
+    const attractions = wtdb.prepare(`
+      SELECT attraction_name, wait_minutes, status, queue_type
+      FROM wait_snapshots
+      WHERE park_id = ? AND sampled_at = ?
+      ORDER BY
+        CASE status WHEN 'OPERATING' THEN 0 WHEN 'DOWN' THEN 1 ELSE 2 END,
+        wait_minutes DESC NULLS LAST
+    `).all(req.params.parkId, latest.ts);
+
+    res.json({
+      available:  true,
+      park_id:    req.params.parkId,
+      sampled_at: latest.ts,
+      attractions,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/wait-times/trends/:parkId
+app.get("/api/wait-times/trends/:parkId", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, trend: [] });
+
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+
+  try {
+    const trend = wtdb.prepare(`
+      SELECT
+        strftime('%H', sampled_at) AS hour,
+        ROUND(AVG(avg_wait), 1)    AS avg_wait,
+        ROUND(AVG(median_wait), 1) AS median_wait,
+        COUNT(*)                   AS sample_count
+      FROM park_summaries
+      WHERE park_id = ?
+        AND date(sampled_at) = ?
+        AND avg_wait IS NOT NULL
+      GROUP BY hour
+      ORDER BY hour
+    `).all(req.params.parkId, date);
+
+    res.json({ available: true, park_id: req.params.parkId, date, trend });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/wait-times/compare
+app.get("/api/wait-times/compare", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, parks: [] });
+
+  try {
+    const now      = new Date();
+    const today    = now.toISOString().slice(0, 10);
+    const hourNow  = now.getUTCHours();
+    const dowNow   = now.getUTCDay();
+
+    const PARK_IDS = [
+      "75ea578a-adc8-4116-a54d-dccb60765ef9",
+      "47f90d2c-e191-4239-a466-5892ef59a88b",
+      "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+      "1c84a229-8862-4648-9c71-378ddd2c7693",
+    ];
+
+    const results = PARK_IDS.map(parkId => {
+      const morning = wtdb.prepare(`
+        SELECT ROUND(AVG(avg_wait), 1) AS avg
+        FROM park_summaries
+        WHERE park_id = ?
+          AND date(sampled_at) = ?
+          AND CAST(strftime('%H', sampled_at) AS INTEGER) BETWEEN 8 AND 12
+          AND avg_wait IS NOT NULL
+      `).get(parkId, today);
+
+      const current = wtdb.prepare(`
+        SELECT ROUND(AVG(avg_wait), 1) AS avg, park_name
+        FROM park_summaries
+        WHERE park_id = ?
+          AND avg_wait IS NOT NULL
+        ORDER BY sampled_at DESC
+        LIMIT 3
+      `).get(parkId);
+
+      const historical = wtdb.prepare(`
+        SELECT ROUND(AVG(avg_wait), 1) AS avg
+        FROM park_summaries
+        WHERE park_id = ?
+          AND date(sampled_at) < ?
+          AND date(sampled_at) >= date(?, '-30 days')
+          AND CAST(strftime('%w', sampled_at) AS INTEGER) = ?
+          AND ABS(CAST(strftime('%H', sampled_at) AS INTEGER) - ?) <= 2
+          AND avg_wait IS NOT NULL
+      `).get(parkId, today, today, dowNow, hourNow);
+
+      const cur  = current?.avg  ?? null;
+      const hist = historical?.avg ?? null;
+
+      const crowd_score = (cur !== null && hist !== null && hist > 0)
+        ? Math.round((cur / hist) * 100) / 100
+        : null;
+
+      return {
+        park_id:        parkId,
+        park_name:      current?.park_name ?? "",
+        morning_avg:    morning?.avg ?? null,
+        current_avg:    cur,
+        historical_avg: hist,
+        crowd_score,
+      };
+    });
+
+    res.json({ available: true, parks: results, as_of: now.toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/wait-times/hop-ranking
+app.get("/api/wait-times/hop-ranking", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, ranking: [] });
+
+  try {
+    const now     = new Date();
+    const today   = now.toISOString().slice(0, 10);
+    const dowNow  = now.getUTCDay();
+    const hourNow = now.getUTCHours();
+
+    const PARKS_META = [
+      { id: "75ea578a-adc8-4116-a54d-dccb60765ef9", name: "Magic Kingdom"     },
+      { id: "47f90d2c-e191-4239-a466-5892ef59a88b", name: "EPCOT"             },
+      { id: "288747d1-8b4f-4a64-867e-ea7c9b27bad8", name: "Hollywood Studios" },
+      { id: "1c84a229-8862-4648-9c71-378ddd2c7693", name: "Animal Kingdom"    },
+    ];
+
+    const ranked = PARKS_META.map(park => {
+      const recent = wtdb.prepare(`
+        SELECT avg_wait, sampled_at FROM park_summaries
+        WHERE park_id = ? AND avg_wait IS NOT NULL
+        ORDER BY sampled_at DESC LIMIT 3
+      `).all(park.id);
+
+      const older = wtdb.prepare(`
+        SELECT avg_wait FROM park_summaries
+        WHERE park_id = ?
+          AND avg_wait IS NOT NULL
+          AND sampled_at <= datetime('now', '-2 hours')
+        ORDER BY sampled_at DESC LIMIT 1
+      `).get(park.id);
+
+      const historical = wtdb.prepare(`
+        SELECT ROUND(AVG(avg_wait), 1) AS avg
+        FROM park_summaries
+        WHERE park_id = ?
+          AND date(sampled_at) < ?
+          AND date(sampled_at) >= date(?, '-30 days')
+          AND CAST(strftime('%w', sampled_at) AS INTEGER) = ?
+          AND ABS(CAST(strftime('%H', sampled_at) AS INTEGER) - ?) <= 2
+          AND avg_wait IS NOT NULL
+      `).get(park.id, today, today, dowNow, hourNow);
+
+      const current_avg = recent.length
+        ? Math.round(recent.reduce((s, r) => s + r.avg_wait, 0) / recent.length)
+        : null;
+
+      const hist_avg    = historical?.avg ?? null;
+
+      const crowd_score = (current_avg !== null && hist_avg !== null && hist_avg > 0)
+        ? Math.round((current_avg / hist_avg) * 100) / 100
+        : null;
+
+      let trend = "stable";
+      if (older?.avg_wait != null && current_avg !== null) {
+        const delta = current_avg - older.avg_wait;
+        if (delta > 8)       trend = "rising";
+        else if (delta < -8) trend = "falling";
+      }
+
+      let verdict = "Normal crowds";
+      if (crowd_score !== null) {
+        if (crowd_score < 0.7)       verdict = "Very light — great time to visit";
+        else if (crowd_score < 0.85) verdict = "Lighter than usual";
+        else if (crowd_score < 1.15) verdict = "Normal crowds";
+        else if (crowd_score < 1.35) verdict = "Busier than usual";
+        else                         verdict = "Heavy crowds — consider another park";
+      }
+
+      return { park_id: park.id, park_name: park.name, current_avg, hist_avg, crowd_score, trend, verdict };
+    });
+
+    ranked.sort((a, b) => {
+      if (a.current_avg === null) return 1;
+      if (b.current_avg === null) return -1;
+      return a.current_avg - b.current_avg;
+    });
+
+    ranked.forEach((p, i) => p.rank = i + 1);
+
+    res.json({ available: true, ranking: ranked, as_of: now.toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Start server ───────────────────────────────────────────

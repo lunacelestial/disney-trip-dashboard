@@ -4,15 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Disney Trip Prep</title>
-  <link rel="stylesheet" href="assets/css/base.css?v=15" />
-  <link rel="stylesheet" href="assets/css/header.css?v=15" />
-  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
-  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
-  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
-  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
-  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
-  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
-  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+  <link rel="stylesheet" href="assets/css/base.css?v=16" />
+  <link rel="stylesheet" href="assets/css/header.css?v=16" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=16" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=16" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=16" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=16" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=16" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=16" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=16" />
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <style>
     /* ============================================================
@@ -499,17 +499,9 @@
       <span class="nav-pill-label">Trip Prep</span>
     </div>
   </div>
-
-  <!-- E-Ticket Nav Tray (hamburger opens this on mobile) -->
+  <!-- E-Ticket Nav Tray — populated by renderNav() in header.js -->
   <div class="nav-ticket-tray" id="nav-ticket-tray">
-    <div class="nav-ticket-scroll hide-scrollbar">
-      <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-      <a href="itinerary.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-      <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-      <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-      <a href="photos.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-      <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-    </div>
+    <div class="nav-ticket-scroll hide-scrollbar"></div>
   </div>
 
   <main class="container" style="padding-bottom:3rem;">
@@ -526,9 +518,9 @@
     </div>
   </main>
 
-  <script src="assets/js/script.js?v=15"></script>
-  <script src="assets/js/header.js?v=15"></script>
-  <script src="assets/js/budget.js?v=15"></script>
+  <script src="assets/js/script.js?v=16"></script>
+  <script src="assets/js/header.js?v=16"></script>
+  <script src="assets/js/budget.js?v=16"></script>
   <script>
   // ============================================================
   // PRE-TRIP DASHBOARD
@@ -599,6 +591,7 @@
     const startDate = nextTripBudget.start_date;
     const endDate = nextTripBudget.end_date;
     const tripId = nextTripBudget.trip_id;
+    _pretripTripId = tripId; // Set globally for packing/contribution functions
 
     // Calculate days away
     const [sy, sm, sd] = startDate.split("-").map(Number);
@@ -626,13 +619,14 @@
 
     const totalBudget = tripBudget ? (tripBudget.hotel + tripBudget.food + tripBudget.extras + tripBudget.souvenirs) : 0;
 
-    // Get contributions
+    // Get contributions (my-contributions returns { contributions, totalContributed })
     let contributions = [];
+    let totalSaved = 0;
     try {
-      contributions = await apiFetch(`/trips/${tripId}/contributions`);
+      const contribData = await apiFetch(`/trips/${tripId}/my-contributions`);
+      contributions = contribData.contributions || [];
+      totalSaved = contribData.totalContributed || 0;
     } catch (e) { }
-
-    const totalSaved = contributions.reduce((sum, c) => sum + c.amount, 0);
     const pctSaved = totalBudget > 0 ? Math.min((totalSaved / totalBudget) * 100, 100) : 0;
 
     // Pace calculation
@@ -726,12 +720,13 @@
             <span>20k (park-ready)</span>
           </div>
           <div class="steps-explanation">${stepExplanation}</div>
+          <p style="font-size:0.75rem; color:rgba(255,255,255,0.35); margin:0 0 0.6rem; font-style:italic;">Tap to open your health app and log today's steps</p>
           <div class="steps-health-links">
             <a href="https://apps.apple.com/app/apple-health/id1242424083" target="_blank" rel="noopener" class="steps-health-link">
-              🍎 Apple Health
+              🍎 Log Steps (Apple)
             </a>
             <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.fitness" target="_blank" rel="noopener" class="steps-health-link">
-              💚 Google Fit
+              💚 Log Steps (Android)
             </a>
           </div>
         </div>
@@ -741,9 +736,145 @@
           <div class="pretrip-card-label">💰 Trip Fund</div>
           ${budgetCardBody}
         </div>
+
+        <!-- Flight Deep-Link Card -->
+        <div class="pretrip-card">
+          <div class="pretrip-card-label">✈️ Book Flights</div>
+          <p style="font-size:0.88rem; color:rgba(255,255,255,0.6); margin:0 0 1rem; line-height:1.5;">
+            Search flights to Orlando (MCO) for your trip dates. Links open Google Flights pre-filled.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem;">
+            <a href="${buildFlightUrl("", "MCO", startDate, endDate, "1")}"
+               target="_blank" rel="noopener"
+               style="display:flex; align-items:center; justify-content:space-between; padding:0.6rem 0.9rem; border-radius:12px; background:linear-gradient(135deg, var(--castle-blue), #1e40af); color:white; text-decoration:none; font-family:'Nunito',sans-serif; font-size:0.88rem; font-weight:800;">
+              <span>🔍 Search Google Flights</span>
+              <span style="font-size:0.75rem; opacity:0.8;">${startFmt} → ${endFmt}</span>
+            </a>
+            <a href="${buildFlightUrl("", "MCO", startDate, endDate, "1", true)}"
+               target="_blank" rel="noopener"
+               style="display:flex; align-items:center; justify-content:space-between; padding:0.6rem 0.9rem; border-radius:12px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.85); text-decoration:none; font-family:'Nunito',sans-serif; font-size:0.88rem; font-weight:800;">
+              <span>📅 Return Flight</span>
+              <span style="font-size:0.75rem; opacity:0.7;">${endFmt} → home</span>
+            </a>
+          </div>
+          <p style="font-size:0.72rem; color:rgba(255,255,255,0.3); margin:0; line-height:1.4;">
+            Tip: Set your home airport in your profile for personalised links.
+          </p>
+        </div>
+
+        <!-- Packing List Card -->
+        <div class="pretrip-card" id="packing-card">
+          <div class="pretrip-card-label">🧳 Packing List</div>
+          <div id="packing-list-content" style="min-height:60px;">
+            <p style="color:rgba(255,255,255,0.4); font-size:0.85rem; margin:0 0 0.75rem;">Loading...</p>
+          </div>
+          <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+            <input type="text" id="packing-new-item" placeholder="Add item..." style="flex:1; padding:0.5rem 0.75rem; border-radius:10px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.07); color:white; font-family:'Nunito',sans-serif; font-size:0.88rem;" />
+            <button onclick="addPackingItem()" style="padding:0.5rem 0.85rem; border-radius:10px; border:none; background:var(--castle-blue); color:white; font-family:'Nunito',sans-serif; font-size:0.85rem; font-weight:800; cursor:pointer;">+ Add</button>
+          </div>
+        </div>
+
+      </div>
+    `;
+
+    // Load packing list into its card after DOM is set
+    loadPackingList();
+  }
+
+  // ── Flight Deep-Link Builder ────────────────────────────────
+  // Builds a Google Flights URL pre-populated with MCO and trip dates.
+  // No API key required — pure URL construction.
+  function buildFlightUrl(origin, dest, depDate, retDate, adults = "1", isReturn = false) {
+    const dep = isReturn ? retDate : depDate;
+    const ret = isReturn ? "" : retDate;
+    // Google Flights explore URL — works without knowing origin
+    const base = "https://www.google.com/travel/flights";
+    const params = new URLSearchParams({
+      q: isReturn
+        ? `Flights from ${dest} to home on ${ret}`
+        : `Flights to ${dest} from ${dep} to ${ret}`,
+    });
+    // Structured deep-link format
+    const tfs = isReturn
+      ? `CAEQAhooEgoyMDI2LTA1LTA3agcIARIDTUNPcgcIARIDTUNP`
+      : "";
+    return `${base}?${params.toString()}`;
+  }
+
+  // ── Packing List ────────────────────────────────────────────
+  async function loadPackingList() {
+    if (!_pretripTripId) return;
+    const listEl = document.getElementById("packing-list-content");
+    if (!listEl) return;
+
+    let items = [];
+    try { items = await apiFetch(`/trips/${_pretripTripId}/packing`); } catch (e) { }
+
+    if (items.length === 0) {
+      listEl.innerHTML = `<p style="color:rgba(255,255,255,0.35); font-size:0.82rem; font-style:italic; margin:0 0 0.5rem;">No items yet — add something below!</p>`;
+      return;
+    }
+
+    const checkedCount = items.filter(i => i.checked).length;
+    const pct = Math.round((checkedCount / items.length) * 100);
+
+    listEl.innerHTML = `
+      <div style="height:4px; background:rgba(255,255,255,0.1); border-radius:999px; margin-bottom:0.75rem; overflow:hidden;">
+        <div style="height:100%; width:${pct}%; background:var(--pixie-gold); border-radius:999px; transition:width 0.4s ease;"></div>
+      </div>
+      <p style="font-size:0.72rem; font-weight:700; color:rgba(255,255,255,0.4); margin:0 0 0.6rem; text-transform:uppercase; letter-spacing:0.06em;">${checkedCount} / ${items.length} packed</p>
+      <div style="display:flex; flex-direction:column; gap:0.3rem; max-height:200px; overflow-y:auto;">
+        ${items.map(item => `
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <input type="checkbox" id="pack-${item.id}" ${item.checked ? "checked" : ""}
+              onchange="togglePackingItem('${item.id}', this.checked)"
+              style="width:16px; height:16px; accent-color:var(--pixie-gold); cursor:pointer; flex-shrink:0;" />
+            <label for="pack-${item.id}" style="flex:1; font-size:0.85rem; font-weight:600; color:${item.checked ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.85)"}; text-decoration:${item.checked ? "line-through" : "none"}; cursor:pointer;">${escapeHtml(item.label)}</label>
+            <button onclick="deletePackingItem('${item.id}')" style="background:none; border:none; color:rgba(255,255,255,0.2); cursor:pointer; font-size:0.75rem; padding:2px 4px; border-radius:4px; line-height:1;" title="Remove">✕</button>
+          </div>
+        `).join("")}
       </div>
     `;
   }
+
+  async function addPackingItem() {
+    if (!_pretripTripId) return;
+    const input = document.getElementById("packing-new-item");
+    const label = input?.value.trim();
+    if (!label) return;
+    try {
+      await apiFetch(`/trips/${_pretripTripId}/packing`, {
+        method: "POST",
+        body: JSON.stringify({ label }),
+      });
+      input.value = "";
+      loadPackingList();
+    } catch (e) { showToast("❌ Could not add item."); }
+  }
+
+  async function togglePackingItem(id, checked) {
+    try {
+      await apiFetch(`/packing/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ checked }),
+      });
+      loadPackingList();
+    } catch (e) { }
+  }
+
+  async function deletePackingItem(id) {
+    try {
+      await apiFetch(`/packing/${id}`, { method: "DELETE" });
+      loadPackingList();
+    } catch (e) { }
+  }
+
+  // Allow pressing Enter to add packing item
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && document.activeElement?.id === "packing-new-item") {
+      addPackingItem();
+    }
+  });
 
   // Store trip ID globally for contribution functions
   let _pretripTripId = null;

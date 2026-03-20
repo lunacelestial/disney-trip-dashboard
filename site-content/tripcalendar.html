@@ -4,18 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Disney — Trip Calendar</title>
-  <link rel="stylesheet" href="assets/css/base.css?v=15" />
-  <link rel="stylesheet" href="assets/css/header.css?v=15" />
-  <link rel="stylesheet" href="assets/css/nav.css?v=15" />
-  <link rel="stylesheet" href="assets/css/cards.css?v=15" />
-  <link rel="stylesheet" href="assets/css/eticket.css?v=15" />
-  <link rel="stylesheet" href="assets/css/modals.css?v=15" />
-  <link rel="stylesheet" href="assets/css/budget.css?v=15" />
-  <link rel="stylesheet" href="assets/css/wizard.css?v=15" />
-  <link rel="stylesheet" href="assets/css/venues.css?v=15" />
+  <link rel="stylesheet" href="assets/css/base.css?v=16" />
+  <link rel="stylesheet" href="assets/css/header.css?v=16" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=16" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=16" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=16" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=16" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=16" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=16" />
+  <link rel="stylesheet" href="assets/css/venues.css?v=16" />
   <style>
     /* ── Trip Calendar Styles ─────────────────────────── */
     .cal-trip-pill { margin-bottom: 1.5rem; }
+
+    /* Jump to Today button — sticky, only shown during active trip */
+    .cal-jump-today {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.25rem;
+      z-index: 500;
+      background: var(--pixie-gold);
+      color: var(--castle-blue);
+      border: none;
+      border-radius: 999px;
+      padding: 0.6rem 1.1rem;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(255, 193, 37, 0.5);
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.25s;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .cal-jump-today:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 193, 37, 0.6);
+    }
+    .cal-jump-today.hidden { opacity: 0; pointer-events: none; }
 
     .cal-grid {
       display: grid;
@@ -139,16 +167,9 @@
         <div class="nav-pill-hamburger"><span></span><span></span><span></span></div>
         <span class="nav-pill-label">Calendar</span>
       </div>
-
+      <!-- E-Ticket Nav Tray — populated by renderNav() in header.js -->
       <div class="nav-ticket-tray" id="nav-ticket-tray">
-        <div class="nav-ticket-scroll hide-scrollbar">
-          <a href="index.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Dashboard</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-          <a href="itinerary.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Itinerary</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-          <a href="budget.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Budget</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-          <a href="wishlist.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Wishlist</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-          <a href="photos.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Photos</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-          <a href="planner.html" class="nav-link"><span class="ticket-perf"></span><span class="ticket-label-bar">Planner</span><svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg></a>
-        </div>
+        <div class="nav-ticket-scroll hide-scrollbar"></div>
       </div>
 
       <div class="budget-pill" id="budget-pill" role="button" tabindex="0" aria-label="Quick add expense">
@@ -172,9 +193,9 @@
     </div>
   </main>
 
-  <script src="assets/js/script.js?v=15"></script>
-  <script src="assets/js/header.js?v=15"></script>
-  <script src="assets/js/budget.js?v=15"></script>
+  <script src="assets/js/script.js?v=16"></script>
+  <script src="assets/js/header.js?v=16"></script>
+  <script src="assets/js/budget.js?v=16"></script>
   <script>
   // ============================================================
   // TRIP CALENDAR — Week-at-a-glance view
@@ -376,6 +397,28 @@
         </a>
       </div>
     `;
+
+    // Jump to Today button — only show if today is in this trip's date range
+    let jumpBtn = document.getElementById("cal-jump-today-btn");
+    if (!jumpBtn) {
+      jumpBtn = document.createElement("button");
+      jumpBtn.id = "cal-jump-today-btn";
+      jumpBtn.className = "cal-jump-today";
+      jumpBtn.innerHTML = `📍 Today`;
+      document.body.appendChild(jumpBtn);
+    }
+
+    const todayInTrip = todayStr >= selectedTrip.start_date && todayStr <= selectedTrip.end_date;
+    jumpBtn.classList.toggle("hidden", !todayInTrip);
+
+    jumpBtn.onclick = () => {
+      const todayCard = app.querySelector(".cal-day.is-today");
+      if (todayCard) {
+        todayCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        todayCard.style.boxShadow = "0 0 0 4px rgba(255,193,37,0.7), var(--card-shadow)";
+        setTimeout(() => { todayCard.style.boxShadow = ""; }, 1200);
+      }
+    };
 
     // Wire trip selector
     document.getElementById("cal-trip-select")?.addEventListener("change", (e) => {

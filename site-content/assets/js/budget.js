@@ -221,6 +221,95 @@ function renderCategoryCard(icon, label, budgeted, myBudget) {
   `;
 }
 
+// ── Spending Breakdown Donut Chart ───────────────────────
+
+function renderSpendingChart(myBudget) {
+  if (!myBudget || !myBudget.transactions) return "";
+
+  const CATEGORIES = [
+    { key: "Hotel",   label: "Hotel",    icon: "🏨", color: "#3b82f6" },
+    { key: "Food",    label: "Dining",   icon: "🍔", color: "#f59e0b" },
+    { key: "Extras",  label: "Extras",   icon: "✨", color: "#8b5cf6" },
+    { key: "Merch",   label: "Souvenirs",icon: "🛍️", color: "#ec4899" },
+    { key: "Tickets", label: "Tickets",  icon: "🎟️", color: "#14b8a6" },
+    { key: "Other",   label: "Other",    icon: "💳", color: "#94a3b8" },
+  ];
+
+  // Tally spend per category
+  const spent = {};
+  (myBudget.transactions || []).forEach(t => {
+    const cat = t.category || "Other";
+    spent[cat] = (spent[cat] || 0) + t.amount;
+  });
+
+  const totalSpent = Object.values(spent).reduce((s, v) => s + v, 0);
+  if (totalSpent <= 0) return "";
+
+  // Build donut slices
+  const SIZE = 160;
+  const R = 58;
+  const CX = SIZE / 2;
+  const CY = SIZE / 2;
+  const circumference = 2 * Math.PI * R;
+
+  let segments = [];
+  let cumulativePct = 0;
+  CATEGORIES.forEach(cat => {
+    const val = spent[cat.key] || 0;
+    if (val <= 0) return;
+    const pct = val / totalSpent;
+    segments.push({ ...cat, val, pct, offset: cumulativePct });
+    cumulativePct += pct;
+  });
+
+  // SVG arcs
+  const arcsSvg = segments.map(seg => {
+    const strokeDash = seg.pct * circumference;
+    const strokeOffset = circumference - seg.offset * circumference;
+    return `<circle
+      cx="${CX}" cy="${CY}" r="${R}"
+      fill="none"
+      stroke="${seg.color}"
+      stroke-width="28"
+      stroke-dasharray="${strokeDash.toFixed(2)} ${(circumference - strokeDash).toFixed(2)}"
+      stroke-dashoffset="${strokeOffset.toFixed(2)}"
+      transform="rotate(-90 ${CX} ${CY})"
+      style="transition: stroke-dasharray 0.6s ease;"
+    />`;
+  }).join("\n");
+
+  // Legend rows
+  const legendRows = segments.map(seg => `
+    <div style="display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0;">
+      <span style="width:10px; height:10px; border-radius:50%; background:${seg.color}; flex-shrink:0;"></span>
+      <span style="font-size:0.8rem; font-weight:700; color:var(--ink); flex:1;">${seg.icon} ${seg.label}</span>
+      <span style="font-size:0.8rem; font-weight:800; color:var(--castle-blue);">$${seg.val.toFixed(2)}</span>
+      <span style="font-size:0.72rem; color:var(--muted); min-width:32px; text-align:right;">${Math.round(seg.pct * 100)}%</span>
+    </div>
+  `).join("");
+
+  return `
+    <div class="card" style="margin-bottom:1rem;">
+      <h3 style="font-family:'Mouse Memoirs',sans-serif; font-size:1.2rem; color:var(--castle-blue); margin:0 0 1rem; letter-spacing:0.03em;">Spending Breakdown</h3>
+      <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+        <div style="position:relative; flex-shrink:0;">
+          <svg width="${SIZE}" height="${SIZE}" style="display:block;">
+            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="28"/>
+            ${arcsSvg}
+          </svg>
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;">
+            <span style="font-family:'Mouse Memoirs',sans-serif; font-size:1.1rem; color:var(--castle-blue); line-height:1;">$${totalSpent.toFixed(0)}</span>
+            <span style="font-size:0.62rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);">spent</span>
+          </div>
+        </div>
+        <div style="flex:1; min-width:140px;">
+          ${legendRows}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── Transactions ──────────────────────────────────────────
 
 function renderTransactions(transactions, trip, myBudget) {
@@ -237,6 +326,7 @@ function renderTransactions(transactions, trip, myBudget) {
   const randomPrompt = DISNEY_PROMPTS[Math.floor(Math.random() * DISNEY_PROMPTS.length)];
 
   let html = `
+    ${renderSpendingChart(myBudget)}
     <div class="card transaction-entry-card">
       <h2>Add Magical Expense</h2>
       <form id="add-transaction-form" class="transaction-form">

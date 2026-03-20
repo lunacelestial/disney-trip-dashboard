@@ -18,6 +18,7 @@ services:
     volumes:
       - disney-db-dev:/data
       - /mnt/motherbrain/ironwolf_01/disney-site/storage:/storage
+      - /mnt/motherbrain/ironwolf_02/disney-wait-times:/waittimes
     expose:
       - "3001"
 

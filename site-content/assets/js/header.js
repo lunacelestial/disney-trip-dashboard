@@ -241,8 +241,51 @@ function initializeWeather() {
 }
 
 // ============================================================
-// PARK DAY BANNER
+// NAV RENDERING — Single source of truth for nav links
+// Injects the e-ticket nav tray at runtime so the castle SVG
+// and link list only exist in one place (here) instead of being
+// copy-pasted into every HTML file.
 // ============================================================
+
+const NAV_ITEMS = [
+  { href: "index.html",        label: "Dashboard",  pageClass: "page-dashboard"    },
+  { href: "itinerary.html",    label: "Itinerary",  pageClass: "page-itinerary"    },
+  { href: "budget.html",       label: "Budget",     pageClass: "page-budget"       },
+  { href: "wishlist.html",     label: "Wishlist",   pageClass: "page-wishlist"     },
+  { href: "photos.html",       label: "Photos",     pageClass: "page-photos"       },
+  { href: "planner.html",      label: "Planner",    pageClass: "page-planner"      },
+  { href: "tripcalendar.html", label: "Calendar",   pageClass: "page-tripcalendar" },
+  { href: "history.html",      label: "History",    pageClass: "page-history"      },
+  { href: "packing.html",      label: "Packing",    pageClass: "page-packing"      },
+];
+
+const CASTLE_SVG = `<svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg>`;
+
+function renderNav() {
+  const tray = document.getElementById("nav-ticket-tray");
+  if (!tray) return;
+
+  // Detect current page by body class
+  const bodyClasses = document.body.className;
+  const currentPageClass = NAV_ITEMS.find(item => bodyClasses.includes(item.pageClass))?.pageClass || "";
+
+  const linksHtml = NAV_ITEMS.map(item => {
+    const isActive = bodyClasses.includes(item.pageClass);
+    const holeHtml = isActive ? `<span class="ticket-hole"></span>` : "";
+    return `<a href="${item.href}" class="nav-link${isActive ? " active" : ""}"><span class="ticket-perf"></span><span class="ticket-label-bar">${item.label}</span>${holeHtml}${CASTLE_SVG}</a>`;
+  }).join("");
+
+  // Preserve any existing dynamically-added links (profile, admin) already in scroll
+  const scroll = tray.querySelector(".nav-ticket-scroll");
+  if (scroll) {
+    // Replace only the static links; dynamic ones (admin, profile) are added by initNavPill
+    scroll.innerHTML = linksHtml;
+  } else {
+    tray.innerHTML = `<div class="nav-ticket-scroll hide-scrollbar">${linksHtml}</div>`;
+  }
+}
+
+
 
 const PARK_CONFIG = {
   "magic kingdom": {
