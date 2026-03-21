@@ -168,7 +168,11 @@ function renderBudgetSummary(trip, allTrips, myBudget) {
     budgetHeroHtml = `
       <div class="budget-remaining-hero ${overBudget ? 'over-budget' : ''}">
         <div class="remaining-hero-inner">
-          <p class="card-label">${escapeHtml(firstName)}'s Remaining</p>
+          <p class="card-label">
+            ${escapeHtml(firstName)}'s Remaining
+            ${myBudget && myBudget.group_label ? `<span style="font-size:0.72rem; background:var(--sky-blue); color:white; border-radius:10px; padding:0.1rem 0.55rem; margin-left:0.5rem; font-weight:800; text-transform:none; letter-spacing:0;">Shared</span>` : ""}
+          </p>
+          ${myBudget && myBudget.group_label ? `<p style="font-size:0.82rem; color:var(--slate); margin: -0.25rem 0 0.5rem; font-weight:600;">with ${escapeHtml(myBudget.group_label)}</p>` : ""}
           <h2 class="remaining-amount">${overBudget ? '-' : ''}$${Math.abs(remaining).toFixed(2)}</h2>
           ${overBudget ? '<p class="over-budget-msg">⚠️ Over budget</p>' : ''}
           <div class="budget-progress-bar">
@@ -462,7 +466,10 @@ function showBudgetWizardModal(allTrips, prefill, preselectedTripId) {
   overlay.innerHTML = `
     <div style="background:#fff;border-radius:20px;padding:2rem;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
-        <h2 style="margin:0;font-size:1.4rem;color:#1a1a2e;">✨ ${escapeHtml(firstName)}'s Budget</h2>
+        <div>
+          <h2 style="margin:0;font-size:1.4rem;color:#1a1a2e;">✨ ${escapeHtml(firstName)}'s Budget</h2>
+          ${prefill && prefill.group_label ? `<p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--sky-blue);font-weight:700;">Shared budget with ${escapeHtml(prefill.group_label)}</p>` : ""}
+        </div>
         <button onclick="document.getElementById('budget-wizard-overlay').remove()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#94a3b8;">✕</button>
       </div>
 

@@ -448,3 +448,427 @@
     margin-bottom: 0.25rem; 
   }
 }
+
+/* ============================================================
+   BUDGET GROUPS STEP — Mode choice + drag-and-drop builder
+   ============================================================ */
+
+/* ── Phase 1: Individual vs Shared choice ── */
+.bg-mode-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 500px) {
+  .bg-mode-choices { grid-template-columns: 1fr; }
+}
+
+.bg-mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  border: 2.5px solid #e2e8f0;
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.2s ease;
+}
+
+.bg-mode-card:hover {
+  border-color: var(--sky-blue);
+  box-shadow: 0 4px 16px rgba(0, 155, 222, 0.12);
+}
+
+.bg-mode-card.active {
+  border-color: var(--castle-blue);
+  background: rgba(0, 48, 135, 0.04);
+  box-shadow: 0 4px 16px rgba(0, 48, 135, 0.15);
+}
+
+.bg-mode-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.bg-mode-card strong {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.bg-mode-card p {
+  font-size: 0.82rem;
+  color: var(--slate);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Phase 2: Drag-and-drop builder ── */
+
+/* Unassigned pool */
+.bg-unassigned-pool {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 14px;
+}
+
+.bg-pool-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: 0 0 0.6rem;
+}
+
+.bg-pill-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.bg-pill-pool.drag-over {
+  background: rgba(0, 155, 222, 0.07);
+  outline: 2px dashed var(--sky-blue);
+}
+
+/* Budget group buckets */
+.bg-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bg-group-bucket {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.bg-group-bucket:focus-within {
+  border-color: var(--sky-blue);
+}
+
+.bg-bucket-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.bg-bucket-name {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--castle-blue);
+  outline: none;
+  min-width: 0;
+}
+
+.bg-bucket-name:focus {
+  color: var(--ink);
+}
+
+.bg-bucket-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 1rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.bg-bucket-delete:hover {
+  color: var(--magic-red);
+  background: #fef2f2;
+}
+
+.bg-bucket-drop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  min-height: 3.5rem;
+  transition: background 0.15s;
+}
+
+.bg-bucket-drop.drag-over {
+  background: rgba(0, 155, 222, 0.07);
+  outline: 2px dashed var(--sky-blue);
+  outline-offset: -4px;
+}
+
+.bg-drop-hint {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--muted);
+  margin: 0;
+  align-self: center;
+}
+
+/* Person pills */
+.bg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: white;
+  border: 1.5px solid #d1d5db;
+  border-radius: 20px;
+  padding: 0.3rem 0.55rem 0.3rem 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.bg-pill:hover {
+  border-color: var(--sky-blue);
+  box-shadow: 0 2px 8px rgba(0, 155, 222, 0.15);
+}
+
+.bg-pill.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.bg-pill-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--castle-blue), var(--sky-blue));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.bg-pill-name {
+  color: var(--ink);
+}
+
+.bg-pill-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0 0.1rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.bg-pill-remove:hover {
+  color: var(--castle-blue);
+}
+
+.bg-add-budget-btn {
+  margin-top: 0.75rem;
+}
+
+/* TV-FRIENDLY DATE PICKER ================================= */
+
+.tv-date-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #fafbfc;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.tv-date-picker:focus-within {
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 0 3px rgba(0, 155, 222, 0.15);
+}
+
+.tv-date-seg {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+  padding: 0.3rem 0.2rem;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.tv-date-seg::-webkit-outer-spin-button,
+.tv-date-seg::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.tv-date-mm, .tv-date-dd { width: 3rem; }
+.tv-date-yyyy { width: 4.5rem; }
+
+.tv-date-sep {
+  font-weight: 800;
+  color: var(--slate);
+  font-size: 1.2rem;
+  line-height: 1;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tv-date-spacer { flex: 1; }
+
+.tv-date-cal-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  color: var(--slate);
+}
+
+.tv-date-cal-btn:hover,
+.tv-date-cal-btn:focus {
+  background: rgba(0, 155, 222, 0.1);
+  outline: none;
+}
+
+.tv-date-native {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  right: 2.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tv-date-seg:focus {
+  background: rgba(0, 155, 222, 0.1) !important;
+  border-radius: 5px;
+}
+
+/* ============================================================
+   BUDGET MODE MODAL — Splash overlay on members step next
+   ============================================================ */
+
+#budget-mode-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+#budget-mode-modal.bm-visible {
+  opacity: 1;
+}
+
+.bm-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 20, 60, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.bm-modal-card {
+  position: relative;
+  background: white;
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 24px 64px rgba(0, 20, 60, 0.25);
+  max-width: 520px;
+  width: 100%;
+  transform: translateY(20px);
+  transition: transform 0.3s ease;
+}
+
+#budget-mode-modal.bm-visible .bm-modal-card {
+  transform: translateY(0);
+}
+
+.bm-modal-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.75rem;
+}
+
+.bm-modal-emoji {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.bm-modal-header h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.6rem;
+}
+
+.bm-modal-header p {
+  margin: 0;
+  color: var(--slate);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* The .bg-mode-choices grid is reused — cards get a pointer cursor effect */
+#budget-mode-modal .bg-mode-card:hover {
+  transform: translateY(-2px);
+}
+
+#budget-mode-modal .bg-mode-card.active {
+  border-color: var(--castle-blue);
+  background: rgba(0, 48, 135, 0.04);
+}
+
+@media (max-width: 500px) {
+  .bm-modal-card {
+    padding: 1.5rem 1.25rem;
+    border-radius: 18px;
+  }
+
+  .bm-modal-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}

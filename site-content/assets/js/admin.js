@@ -165,6 +165,11 @@ async function renderAdminDashboard(user) {
         <h3>Review Queue ${pendingCount > 0 ? `<span style="color:var(--magic-red);">(${pendingCount})</span>` : ""}</h3>
         <p>Approve or reject venue suggestions.</p>
       </div>
+      <div class="info-card" style="cursor:pointer;" id="admin-nav-pulse">
+        <p class="card-label">🎢 Park Pulse</p>
+        <h3>Collector Status</h3>
+        <p>Wait time data health, last sample, and coverage.</p>
+      </div>
     </div>
 
     <div id="admin-section-content"></div>
@@ -179,6 +184,7 @@ async function renderAdminDashboard(user) {
   document.getElementById("admin-nav-users").addEventListener("click", renderUserManagement);
   document.getElementById("admin-nav-venues").addEventListener("click", renderVenueManagement);
   document.getElementById("admin-nav-pending").addEventListener("click", renderPendingChanges);
+  document.getElementById("admin-nav-pulse").addEventListener("click", renderParkPulseStatus);
   if (document.getElementById("pending-alert-card")) {
     document.getElementById("pending-alert-card").addEventListener("click", renderPendingChanges);
   }
@@ -633,5 +639,1247 @@ adminStyles.textContent = `
   .venue-mgmt-row:hover { background: #f8fafc; }
 `;
 document.head.appendChild(adminStyles);
+
+// ============================================================
+// PARK PULSE STATUS — Admin Section
+// ============================================================
+
+async function renderParkPulseStatus() {
+  const section = document.getElementById("admin-section-content");
+
+  section.innerHTML = `
+    <div class="wizard-step-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+        <h3 style="margin:0;">🎢 Park Pulse Status</h3>
+        <div style="display:flex; gap:0.5rem;">
+          <button type="button" class="primary-button" id="pulse-view-data-btn" style="font-size:0.82rem;">📊 View Data</button>
+          <button type="button" class="secondary-button" id="pulse-status-refresh" style="font-size:0.82rem;">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="pulse-status-body">
+        <div style="text-align:center; padding:2rem; color:var(--muted);">
+          Loading collector status…
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("pulse-status-refresh").addEventListener("click", renderParkPulseStatus);
+  document.getElementById("pulse-view-data-btn").addEventListener("click", openPulseDataModal);
+  await loadPulseStatus();
+}
+
+async function loadPulseStatus() {
+  const body = document.getElementById("pulse-status-body");
+  if (!body) return;
+
+  let stats;
+  try {
+    stats = await adminFetch("/wait-times/status");
+  } catch (e) {
+    body.innerHTML = `
+      <div style="text-align:center; padding:2rem;">
+        <p style="font-size:2rem;">⚠️</p>
+        <p style="color:var(--muted);">Could not load pulse status.<br><small>${e.message}</small></p>
+      </div>
+    `;
+    return;
+  }
+
+  if (!stats.available) {
+    const nextAt = stats.next_sample_at || "next :00/:15/:30/:45 mark";
+
+    // Parks open check (Eastern Time)
+    const etHour = parseInt(new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York", hour: "numeric", hour12: false,
+    }).format(new Date()), 10);
+    const parksOpenNow = etHour >= 8 && etHour < 24;
+
+    const nextBanner = parksOpenNow
+      ? `<div style="display:inline-flex; align-items:center; gap:0.5rem; background:#f0fdf4;
+           border:1.5px solid #86efac; border-radius:10px; padding:0.5rem 1rem; margin-top:0.75rem;">
+           <span>🟢</span>
+           <span style="font-size:0.88rem; color:#166534; font-weight:700;">
+             Parks are open — next scheduled sample: <strong>${nextAt}</strong>
+           </span>
+         </div>`
+      : `<div style="display:inline-flex; align-items:center; gap:0.5rem; background:#fefce8;
+           border:1.5px solid #fbbf24; border-radius:10px; padding:0.5rem 1rem; margin-top:0.75rem;">
+           <span>🌙</span>
+           <span style="font-size:0.88rem; color:#92400e; font-weight:700;">
+             Parks are closed right now — collector will skip until opening. Next check: <strong>${nextAt}</strong>
+           </span>
+         </div>`;
+
+    body.innerHTML = `
+      <div style="padding:1.5rem; background:#f8fafc; border-radius:14px;">
+
+        <div style="display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.5rem;">
+          <span style="font-size:2rem; flex-shrink:0;">⏳</span>
+          <div>
+            <h4 style="margin:0 0 0.35rem;">No samples recorded yet</h4>
+            <p style="color:var(--muted); margin:0; font-size:0.9rem;">
+              The collector is running but hasn't written data yet. This is normal right after
+              a fresh container start — the first sample fires at the next 15-minute mark,
+              and only when at least one park is open.
+            </p>
+            ${nextBanner}
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #e2e8f0; padding-top:1.25rem;">
+          <p style="font-family:'Nunito',sans-serif; font-size:0.72rem; font-weight:800;
+            text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin:0 0 0.75rem;">
+            If you're not seeing data after the expected time, run these diagnostics on moonpi1
+          </p>
+
+          <div style="display:flex; flex-direction:column; gap:0.6rem;">
+
+            <div style="background:#1e293b; border-radius:10px; padding:0.75rem 1rem;">
+              <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase;
+                letter-spacing:0.06em; color:#64748b; margin-bottom:0.4rem;">
+                1 · Check collector logs for errors
+              </div>
+              <code style="color:#7dd3fc; font-size:0.82rem; font-family:monospace; word-break:break-all;">
+                docker logs disney_api_dev -f --tail=50
+              </code>
+              <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.4rem;">
+                Look for
+                <code style="color:#a5f3fc;">🎢 Collecting</code> or
+                <code style="color:#a5f3fc;">🌙 All parks closed</code> —
+                any other output indicates an error
+              </div>
+            </div>
+
+            <div style="background:#1e293b; border-radius:10px; padding:0.75rem 1rem;">
+              <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase;
+                letter-spacing:0.06em; color:#64748b; margin-bottom:0.4rem;">
+                2 · Confirm the /waittimes mount exists and is writable
+              </div>
+              <code style="color:#7dd3fc; font-size:0.82rem; font-family:monospace; word-break:break-all;">
+                ls /mnt/motherbrain/ironwolf_02/disney-wait-times/
+              </code>
+              <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.4rem;">
+                Should show <code style="color:#a5f3fc;">waittimes.db</code> once the first sample fires.
+                If the directory is missing: <code style="color:#a5f3fc;">sudo mkdir -p /mnt/motherbrain/ironwolf_02/disney-wait-times</code>
+              </div>
+            </div>
+
+            <div style="background:#1e293b; border-radius:10px; padding:0.75rem 1rem;">
+              <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase;
+                letter-spacing:0.06em; color:#64748b; margin-bottom:0.4rem;">
+                3 · Confirm both processes are running inside the container
+              </div>
+              <code style="color:#7dd3fc; font-size:0.82rem; font-family:monospace; word-break:break-all;">
+                docker exec disney_api_dev ps aux
+              </code>
+              <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.4rem;">
+                Should show two <code style="color:#a5f3fc;">node</code> processes:
+                <code style="color:#a5f3fc;">server.js</code> and <code style="color:#a5f3fc;">wait-collector.js</code>
+              </div>
+            </div>
+
+            <div style="background:#1e293b; border-radius:10px; padding:0.75rem 1rem;">
+              <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase;
+                letter-spacing:0.06em; color:#64748b; margin-bottom:0.4rem;">
+                4 · Force a full rebuild if something looks wrong
+              </div>
+              <code style="color:#7dd3fc; font-size:0.82rem; font-family:monospace; word-break:break-all; white-space:pre-wrap;">cd /homelab/disney/disney-site-dev
+docker compose down
+docker compose build --no-cache disney-api
+docker compose up -d</code>
+            </div>
+
+          </div>
+
+          <p style="font-size:0.75rem; color:var(--muted); margin:1rem 0 0; text-align:center;">
+            Hit <strong>↻ Refresh</strong> after the expected sample time — this panel updates automatically once data arrives.
+          </p>
+        </div>
+
+      </div>
+    `;
+    return;
+  }
+
+  const minsAgo = stats.mins_since_last_sample;
+  let healthDot, healthLabel, healthColor;
+  if (minsAgo === null) {
+    healthDot = "⚫"; healthLabel = "No data";                        healthColor = "#94a3b8";
+  } else if (minsAgo <= 20) {
+    healthDot = "🟢"; healthLabel = "Healthy";                        healthColor = "#16a34a";
+  } else if (minsAgo <= 45) {
+    healthDot = "🟡"; healthLabel = "Delayed";                        healthColor = "#ca8a04";
+  } else {
+    healthDot = "🔴"; healthLabel = "Stale — collector may be down";  healthColor = "#dc2626";
+  }
+
+  function fmtAgo(mins) {
+    if (mins === null) return "—";
+    if (mins < 1)  return "just now";
+    if (mins < 60) return `${Math.round(mins)}m ago`;
+    const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+    return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  let nextSampleHtml = "—";
+  if (minsAgo !== null) {
+    const minsUntilNext = Math.max(0, 15 - minsAgo);
+    nextSampleHtml = minsUntilNext < 1
+      ? `<span style="color:#16a34a; font-weight:700;">Due now</span>`
+      : `<span style="color:var(--castle-blue); font-weight:700;">~${Math.round(minsUntilNext)}m</span>`;
+  }
+
+  const PARK_EMOJI = {
+    "Magic Kingdom": "🏰", "EPCOT": "🌍",
+    "Hollywood Studios": "🎬", "Animal Kingdom": "🦁",
+  };
+
+  const parkRows = (stats.parks || []).map(p => {
+    const emoji  = PARK_EMOJI[p.park_name] || "🎡";
+    const pctBar = Math.min(100, Math.round((p.today_samples / Math.max(p.today_samples, 96)) * 100));
+    return `
+      <div style="display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0; border-bottom:1px solid #f1f5f9;">
+        <span style="font-size:1.1rem; flex-shrink:0;">${emoji}</span>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;">
+            <span style="font-family:'Mouse Memoirs',sans-serif; font-size:1rem; color:var(--castle-blue);">${p.park_name}</span>
+            <span style="font-size:0.75rem; color:var(--muted); white-space:nowrap;">${p.today_samples} samples today</span>
+          </div>
+          <div style="height:5px; background:#e2e8f0; border-radius:999px; margin-top:0.3rem; overflow:hidden;">
+            <div style="height:100%; width:${pctBar}%; background:var(--castle-blue); border-radius:999px;"></div>
+          </div>
+        </div>
+        <span style="font-size:0.8rem; font-weight:700; color:${p.today_samples > 0 ? "#16a34a" : "#94a3b8"}; flex-shrink:0;">
+          ${p.today_samples > 0 ? "✓" : "—"}
+        </span>
+      </div>
+    `;
+  }).join("");
+
+  const bannerBg    = minsAgo !== null && minsAgo <= 20 ? "#f0fdf4" : minsAgo !== null && minsAgo <= 45 ? "#fefce8" : "#fef2f2";
+  const collectorMsg = minsAgo !== null && minsAgo <= 20 ? "sampling on schedule"
+                     : minsAgo !== null && minsAgo <= 45 ? "running slightly behind"
+                     : "not responding — check Docker logs";
+
+  body.innerHTML = `
+    <div style="display:flex; align-items:center; gap:1rem; padding:1rem 1.25rem;
+      background:${bannerBg}; border:1.5px solid ${healthColor}30;
+      border-left:4px solid ${healthColor}; border-radius:12px; margin-bottom:1.25rem;">
+      <span style="font-size:1.5rem;">${healthDot}</span>
+      <div>
+        <div style="font-family:'Mouse Memoirs',sans-serif; font-size:1.1rem; color:${healthColor}; letter-spacing:0.03em;">${healthLabel}</div>
+        <div style="font-size:0.78rem; color:var(--muted); margin-top:0.1rem;">Collector is ${collectorMsg}</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.75rem; margin-bottom:1.25rem;">
+
+      <div class="info-card" style="padding:1rem; text-align:center;">
+        <div style="font-size:1.6rem; margin-bottom:0.25rem;">📅</div>
+        <div style="font-family:'Nunito',sans-serif; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Data since</div>
+        <div style="font-weight:800; font-size:0.95rem; color:var(--castle-blue); margin-top:0.2rem;">${fmtDate(stats.oldest_sample)}</div>
+      </div>
+
+      <div class="info-card" style="padding:1rem; text-align:center;">
+        <div style="font-size:1.6rem; margin-bottom:0.25rem;">🕐</div>
+        <div style="font-family:'Nunito',sans-serif; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Last sample</div>
+        <div style="font-weight:800; font-size:0.95rem; color:var(--castle-blue); margin-top:0.2rem;">${fmtAgo(minsAgo)}</div>
+        <div style="font-size:0.72rem; color:var(--muted);">${fmtDateTime(stats.last_sample_at)}</div>
+      </div>
+
+      <div class="info-card" style="padding:1rem; text-align:center;">
+        <div style="font-size:1.6rem; margin-bottom:0.25rem;">⏭</div>
+        <div style="font-family:'Nunito',sans-serif; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Next sample</div>
+        <div style="font-size:0.95rem; margin-top:0.2rem;">${nextSampleHtml}</div>
+      </div>
+
+      <div class="info-card" style="padding:1rem; text-align:center;">
+        <div style="font-size:1.6rem; margin-bottom:0.25rem;">📊</div>
+        <div style="font-family:'Nunito',sans-serif; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Total samples</div>
+        <div style="font-weight:800; font-size:0.95rem; color:var(--castle-blue); margin-top:0.2rem;">${stats.total_summary_rows.toLocaleString()}</div>
+        <div style="font-size:0.72rem; color:var(--muted);">park summaries stored</div>
+      </div>
+
+      <div class="info-card" style="padding:1rem; text-align:center;">
+        <div style="font-size:1.6rem; margin-bottom:0.25rem;">🗓</div>
+        <div style="font-family:'Nunito',sans-serif; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Days of history</div>
+        <div style="font-weight:800; font-size:0.95rem; color:var(--castle-blue); margin-top:0.2rem;">${stats.days_of_history ?? "—"}</div>
+        <div style="font-size:0.72rem; color:var(--muted);">30-day max retention</div>
+      </div>
+
+      <div class="info-card" style="padding:1rem; text-align:center;">
+        <div style="font-size:1.6rem; margin-bottom:0.25rem;">🎢</div>
+        <div style="font-family:'Nunito',sans-serif; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">Attraction rows</div>
+        <div style="font-weight:800; font-size:0.95rem; color:var(--castle-blue); margin-top:0.2rem;">${stats.total_snapshot_rows.toLocaleString()}</div>
+        <div style="font-size:0.72rem; color:var(--muted);">individual wait times</div>
+      </div>
+
+    </div>
+
+    <div style="background:#f8fafc; border-radius:12px; padding:1rem;">
+      <p style="font-family:'Nunito',sans-serif; font-size:0.72rem; font-weight:800; text-transform:uppercase;
+        letter-spacing:0.06em; color:var(--muted); margin:0 0 0.5rem;">Today's coverage</p>
+      ${parkRows || `<p style="color:var(--muted); font-size:0.85rem; text-align:center; padding:1rem 0;">No samples recorded today yet.</p>`}
+    </div>
+
+    <p style="font-size:0.7rem; color:var(--muted); text-align:center; margin:1rem 0 0;">
+      Collector skips parks that are closed · Data purged after 30 days (summaries after 90)
+    </p>
+  `;
+}
+
+
+// ============================================================
+// PARK PULSE DATA VIEWER MODAL
+// 5 views: Live, Trend, Comparison, History, Hop Ranking
+// Uses Chart.js via CDN
+// ============================================================
+
+const PULSE_PARK_IDS = {
+  "Magic Kingdom":     "75ea578a-adc8-4116-a54d-dccb60765ef9",
+  "EPCOT":             "47f90d2c-e191-4239-a466-5892ef59a88b",
+  "Hollywood Studios": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+  "Animal Kingdom":    "1c84a229-8862-4648-9c71-378ddd2c7693",
+};
+const PULSE_PARK_LIST = Object.entries(PULSE_PARK_IDS).map(([name, id]) => ({ name, id }));
+const PULSE_COLORS = {
+  "Magic Kingdom":     { line: "#0030A0", bg: "rgba(0,48,160,0.12)"     },
+  "EPCOT":             { line: "#007A5E", bg: "rgba(0,122,94,0.12)"     },
+  "Hollywood Studios": { line: "#9B2335", bg: "rgba(155,35,53,0.12)"    },
+  "Animal Kingdom":    { line: "#2D6A4F", bg: "rgba(45,106,79,0.12)"    },
+};
+const PULSE_EMOJI = {
+  "Magic Kingdom": "🏰", "EPCOT": "🌍",
+  "Hollywood Studios": "🎬", "Animal Kingdom": "🦁",
+};
+
+let pulseChartInstances = [];
+
+function destroyPulseCharts() {
+  pulseChartInstances.forEach(c => { try { c.destroy(); } catch(e) {} });
+  pulseChartInstances = [];
+}
+
+async function loadChartJs() {
+  if (window.Chart) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function ensurePulseModal() {
+  if (document.getElementById("pulse-data-modal-overlay")) return;
+  document.body.insertAdjacentHTML("beforeend", `
+    <div id="pulse-data-modal-overlay" style="
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+      z-index:1000; align-items:flex-start; justify-content:center;
+      padding:2rem 1rem; overflow-y:auto;">
+      <div style="
+        background:var(--warm-cream, #FFFDF4); border-radius:20px;
+        width:100%; max-width:860px; min-height:400px;
+        box-shadow:0 20px 60px rgba(0,0,0,0.25); overflow:hidden;
+        margin:auto;">
+        <!-- Modal header -->
+        <div style="
+          display:flex; align-items:center; justify-content:space-between;
+          padding:1.25rem 1.5rem;
+          background:var(--castle-blue,#0030A0); color:white;">
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <span style="font-size:1.4rem;">🎢</span>
+            <div>
+              <div style="font-family:'Mouse Memoirs',sans-serif; font-size:1.3rem; letter-spacing:0.04em;">Park Pulse Data</div>
+              <div style="font-size:0.72rem; opacity:0.75; font-family:'Nunito',sans-serif;">Wait time history &amp; trends</div>
+            </div>
+          </div>
+          <button id="pulse-data-modal-close" style="
+            background:rgba(255,255,255,0.15); border:none; color:white;
+            border-radius:8px; width:2rem; height:2rem; font-size:1.1rem;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <!-- Tab bar -->
+        <div style="display:flex; background:#f1f5f9; border-bottom:1px solid #e2e8f0; overflow-x:auto;">
+          ${[
+            ["live",       "📡 Live"],
+            ["trend",      "📈 Trend"],
+            ["compare",    "⚖️ Compare"],
+            ["history",    "🗓 History"],
+            ["hop",        "🎯 Hop Ranking"],
+            ["ride",       "🎢 Ride History"],
+          ].map(([key, label]) => `
+            <button class="pulse-tab-btn" data-tab="${key}" style="
+              flex-shrink:0; padding:0.75rem 1.1rem; border:none; background:none;
+              font-family:'Nunito',sans-serif; font-size:0.82rem; font-weight:700;
+              color:var(--muted); cursor:pointer; border-bottom:3px solid transparent;
+              white-space:nowrap; transition:color 0.15s;">
+              ${label}
+            </button>
+          `).join("")}
+        </div>
+        <!-- Tab content -->
+        <div id="pulse-tab-content" style="padding:1.5rem; min-height:300px;">
+          <div style="text-align:center; padding:3rem; color:var(--muted);">Loading…</div>
+        </div>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("pulse-data-modal-close").addEventListener("click", closePulseDataModal);
+  document.getElementById("pulse-data-modal-overlay").addEventListener("click", e => {
+    if (e.target === e.currentTarget) closePulseDataModal();
+  });
+
+  document.querySelectorAll(".pulse-tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => switchPulseTab(btn.dataset.tab));
+  });
+}
+
+function openPulseDataModal() {
+  ensurePulseModal();
+  document.getElementById("pulse-data-modal-overlay").style.display = "flex";
+  switchPulseTab("live");
+}
+
+function closePulseDataModal() {
+  destroyPulseCharts();
+  const overlay = document.getElementById("pulse-data-modal-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+function setActiveTab(tabKey) {
+  document.querySelectorAll(".pulse-tab-btn").forEach(btn => {
+    const active = btn.dataset.tab === tabKey;
+    btn.style.color        = active ? "var(--castle-blue)" : "var(--muted)";
+    btn.style.borderBottom = active ? "3px solid var(--castle-blue)" : "3px solid transparent";
+    btn.style.background   = active ? "white" : "none";
+  });
+}
+
+async function switchPulseTab(tabKey) {
+  destroyPulseCharts();
+  setActiveTab(tabKey);
+  const content = document.getElementById("pulse-tab-content");
+  content.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--muted);">Loading…</div>`;
+
+  await loadChartJs();
+
+  switch (tabKey) {
+    case "live":    await renderPulseTabLive(content);    break;
+    case "trend":   await renderPulseTabTrend(content);   break;
+    case "compare": await renderPulseTabCompare(content); break;
+    case "history": await renderPulseTabHistory(content); break;
+    case "hop":     await renderPulseTabHop(content);     break;
+    case "ride":    await renderPulseTabRide(content);    break;
+  }
+}
+
+// ── Helper ────────────────────────────────────────────────
+function pulseLoading(content) {
+  content.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--muted);">Loading…</div>`;
+}
+function pulseError(content, msg) {
+  content.innerHTML = `<div style="text-align:center;padding:2rem;">
+    <p style="font-size:2rem;">⚠️</p>
+    <p style="color:var(--muted);">${msg}</p>
+  </div>`;
+}
+function todayET() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}
+function fmtHour(h) {
+  const n = parseInt(h, 10);
+  if (n === 0)  return "12am";
+  if (n < 12)   return `${n}am`;
+  if (n === 12) return "12pm";
+  return `${n - 12}pm`;
+}
+
+// ── TAB 1: Live wait times ────────────────────────────────
+async function renderPulseTabLive(content) {
+  try {
+    const results = await Promise.all(
+      PULSE_PARK_LIST.map(p => adminFetch(`/wait-times/live/${p.id}`))
+    );
+
+    let html = `<div style="display:flex; flex-direction:column; gap:1.5rem;">`;
+
+    results.forEach((data, i) => {
+      const park = PULSE_PARK_LIST[i];
+      const col  = PULSE_COLORS[park.name];
+      const emoji = PULSE_EMOJI[park.name];
+
+      if (!data.available) {
+        html += `
+          <div style="background:#f8fafc; border-radius:12px; padding:1rem;">
+            <p style="font-family:'Mouse Memoirs',sans-serif; color:var(--castle-blue);">${emoji} ${park.name}</p>
+            <p style="color:var(--muted); font-size:0.85rem;">No data yet for this park.</p>
+          </div>`;
+        return;
+      }
+
+      const sampledAt = new Date(data.sampled_at).toLocaleTimeString("en-US", {
+        hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+      }) + " ET";
+
+      const operating = data.attractions.filter(a => a.status === "OPERATING" && a.wait_minutes !== null);
+      const top5 = operating.slice(0, 5);
+
+      html += `
+        <div style="background:#f8fafc; border-radius:12px; overflow:hidden;">
+          <div style="background:${col.line}; color:white; padding:0.75rem 1rem;
+            display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-family:'Mouse Memoirs',sans-serif; font-size:1.1rem; letter-spacing:0.03em;">
+              ${emoji} ${park.name}
+            </span>
+            <span style="font-size:0.72rem; opacity:0.8;">as of ${sampledAt}</span>
+          </div>
+          <div style="padding:0.75rem 1rem;">
+            ${data.attractions.length === 0
+              ? `<p style="color:var(--muted); font-size:0.85rem; text-align:center; padding:0.5rem 0;">No attraction data available.</p>`
+              : `
+                <!-- Top waits bar chart -->
+                <p style="font-size:0.7rem; font-weight:800; text-transform:uppercase;
+                  letter-spacing:0.06em; color:var(--muted); margin:0.25rem 0 0.6rem;">
+                  Top wait times right now
+                </p>
+                <div style="position:relative; height:160px; margin-bottom:0.75rem;">
+                  <canvas id="live-chart-${i}"></canvas>
+                </div>
+                <!-- Full list -->
+                <details style="margin-top:0.5rem;">
+                  <summary style="font-size:0.78rem; font-weight:700; color:var(--castle-blue);
+                    cursor:pointer; list-style:none; user-select:none;">
+                    ▸ All attractions (${data.attractions.length})
+                  </summary>
+                  <div style="margin-top:0.5rem; display:flex; flex-direction:column; gap:2px;">
+                    ${data.attractions.map(a => {
+                      const statusDot = a.status === "OPERATING" ? "🟢" : a.status === "DOWN" ? "🔴" : "⚫";
+                      const waitStr = a.status !== "OPERATING" ? `<em style="color:var(--muted);font-size:0.8rem;">${a.status.toLowerCase()}</em>`
+                                    : a.wait_minutes !== null   ? `<strong>${a.wait_minutes} min</strong>`
+                                    : `<span style="color:var(--muted);">—</span>`;
+                      return `<div style="display:flex; align-items:center; gap:0.5rem;
+                        padding:0.3rem 0; border-bottom:1px solid #f1f5f9; font-size:0.82rem;">
+                        <span style="font-size:0.65rem;">${statusDot}</span>
+                        <span style="flex:1; color:var(--slate);">${a.attraction_name}</span>
+                        <span>${waitStr}</span>
+                      </div>`;
+                    }).join("")}
+                  </div>
+                </details>
+              `
+            }
+          </div>
+        </div>`;
+    });
+
+    html += `</div>`;
+    content.innerHTML = html;
+
+    // Draw bar charts
+    results.forEach((data, i) => {
+      const park = PULSE_PARK_LIST[i];
+      const col  = PULSE_COLORS[park.name];
+      const operating = data.attractions?.filter(a => a.status === "OPERATING" && a.wait_minutes !== null) || [];
+      const top5 = operating.slice(0, 5);
+      if (!top5.length) return;
+
+      const canvas = document.getElementById(`live-chart-${i}`);
+      if (!canvas) return;
+
+      const chart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: top5.map(a => a.attraction_name.length > 22 ? a.attraction_name.slice(0, 20) + "…" : a.attraction_name),
+          datasets: [{ data: top5.map(a => a.wait_minutes), backgroundColor: col.line, borderRadius: 6 }],
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: "#f1f5f9" } },
+            y: { ticks: { font: { size: 10 } }, grid: { display: false } },
+          },
+        },
+      });
+      pulseChartInstances.push(chart);
+    });
+
+  } catch(e) {
+    pulseError(content, "Could not load live data: " + e.message);
+  }
+}
+
+// ── TAB 2: Hourly trend for a selected day ────────────────
+async function renderPulseTabTrend(content) {
+  const today = todayET();
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem; flex-wrap:wrap;">
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">Park:</label>
+      <select id="trend-park-select" style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db;
+        border-radius:8px; font-family:'Nunito',sans-serif; font-size:0.85rem;">
+        ${PULSE_PARK_LIST.map(p => `<option value="${p.id}" data-name="${p.name}">${PULSE_EMOJI[p.name]} ${p.name}</option>`).join("")}
+      </select>
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">Date:</label>
+      <input type="date" id="trend-date-input" value="${today}" max="${today}"
+        style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px;
+        font-family:'Nunito',sans-serif; font-size:0.85rem;" />
+      <button type="button" class="primary-button" id="trend-load-btn" style="font-size:0.82rem;">Load</button>
+    </div>
+    <div id="trend-chart-area" style="position:relative; height:280px;">
+      <div style="text-align:center; padding:2rem; color:var(--muted);">Select a park and date, then hit Load.</div>
+    </div>
+    <div id="trend-stats" style="margin-top:1rem;"></div>
+  `;
+
+  document.getElementById("trend-load-btn").addEventListener("click", () => loadTrendChart());
+  // Auto-load today for first park
+  loadTrendChart();
+}
+
+async function loadTrendChart() {
+  const parkId   = document.getElementById("trend-park-select").value;
+  const parkName = document.getElementById("trend-park-select").selectedOptions[0]?.dataset.name || "";
+  const date     = document.getElementById("trend-date-input").value;
+  const area     = document.getElementById("trend-chart-area");
+  const statsEl  = document.getElementById("trend-stats");
+  if (!area) return;
+
+  destroyPulseCharts();
+  area.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Loading…</div>`;
+
+  try {
+    const data = await adminFetch(`/wait-times/trends/${parkId}?date=${date}`);
+    if (!data.available || !data.trend?.length) {
+      area.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">No trend data for this park on ${date}.</div>`;
+      statsEl.innerHTML = "";
+      return;
+    }
+
+    const col = PULSE_COLORS[parkName] || { line: "#0030A0", bg: "rgba(0,48,160,0.12)" };
+    const labels   = data.trend.map(t => fmtHour(t.hour));
+    const avgWaits = data.trend.map(t => t.avg_wait);
+
+    area.innerHTML = `<canvas id="trend-canvas"></canvas>`;
+    const chart = new Chart(document.getElementById("trend-canvas"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Avg wait (min)",
+          data: avgWaits,
+          borderColor: col.line,
+          backgroundColor: col.bg,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+          y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+        },
+      },
+    });
+    pulseChartInstances.push(chart);
+
+    const maxWait = Math.max(...avgWaits);
+    const minWait = Math.min(...avgWaits);
+    const avgAll  = Math.round(avgWaits.reduce((a,b)=>a+b,0) / avgWaits.length);
+    const peakHour = labels[avgWaits.indexOf(maxWait)];
+
+    statsEl.innerHTML = `
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+        ${[
+          ["Peak wait",  `${maxWait} min @ ${peakHour}`],
+          ["Lowest wait", `${minWait} min`],
+          ["Day average", `${avgAll} min`],
+          ["Samples",     data.trend.reduce((s,t) => s + t.sample_count, 0)],
+        ].map(([label, val]) => `
+          <div style="flex:1; min-width:100px; background:#f8fafc; border-radius:10px;
+            padding:0.6rem 0.75rem; text-align:center;">
+            <div style="font-size:0.68rem; font-weight:800; text-transform:uppercase;
+              letter-spacing:0.06em; color:var(--muted);">${label}</div>
+            <div style="font-weight:800; color:var(--castle-blue); margin-top:0.2rem;">${val}</div>
+          </div>`).join("")}
+      </div>`;
+
+  } catch(e) {
+    pulseError(area, "Could not load trend: " + e.message);
+  }
+}
+
+// ── TAB 3: All-park comparison ────────────────────────────
+async function renderPulseTabCompare(content) {
+  const today = todayET();
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem; flex-wrap:wrap;">
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">Date:</label>
+      <input type="date" id="compare-date-input" value="${today}" max="${today}"
+        style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px;
+        font-family:'Nunito',sans-serif; font-size:0.85rem;" />
+      <button type="button" class="primary-button" id="compare-load-btn" style="font-size:0.82rem;">Load</button>
+    </div>
+    <div id="compare-chart-area" style="position:relative; height:300px;"></div>
+  `;
+
+  document.getElementById("compare-load-btn").addEventListener("click", loadCompareChart);
+  loadCompareChart();
+}
+
+async function loadCompareChart() {
+  const date = document.getElementById("compare-date-input").value;
+  const area = document.getElementById("compare-chart-area");
+  if (!area) return;
+
+  destroyPulseCharts();
+  area.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Loading…</div>`;
+
+  try {
+    const results = await Promise.all(
+      PULSE_PARK_LIST.map(p => adminFetch(`/wait-times/trends/${p.id}?date=${date}`))
+    );
+
+    // Build unified hour labels across all parks
+    const allHours = [...new Set(results.flatMap(r => (r.trend||[]).map(t => t.hour)))].sort();
+    if (!allHours.length) {
+      area.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">No data for ${date}.</div>`;
+      return;
+    }
+
+    area.innerHTML = `<canvas id="compare-canvas"></canvas>`;
+    const datasets = PULSE_PARK_LIST.map((park, i) => {
+      const col      = PULSE_COLORS[park.name];
+      const trendMap = {};
+      (results[i].trend || []).forEach(t => { trendMap[t.hour] = t.avg_wait; });
+      return {
+        label: park.name,
+        data: allHours.map(h => trendMap[h] ?? null),
+        borderColor: col.line,
+        backgroundColor: col.bg,
+        fill: false,
+        tension: 0.35,
+        pointRadius: 3,
+        spanGaps: true,
+      };
+    });
+
+    const chart = new Chart(document.getElementById("compare-canvas"), {
+      type: "line",
+      data: { labels: allHours.map(fmtHour), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: "bottom",
+            labels: { font: { size: 11 }, boxWidth: 14 },
+          },
+        },
+        scales: {
+          x: { grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+          y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+        },
+      },
+    });
+    pulseChartInstances.push(chart);
+
+  } catch(e) {
+    pulseError(area, "Could not load comparison: " + e.message);
+  }
+}
+
+// ── TAB 4: Historical day picker ──────────────────────────
+async function renderPulseTabHistory(content) {
+  const today = todayET();
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem; flex-wrap:wrap;">
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">Date:</label>
+      <input type="date" id="history-date-input" value="${today}" max="${today}"
+        style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px;
+        font-family:'Nunito',sans-serif; font-size:0.85rem;" />
+      <button type="button" class="primary-button" id="history-load-btn" style="font-size:0.82rem;">Load</button>
+    </div>
+    <div id="history-content-area"></div>
+  `;
+
+  document.getElementById("history-load-btn").addEventListener("click", loadHistoryDay);
+  loadHistoryDay();
+}
+
+async function loadHistoryDay() {
+  const date = document.getElementById("history-date-input").value;
+  const area = document.getElementById("history-content-area");
+  if (!area) return;
+
+  destroyPulseCharts();
+  area.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Loading…</div>`;
+
+  try {
+    const results = await Promise.all(
+      PULSE_PARK_LIST.map(p => adminFetch(`/wait-times/trends/${p.id}?date=${date}`))
+    );
+
+    let html = `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem;">`;
+
+    results.forEach((data, i) => {
+      const park = PULSE_PARK_LIST[i];
+      const col  = PULSE_COLORS[park.name];
+      const emoji = PULSE_EMOJI[park.name];
+      const trend = data.trend || [];
+
+      if (!trend.length) {
+        html += `
+          <div style="background:#f8fafc; border-radius:12px; padding:1rem;">
+            <p style="font-family:'Mouse Memoirs',sans-serif; color:var(--castle-blue); margin:0 0 0.5rem;">
+              ${emoji} ${park.name}
+            </p>
+            <p style="color:var(--muted); font-size:0.82rem; margin:0;">No data for this date.</p>
+          </div>`;
+        return;
+      }
+
+      const waits   = trend.map(t => t.avg_wait).filter(v => v !== null);
+      const maxWait = waits.length ? Math.max(...waits) : 0;
+      const avgWait = waits.length ? Math.round(waits.reduce((a,b)=>a+b,0) / waits.length) : 0;
+      const peakHour = trend.find(t => t.avg_wait === maxWait);
+      const totalSamples = trend.reduce((s,t) => s + t.sample_count, 0);
+
+      html += `
+        <div style="background:#f8fafc; border-radius:12px; overflow:hidden;">
+          <div style="background:${col.line}; color:white; padding:0.6rem 1rem;
+            display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-family:'Mouse Memoirs',sans-serif; font-size:1rem; letter-spacing:0.03em;">
+              ${emoji} ${park.name}
+            </span>
+            <span style="font-size:0.7rem; opacity:0.8;">${totalSamples} samples</span>
+          </div>
+          <div style="padding:0.75rem;">
+            <div style="position:relative; height:120px; margin-bottom:0.6rem;">
+              <canvas id="hist-chart-${i}"></canvas>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted);">
+              <span>Peak: <strong style="color:var(--castle-blue);">${maxWait} min${peakHour ? " @ " + fmtHour(peakHour.hour) : ""}</strong></span>
+              <span>Avg: <strong style="color:var(--castle-blue);">${avgWait} min</strong></span>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    html += `</div>`;
+    area.innerHTML = html;
+
+    // Draw mini charts
+    results.forEach((data, i) => {
+      const park  = PULSE_PARK_LIST[i];
+      const col   = PULSE_COLORS[park.name];
+      const trend = data.trend || [];
+      if (!trend.length) return;
+      const canvas = document.getElementById(`hist-chart-${i}`);
+      if (!canvas) return;
+      const chart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: trend.map(t => fmtHour(t.hour)),
+          datasets: [{
+            data: trend.map(t => t.avg_wait),
+            backgroundColor: col.line,
+            borderRadius: 3,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 8 }, maxRotation: 0 } },
+            y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 8 } } },
+          },
+        },
+      });
+      pulseChartInstances.push(chart);
+    });
+
+  } catch(e) {
+    pulseError(area, "Could not load history: " + e.message);
+  }
+}
+
+// ── TAB 5: Hop ranking history ────────────────────────────
+async function renderPulseTabHop(content) {
+  content.innerHTML = `
+    <div style="margin-bottom:1rem;">
+      <p style="font-size:0.82rem; color:var(--muted); margin:0 0 1rem;">
+        Shows how park rankings shifted throughout today based on average wait times.
+        Lower avg wait = better hop destination.
+      </p>
+    </div>
+    <div id="hop-chart-area" style="position:relative; height:300px;"></div>
+    <div id="hop-ranking-now" style="margin-top:1.25rem;"></div>
+  `;
+
+  const area    = document.getElementById("hop-chart-area");
+  const rankNow = document.getElementById("hop-ranking-now");
+
+  try {
+    const [rankData, ...trendResults] = await Promise.all([
+      adminFetch("/wait-times/hop-ranking"),
+      ...PULSE_PARK_LIST.map(p => adminFetch(`/wait-times/trends/${p.id}?date=${todayET()}`)),
+    ]);
+
+    // Build comparison chart — all parks by hour today
+    const allHours = [...new Set(trendResults.flatMap(r => (r.trend||[]).map(t => t.hour)))].sort();
+
+    if (!allHours.length) {
+      area.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">No data collected yet today.</div>`;
+    } else {
+      area.innerHTML = `<canvas id="hop-canvas"></canvas>`;
+      const datasets = PULSE_PARK_LIST.map((park, i) => {
+        const col      = PULSE_COLORS[park.name];
+        const trendMap = {};
+        (trendResults[i].trend || []).forEach(t => { trendMap[t.hour] = t.avg_wait; });
+        return {
+          label: park.name,
+          data: allHours.map(h => trendMap[h] ?? null),
+          borderColor: col.line,
+          backgroundColor: col.bg,
+          fill: false,
+          tension: 0.35,
+          pointRadius: 3,
+          spanGaps: true,
+        };
+      });
+
+      const chart = new Chart(document.getElementById("hop-canvas"), {
+        type: "line",
+        data: { labels: allHours.map(fmtHour), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: "bottom", labels: { font: { size: 11 }, boxWidth: 14 } },
+            tooltip: {
+              callbacks: {
+                title: ctx => `${ctx[0].label} ET`,
+                label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} min avg`,
+              },
+            },
+          },
+          scales: {
+            x: { grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+            y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+          },
+        },
+      });
+      pulseChartInstances.push(chart);
+    }
+
+    // Current ranking
+    if (rankData.available && rankData.ranking?.length) {
+      const medals = ["🥇","🥈","🥉","4️⃣"];
+      rankNow.innerHTML = `
+        <p style="font-family:'Nunito',sans-serif; font-size:0.72rem; font-weight:800;
+          text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin:0 0 0.6rem;">
+          Current hop ranking
+        </p>
+        <div style="display:flex; flex-direction:column; gap:0.4rem;">
+          ${rankData.ranking.map((p, i) => {
+            const col = PULSE_COLORS[p.park_name] || { line: "#0030A0" };
+            const trendArrow = p.trend === "rising" ? "↑" : p.trend === "falling" ? "↓" : "→";
+            const trendColor = p.trend === "rising" ? "#ef4444" : p.trend === "falling" ? "#16a34a" : "#94a3b8";
+            return `
+              <div style="display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0.9rem;
+                background:white; border:1.5px solid #e2e8f0; border-left:4px solid ${col.line};
+                border-radius:10px;">
+                <span style="font-size:1.2rem;">${medals[i] || (i+1)}</span>
+                <div style="flex:1;">
+                  <div style="font-family:'Mouse Memoirs',sans-serif; font-size:1rem; color:var(--castle-blue);">
+                    ${PULSE_EMOJI[p.park_name] || ""} ${p.park_name}
+                  </div>
+                  <div style="font-size:0.75rem; color:var(--muted);">${p.verdict}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-weight:800; font-size:0.9rem; color:var(--castle-blue);">
+                    ${p.current_avg !== null ? p.current_avg + " min" : "—"}
+                    <span style="color:${trendColor}; font-size:0.85rem;">${trendArrow}</span>
+                  </div>
+                  <div style="font-size:0.7rem; color:var(--muted);">avg wait</div>
+                </div>
+              </div>`;
+          }).join("")}
+        </div>`;
+    }
+
+  } catch(e) {
+    pulseError(area, "Could not load hop ranking: " + e.message);
+  }
+}
+
+
+// ── TAB 6: Ride-level historical data ────────────────────
+async function renderPulseTabRide(content) {
+  const today = todayET();
+  const sevenDaysAgo = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">Park:</label>
+      <select id="ride-park-select" style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db;
+        border-radius:8px; font-family:'Nunito',sans-serif; font-size:0.85rem;">
+        ${PULSE_PARK_LIST.map(p => `<option value="${p.id}" data-name="${p.name}">${PULSE_EMOJI[p.name]} ${p.name}</option>`).join("")}
+      </select>
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">Ride:</label>
+      <select id="ride-attraction-select" style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db;
+        border-radius:8px; font-family:'Nunito',sans-serif; font-size:0.85rem; min-width:200px;">
+        <option value="">— select park first —</option>
+      </select>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem; flex-wrap:wrap;">
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">From:</label>
+      <input type="date" id="ride-from-input" value="${sevenDaysAgo}" max="${today}"
+        style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px;
+        font-family:'Nunito',sans-serif; font-size:0.85rem;" />
+      <label style="font-size:0.82rem; font-weight:700; color:var(--slate);">To:</label>
+      <input type="date" id="ride-to-input" value="${today}" max="${today}"
+        style="padding:0.4rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px;
+        font-family:'Nunito',sans-serif; font-size:0.85rem;" />
+      <button type="button" class="primary-button" id="ride-load-btn" style="font-size:0.82rem;" disabled>Load</button>
+    </div>
+    <div id="ride-chart-area" style="position:relative; min-height:200px;">
+      <div style="text-align:center; padding:2rem; color:var(--muted);">
+        Select a park to load its attractions.
+      </div>
+    </div>
+    <div id="ride-stats-area" style="margin-top:1rem;"></div>
+  `;
+
+  // Load attractions when park changes
+  async function loadAttractions() {
+    const parkId = document.getElementById("ride-park-select").value;
+    const sel    = document.getElementById("ride-attraction-select");
+    sel.innerHTML = `<option value="">Loading…</option>`;
+    sel.disabled = true;
+    document.getElementById("ride-load-btn").disabled = true;
+
+    try {
+      const data = await adminFetch(`/wait-times/attractions/${parkId}`);
+      if (!data.available || !data.attractions.length) {
+        sel.innerHTML = `<option value="">No attraction data yet</option>`;
+        return;
+      }
+      sel.innerHTML = `<option value="">— choose a ride —</option>` +
+        data.attractions.map(a => `<option value="${a}">${a}</option>`).join("");
+      sel.disabled = false;
+    } catch(e) {
+      sel.innerHTML = `<option value="">Error loading attractions</option>`;
+    }
+  }
+
+  document.getElementById("ride-park-select").addEventListener("change", loadAttractions);
+  document.getElementById("ride-attraction-select").addEventListener("change", () => {
+    const hasRide = !!document.getElementById("ride-attraction-select").value;
+    document.getElementById("ride-load-btn").disabled = !hasRide;
+  });
+  document.getElementById("ride-load-btn").addEventListener("click", loadRideHistory);
+
+  // Auto-load attractions for first park
+  loadAttractions();
+}
+
+async function loadRideHistory() {
+  const parkId     = document.getElementById("ride-park-select").value;
+  const parkName   = document.getElementById("ride-park-select").selectedOptions[0]?.dataset?.name
+                  || document.getElementById("ride-park-select").selectedOptions[0]?.text || "";
+  const attraction = document.getElementById("ride-attraction-select").value;
+  const fromDate   = document.getElementById("ride-from-input").value;
+  const toDate     = document.getElementById("ride-to-input").value;
+  const area       = document.getElementById("ride-chart-area");
+  const statsArea  = document.getElementById("ride-stats-area");
+  if (!area || !attraction) return;
+
+  destroyPulseCharts();
+  area.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted);">Loading…</div>`;
+  statsArea.innerHTML = "";
+
+  const col = PULSE_COLORS[parkName] || { line: "#0030A0", bg: "rgba(0,48,160,0.12)" };
+  const isSingleDay = fromDate === toDate;
+
+  try {
+    const data = await adminFetch(
+      `/wait-times/attraction-history/${parkId}?name=${encodeURIComponent(attraction)}&from=${fromDate}&to=${toDate}`
+    );
+
+    if (!data.available || (!data.daily.length && !data.hourly.length)) {
+      area.innerHTML = `
+        <div style="text-align:center; padding:2rem; background:#f8fafc; border-radius:12px;">
+          <p style="font-size:1.5rem; margin:0 0 0.5rem;">🎢</p>
+          <p style="color:var(--muted); margin:0;">No data for <strong>${attraction}</strong> in this date range.</p>
+          <p style="font-size:0.78rem; color:var(--muted); margin:0.5rem 0 0;">
+            Remember: individual ride data is only kept for 30 days.
+          </p>
+        </div>`;
+      return;
+    }
+
+    // Single day = hourly breakdown; multi-day = daily avg
+    const points  = isSingleDay ? data.hourly  : data.daily;
+    const labels  = isSingleDay
+      ? points.map(p => fmtHour(p.hour))
+      : points.map(p => {
+          const d = new Date(p.day + "T12:00:00");
+          return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        });
+    const avgs    = points.map(p => p.avg_wait);
+    const maxes   = points.map(p => p.max_wait);
+    const mins    = points.map(p => p.min_wait);
+
+    area.innerHTML = `
+      <div style="margin-bottom:0.5rem;">
+        <p style="font-family:'Mouse Memoirs',sans-serif; font-size:1.1rem; color:var(--castle-blue); margin:0;">
+          ${PULSE_EMOJI[parkName] || "🎢"} ${attraction}
+        </p>
+        <p style="font-size:0.75rem; color:var(--muted); margin:0.15rem 0 0;">
+          ${isSingleDay
+            ? `Hourly breakdown · ${new Date(fromDate + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+            : `Daily average · ${labels[0]} – ${labels[labels.length - 1]}`
+          }
+        </p>
+      </div>
+      <div style="position:relative; height:240px;">
+        <canvas id="ride-main-canvas"></canvas>
+      </div>`;
+
+    const datasets = [
+      {
+        label: "Avg wait",
+        data: avgs,
+        borderColor: col.line,
+        backgroundColor: col.bg,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        order: 1,
+      },
+    ];
+
+    // Only show min/max band on multi-day view where variance is meaningful
+    if (!isSingleDay) {
+      datasets.push({
+        label: "Max wait",
+        data: maxes,
+        borderColor: col.line + "55",
+        backgroundColor: "transparent",
+        borderDash: [4, 3],
+        fill: false,
+        tension: 0.35,
+        pointRadius: 2,
+        order: 2,
+      });
+      datasets.push({
+        label: "Min wait",
+        data: mins,
+        borderColor: col.line + "55",
+        backgroundColor: "transparent",
+        borderDash: [4, 3],
+        fill: false,
+        tension: 0.35,
+        pointRadius: 2,
+        order: 3,
+      });
+    }
+
+    const chart = new Chart(document.getElementById("ride-main-canvas"), {
+      type: isSingleDay ? "bar" : "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: !isSingleDay,
+            position: "bottom",
+            labels: { font: { size: 11 }, boxWidth: 14 },
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} min`,
+            },
+          },
+        },
+        scales: {
+          x: { grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+          y: {
+            beginAtZero: true,
+            grid: { color: "#f1f5f9" },
+            ticks: { font: { size: 10 }, callback: v => v + "m" },
+            title: { display: true, text: "Wait (min)", font: { size: 10 }, color: "#94a3b8" },
+          },
+        },
+      },
+    });
+    pulseChartInstances.push(chart);
+
+    // Stats row
+    const allAvgs = avgs.filter(v => v !== null);
+    if (allAvgs.length) {
+      const overallAvg  = Math.round(allAvgs.reduce((a,b) => a+b, 0) / allAvgs.length);
+      const overallMax  = Math.max(...points.map(p => p.max_wait).filter(v => v !== null));
+      const overallMin  = Math.min(...points.map(p => p.min_wait).filter(v => v !== null));
+      const totalSamples = points.reduce((s, p) => s + p.sample_count, 0);
+      const peakPoint = isSingleDay
+        ? points.find(p => p.avg_wait === Math.max(...avgs))
+        : points.find(p => p.avg_wait === Math.max(...avgs));
+      const peakLabel = isSingleDay
+        ? (peakPoint ? fmtHour(peakPoint.hour) : "—")
+        : (peakPoint ? new Date(peakPoint.day + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
+
+      statsArea.innerHTML = `
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+          ${[
+            ["Overall avg",    overallAvg + " min"],
+            ["Peak wait",      overallMax + " min @ " + peakLabel],
+            ["Lowest recorded", overallMin + " min"],
+            ["Data points",    totalSamples + " samples"],
+          ].map(([label, val]) => `
+            <div style="flex:1; min-width:110px; background:#f8fafc; border-radius:10px;
+              padding:0.6rem 0.75rem; text-align:center;">
+              <div style="font-size:0.65rem; font-weight:800; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted);">${label}</div>
+              <div style="font-weight:800; font-size:0.88rem; color:var(--castle-blue); margin-top:0.2rem;">${val}</div>
+            </div>`).join("")}
+        </div>
+        ${!isSingleDay ? `
+          <p style="font-size:0.72rem; color:var(--muted); margin:0.75rem 0 0; text-align:center;">
+            Dashed lines show daily min/max range · Solid line is daily average · Individual ride data kept 30 days
+          </p>` : ""}`;
+    }
+
+  } catch(e) {
+    pulseError(area, "Could not load ride history: " + e.message);
+  }
+}
 
 document.addEventListener("DOMContentLoaded", initAdmin);

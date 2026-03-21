@@ -5,14 +5,15 @@
 // ============================================================
 
 const PLANNER_STEPS = [
-  { id: "dates",      label: "Dates & Travel",    icon: "✈️" },
-  { id: "members",    label: "Who's Going?",      icon: "👨‍👩‍👧‍👦" },
-  { id: "resort",     label: "Resort",            icon: "🏰" },
-  { id: "parks",      label: "Park Days",         icon: "🎢" },
-  { id: "dining",     label: "Dining",            icon: "🍽️" },
-  { id: "lightning",  label: "Lightning Lane",    icon: "⚡" },
-  { id: "extras",     label: "Other Activities",  icon: "🎭" },
-  { id: "review",     label: "Review & Save",     icon: "✅" },
+  { id: "dates",        label: "Dates & Travel",    icon: "✈️" },
+  { id: "members",      label: "Who's Going?",      icon: "👨‍👩‍👧‍👦" },
+  { id: "budgetgroups", label: "Budget Groups",     icon: "💰" },
+  { id: "resort",       label: "Resort",            icon: "🏰" },
+  { id: "parks",        label: "Park Days",         icon: "🎢" },
+  { id: "dining",       label: "Dining",            icon: "🍽️" },
+  { id: "lightning",    label: "Lightning Lane",    icon: "⚡" },
+  { id: "extras",       label: "Other Activities",  icon: "🎭" },
+  { id: "review",       label: "Review & Save",     icon: "✅" },
 ];
 
 const PARK_OPTIONS = [
@@ -47,8 +48,17 @@ const plannerState = {
   // Step 2: Who's Going — array of user IDs
   members: [],
 
-  // Step 2: Resort
+  // Step 3: Budget Groups
+  // null = not yet decided, "individual" = all solo, "shared" = groups defined below
+  budgetMode: null,
+  // Array of { id, label, memberIds[] } — only used when budgetMode === "shared"
+  budgetGroups: [],
+  // Full user objects for the selected members (stashed for the budget groups step)
+  _memberObjects: [],
+
+  // Step 4: Resort
   resortName: "",
+  resortType: "disney",  // "disney" | "timeshare" | "offsite"
   changingResorts: false,
   secondResort: "",
   resortChangeDate: "",
@@ -99,6 +109,129 @@ function escHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// ── TV-Friendly Date Picker ────────────────────────────────
+// Replaces native <input type="date"> with MM / DD / YYYY number
+// spinners that work reliably with TV remote controls.
+// A 📅 button opens the native calendar for mouse/touch users.
+// The hidden backing <input id="..."> stays in sync so all
+// existing .value reads work completely unchanged.
+
+function renderTVDatePicker(id, value) {
+  const parts = value ? value.split("-") : ["", "", ""];
+  const yyyy = parts[0] || "";
+  const mm   = parts[1] || "";
+  const dd   = parts[2] || "";
+  return `
+    <div class="tv-date-picker" data-id="${id}">
+      <input type="number" class="tv-date-seg tv-date-mm" min="1" max="12"
+        placeholder="MM" value="${mm}" aria-label="Month" />
+      <span class="tv-date-sep">/</span>
+      <input type="number" class="tv-date-seg tv-date-dd" min="1" max="31"
+        placeholder="DD" value="${dd}" aria-label="Day" />
+      <span class="tv-date-sep">/</span>
+      <input type="number" class="tv-date-seg tv-date-yyyy" min="2024" max="2099"
+        placeholder="YYYY" value="${yyyy}" aria-label="Year" />
+      <span class="tv-date-spacer"></span>
+      <button type="button" class="tv-date-cal-btn" aria-label="Open calendar">📅</button>
+      <input type="date" class="tv-date-native" value="${value || ""}" tabindex="-1" aria-hidden="true" />
+      <input type="hidden" id="${id}" value="${value || ""}" />
+    </div>
+  `;
+}
+
+function initTVDatePicker(id) {
+  const wrapper = document.querySelector(`.tv-date-picker[data-id="${id}"]`);
+  if (!wrapper) return;
+
+  const hidden  = document.getElementById(id);
+  const mmEl    = wrapper.querySelector(".tv-date-mm");
+  const ddEl    = wrapper.querySelector(".tv-date-dd");
+  const yyyyEl  = wrapper.querySelector(".tv-date-yyyy");
+  const calBtn  = wrapper.querySelector(".tv-date-cal-btn");
+  const nativeEl = wrapper.querySelector(".tv-date-native");
+
+  function sync() {
+    const mm   = String(mmEl.value   || "").padStart(2, "0");
+    const dd   = String(ddEl.value   || "").padStart(2, "0");
+    const yyyy = String(yyyyEl.value || "");
+    if (mm !== "00" && dd !== "00" && yyyy.length === 4) {
+      hidden.value = `${yyyy}-${mm}-${dd}`;
+    } else {
+      hidden.value = "";
+    }
+  }
+
+  function syncFromNative() {
+    const val = nativeEl.value;
+    if (val && val.includes("-")) {
+      const [y, m, d] = val.split("-");
+      yyyyEl.value = y;
+      mmEl.value   = String(parseInt(m));
+      ddEl.value   = String(parseInt(d));
+      hidden.value = val;
+    }
+  }
+
+  if (calBtn && nativeEl) {
+    calBtn.addEventListener("click", () => {
+      const mm   = String(mmEl.value   || "").padStart(2, "0");
+      const dd   = String(ddEl.value   || "").padStart(2, "0");
+      const yyyy = String(yyyyEl.value || "");
+      if (mm !== "00" && dd !== "00" && yyyy.length === 4) {
+        nativeEl.value = `${yyyy}-${mm}-${dd}`;
+      }
+      nativeEl.showPicker ? nativeEl.showPicker() : nativeEl.click();
+    });
+    nativeEl.addEventListener("change", syncFromNative);
+  }
+
+  function clamp(el, min, max) {
+    const v = parseInt(el.value);
+    if (!isNaN(v)) el.value = Math.min(max, Math.max(min, v));
+    sync();
+  }
+
+  function handleKey(e, el, min, max, prev, next) {
+    switch (e.key) {
+      case "ArrowUp":
+        e.preventDefault();
+        el.value = Math.min(max, (parseInt(el.value) || min) + 1);
+        sync(); break;
+      case "ArrowDown":
+        e.preventDefault();
+        el.value = Math.max(min, (parseInt(el.value) || min + 1) - 1);
+        sync(); break;
+      case "ArrowRight":
+      case "Enter":
+        e.preventDefault();
+        if (next) next.focus(); break;
+      case "ArrowLeft":
+        e.preventDefault();
+        if (prev) prev.focus(); break;
+    }
+  }
+
+  function autoAdvance(el, maxLen, min, max, next) {
+    el.addEventListener("input", () => {
+      const raw = String(el.value).replace(/\D/g, "").slice(0, maxLen);
+      el.value = raw;
+      sync();
+      if (raw.length >= maxLen && next) { clamp(el, min, max); next.focus(); }
+    });
+    el.addEventListener("blur", () => clamp(el, min, max));
+  }
+
+  mmEl.addEventListener("keydown",   e => handleKey(e, mmEl,   1,    12,   null, ddEl));
+  ddEl.addEventListener("keydown",   e => handleKey(e, ddEl,   1,    31,   mmEl, yyyyEl));
+  yyyyEl.addEventListener("keydown", e => handleKey(e, yyyyEl, 2024, 2099, ddEl, null));
+
+  autoAdvance(mmEl,   2, 1,    12,   ddEl);
+  autoAdvance(ddEl,   2, 1,    31,   yyyyEl);
+  autoAdvance(yyyyEl, 4, 2024, 2099, null);
+
+  [mmEl, ddEl, yyyyEl].forEach(el => el.addEventListener("change", sync));
+}
+
 // ── Progress Bar ───────────────────────────────────────────
 
 function renderProgress() {
@@ -144,33 +277,52 @@ function wireNavButtons(validateAndSave) {
   const nextBtn = container.querySelector(".wizard-next-btn");
   const backBtn = container.querySelector(".wizard-back-btn");
 
-  if (nextBtn) {
-    nextBtn.addEventListener("click", () => {
-      if (validateAndSave && !validateAndSave()) return;
-      currentStep++;
-      renderCurrentStep();
+  // Skip the budgetgroups step when only 1 member is going
+  function nextStepIndex(from) {
+    let idx = from + 1;
+    if (PLANNER_STEPS[idx]?.id === "budgetgroups" && plannerState.members.length <= 1) idx++;
+    return idx;
+  }
+  function prevStepIndex(from) {
+    let idx = from - 1;
+    if (PLANNER_STEPS[idx]?.id === "budgetgroups" && plannerState.members.length <= 1) idx--;
+    return idx;
+  }
+
+  // addClickAndEnter: TV remote OK/Select (Enter/Space) fires same handler as click
+  function addClickAndEnter(btn, handler) {
+    if (!btn) return;
+    btn.addEventListener("click", handler);
+    btn.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handler(); }
     });
   }
-  if (backBtn) {
-    backBtn.addEventListener("click", () => {
-      currentStep--;
-      renderCurrentStep();
-    });
-  }
+
+  addClickAndEnter(nextBtn, () => {
+    if (validateAndSave && !validateAndSave()) return;
+    currentStep = nextStepIndex(currentStep);
+    renderCurrentStep();
+  });
+
+  addClickAndEnter(backBtn, () => {
+    currentStep = prevStepIndex(currentStep);
+    renderCurrentStep();
+  });
 }
 
 function renderCurrentStep() {
   renderProgress();
   const step = PLANNER_STEPS[currentStep];
   switch (step.id) {
-    case "dates":     renderStepDates(); break;
-    case "members":   renderStepMembers(); break;
-    case "resort":    renderStepResort(); break;
-    case "parks":     renderStepParks(); break;
-    case "dining":    renderStepDining(); break;
-    case "lightning": renderStepLightning(); break;
-    case "extras":    renderStepExtras(); break;
-    case "review":    renderStepReview(); break;
+    case "dates":         renderStepDates(); break;
+    case "members":       renderStepMembers(); break;
+    case "budgetgroups":  renderStepBudgetGroups(); break;
+    case "resort":        renderStepResort(); break;
+    case "parks":         renderStepParks(); break;
+    case "dining":        renderStepDining(); break;
+    case "lightning":     renderStepLightning(); break;
+    case "extras":        renderStepExtras(); break;
+    case "review":        renderStepReview(); break;
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -191,12 +343,12 @@ function renderStepDates() {
 
       <div class="wizard-form-grid">
         <div class="wizard-field">
-          <label for="p-start-date">First Day</label>
-          <input type="date" id="p-start-date" value="${plannerState.startDate}" />
+          <label>First Day</label>
+          ${renderTVDatePicker("p-start-date", plannerState.startDate)}
         </div>
         <div class="wizard-field">
-          <label for="p-end-date">Last Day</label>
-          <input type="date" id="p-end-date" value="${plannerState.endDate}" />
+          <label>Last Day</label>
+          ${renderTVDatePicker("p-end-date", plannerState.endDate)}
         </div>
       </div>
 
@@ -231,6 +383,10 @@ function renderStepDates() {
       plannerState.travelMode = btn.dataset.val;
     });
   });
+
+  // Initialise TV-friendly date pickers
+  initTVDatePicker("p-start-date");
+  initTVDatePicker("p-end-date");
 
   wireNavButtons(() => {
     const start = document.getElementById("p-start-date").value;
@@ -318,17 +474,326 @@ async function renderStepMembers() {
   });
 
   wireNavButtons(() => {
-    // Collect selected member IDs
     const checkboxes = c.querySelectorAll(".member-checkbox:checked");
-    plannerState.members = Array.from(checkboxes).map(cb => cb.value);
+    const newMembers = Array.from(checkboxes).map(cb => cb.value);
+    // Reset budget state if membership changed
+    const changed = JSON.stringify([...newMembers].sort()) !== JSON.stringify([...plannerState.members].sort());
+    if (changed) { plannerState.budgetMode = null; plannerState.budgetGroups = []; }
+    plannerState.members = newMembers;
+    // Stash full user objects for the budget groups step
+    plannerState._memberObjects = allUsers.filter(u => plannerState.members.includes(u.id));
+
+    // If 2+ members and budget mode not yet chosen, show the splash modal
+    if (plannerState.members.length > 1 && plannerState.budgetMode === null) {
+      showBudgetModeModal();
+      return false; // prevent wizard from advancing — modal handles navigation
+    }
     return true;
   });
 }
 
-// ── STEP 3: Resort ─────────────────────────────────────────
+// ── STEP 3: Budget Groups ──────────────────────────────────
+// Only shown when 2+ members are going AND shared mode was chosen.
+// The Individual vs Shared choice is handled by a modal on the members step.
 
-function renderStepResort() {
+function renderStepBudgetGroups() {
+  // This step is only reached when budgetMode === "shared"
+  renderBudgetGroupBuilder();
+}
+
+// ── Budget Mode Modal ──────────────────────────────────────
+// Shown as a splash overlay after the members step when 2+ members are selected.
+function showBudgetModeModal() {
+  // Remove any existing modal
+  document.getElementById("budget-mode-modal")?.remove();
+
+  const memberCount = plannerState.members.length;
+
+  const overlay = document.createElement("div");
+  overlay.id = "budget-mode-modal";
+  overlay.innerHTML = `
+    <div class="bm-modal-backdrop"></div>
+    <div class="bm-modal-card" role="dialog" aria-modal="true" aria-labelledby="bm-modal-title">
+      <div class="bm-modal-header">
+        <span class="bm-modal-emoji">💰</span>
+        <div>
+          <h2 id="bm-modal-title">How are you handling budgets?</h2>
+          <p>${memberCount} people are going. Does everyone track their own spending, or are some people sharing one budget?</p>
+        </div>
+      </div>
+
+      <div class="bg-mode-choices">
+        <button type="button" class="bg-mode-card" data-mode="individual">
+          <span class="bg-mode-icon">🧍</span>
+          <strong>Individual Budgets</strong>
+          <p>Everyone tracks and manages their own spending separately.</p>
+        </button>
+        <button type="button" class="bg-mode-card" data-mode="shared">
+          <span class="bg-mode-icon">👫</span>
+          <strong>Shared Budgets</strong>
+          <p>Some or all people share a combined budget. You choose who.</p>
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Animate in
+  requestAnimationFrame(() => overlay.classList.add("bm-visible"));
+
+  function closeModal() {
+    overlay.classList.remove("bm-visible");
+    setTimeout(() => overlay.remove(), 250);
+  }
+
+  overlay.querySelectorAll(".bg-mode-card").forEach(card => {
+    card.addEventListener("click", () => {
+      const mode = card.dataset.mode;
+      plannerState.budgetMode = mode;
+
+      if (mode === "individual") {
+        // Clear any groups and go straight to resort
+        plannerState.budgetGroups = [];
+        closeModal();
+        // Skip budgetgroups step — advance past it to resort
+        const budgetStepIdx = PLANNER_STEPS.findIndex(s => s.id === "budgetgroups");
+        currentStep = budgetStepIdx + 1; // resort
+        renderCurrentStep();
+      } else {
+        // Shared — close modal and go to budget groups builder
+        closeModal();
+        const budgetStepIdx = PLANNER_STEPS.findIndex(s => s.id === "budgetgroups");
+        currentStep = budgetStepIdx;
+        renderCurrentStep();
+      }
+    });
+  });
+}
+
+// Phase 2 — Drag-and-drop budget builder
+function renderBudgetGroupBuilder() {
   const c = document.getElementById("wizard-container");
+  const nameMap = {};
+  plannerState._memberObjects.forEach(u => { nameMap[u.id] = u.name; });
+
+  // Initialise groups if empty — start with everyone unassigned
+  if (!plannerState.budgetGroups || plannerState.budgetGroups.length === 0) {
+    plannerState.budgetGroups = [];
+  }
+
+  // Which members are already in a group?
+  function assignedIds() {
+    return new Set(plannerState.budgetGroups.flatMap(g => g.memberIds));
+  }
+
+  function firstName(uid) {
+    return (nameMap[uid] || uid).split(" ")[0];
+  }
+
+  function render() {
+    const assigned = assignedIds();
+    const unassigned = plannerState.members.filter(uid => !assigned.has(uid));
+
+    c.innerHTML = `
+      <section class="wizard-step-card">
+        <div class="wizard-step-header">
+          <span class="wizard-step-emoji">💰</span>
+          <div>
+            <h2>Assign Budget Groups</h2>
+            <p class="wizard-step-subtitle">Drag people into a shared budget, or leave them unassigned to keep an individual budget.</p>
+          </div>
+        </div>
+
+        ${unassigned.length > 0 ? `
+          <div class="bg-unassigned-pool">
+            <p class="bg-pool-label">Unassigned — individual budget by default</p>
+            <div class="bg-pill-pool" id="bg-unassigned-pool">
+              ${unassigned.map(uid => `
+                <div class="bg-pill" draggable="true" data-uid="${uid}" data-source="unassigned">
+                  <span class="bg-pill-avatar">${firstName(uid)[0]}</span>
+                  <span class="bg-pill-name">${escHtml(firstName(uid))}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        ` : ""}
+
+        <div id="bg-groups-list" class="bg-groups-list">
+          ${plannerState.budgetGroups.map((grp, gi) => `
+            <div class="bg-group-bucket" data-gi="${gi}">
+              <div class="bg-bucket-header">
+                <input type="text" class="bg-bucket-name" value="${escHtml(grp.label)}" data-gi="${gi}" placeholder="Budget name..." maxlength="30" />
+                <button type="button" class="bg-bucket-delete" data-gi="${gi}" title="Remove this budget group">✕</button>
+              </div>
+              <div class="bg-bucket-drop" data-gi="${gi}" id="bg-drop-${gi}">
+                ${grp.memberIds.map(uid => `
+                  <div class="bg-pill" draggable="true" data-uid="${uid}" data-source="group" data-gi="${gi}">
+                    <span class="bg-pill-avatar">${firstName(uid)[0]}</span>
+                    <span class="bg-pill-name">${escHtml(firstName(uid))}</span>
+                    <button type="button" class="bg-pill-remove" data-uid="${uid}" data-gi="${gi}" title="Remove from group">↩</button>
+                  </div>
+                `).join("")}
+                ${grp.memberIds.length === 0 ? `<p class="bg-drop-hint">Drop people here</p>` : ""}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+
+        <button type="button" class="secondary-button bg-add-budget-btn" style="margin-top:1rem; width:100%;">
+          + Add Budget Group
+        </button>
+
+        <div class="wizard-nav-buttons" style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid #e2e8f0;">
+          <button type="button" class="secondary-button" id="bg-back-btn">← Back</button>
+          <button type="button" class="primary-button" id="bg-next-btn">Next: Resort →</button>
+        </div>
+      </section>
+    `;
+
+    wireBudgetBuilder(render);
+  }
+
+  render();
+}
+
+function wireBudgetBuilder(rerender) {
+  const c = document.getElementById("wizard-container");
+  let dragUid = null;
+  let dragSource = null;
+  let dragSourceGi = null;
+
+  // ── Drag from pills ──────────────────────────────────────
+  c.querySelectorAll(".bg-pill[draggable]").forEach(pill => {
+    pill.addEventListener("dragstart", e => {
+      dragUid = pill.dataset.uid;
+      dragSource = pill.dataset.source;
+      dragSourceGi = pill.dataset.gi !== undefined ? parseInt(pill.dataset.gi) : null;
+      pill.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+    });
+    pill.addEventListener("dragend", () => pill.classList.remove("dragging"));
+  });
+
+  // ── Drop zones: bucket drop areas ───────────────────────
+  c.querySelectorAll(".bg-bucket-drop").forEach(zone => {
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+    zone.addEventListener("drop", e => {
+      e.preventDefault();
+      zone.classList.remove("drag-over");
+      if (!dragUid) return;
+      const targetGi = parseInt(zone.dataset.gi);
+
+      // Remove from source
+      if (dragSource === "group" && dragSourceGi !== null) {
+        plannerState.budgetGroups[dragSourceGi].memberIds =
+          plannerState.budgetGroups[dragSourceGi].memberIds.filter(id => id !== dragUid);
+      }
+      // Add to target group (avoid duplicates)
+      if (!plannerState.budgetGroups[targetGi].memberIds.includes(dragUid)) {
+        plannerState.budgetGroups[targetGi].memberIds.push(dragUid);
+      }
+      dragUid = null;
+      rerender();
+    });
+  });
+
+  // ── Drop zone: unassigned pool ───────────────────────────
+  const pool = c.querySelector("#bg-unassigned-pool");
+  if (pool) {
+    pool.addEventListener("dragover", e => { e.preventDefault(); pool.classList.add("drag-over"); });
+    pool.addEventListener("dragleave", () => pool.classList.remove("drag-over"));
+    pool.addEventListener("drop", e => {
+      e.preventDefault();
+      pool.classList.remove("drag-over");
+      if (!dragUid || dragSource !== "group" || dragSourceGi === null) return;
+      // Remove from group — back to unassigned
+      plannerState.budgetGroups[dragSourceGi].memberIds =
+        plannerState.budgetGroups[dragSourceGi].memberIds.filter(id => id !== dragUid);
+      dragUid = null;
+      rerender();
+    });
+  }
+
+  // ── Remove pill from group (↩ button) ───────────────────
+  c.querySelectorAll(".bg-pill-remove").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const uid = btn.dataset.uid;
+      const gi = parseInt(btn.dataset.gi);
+      plannerState.budgetGroups[gi].memberIds =
+        plannerState.budgetGroups[gi].memberIds.filter(id => id !== uid);
+      rerender();
+    });
+  });
+
+  // ── Add Budget Group ─────────────────────────────────────
+  c.querySelector(".bg-add-budget-btn")?.addEventListener("click", () => {
+    const idx = plannerState.budgetGroups.length + 1;
+    plannerState.budgetGroups.push({
+      id: `grp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      label: `Budget ${idx}`,
+      memberIds: [],
+    });
+    rerender();
+  });
+
+  // ── Delete budget group ──────────────────────────────────
+  c.querySelectorAll(".bg-bucket-delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const gi = parseInt(btn.dataset.gi);
+      // Members go back to unassigned automatically (not in any group)
+      plannerState.budgetGroups.splice(gi, 1);
+      rerender();
+    });
+  });
+
+  // ── Rename group ─────────────────────────────────────────
+  c.querySelectorAll(".bg-bucket-name").forEach(input => {
+    input.addEventListener("input", () => {
+      const gi = parseInt(input.dataset.gi);
+      plannerState.budgetGroups[gi].label = input.value;
+    });
+  });
+
+  // ── Back: return to members step (modal will re-fire if needed) ─────
+  c.querySelector("#bg-back-btn")?.addEventListener("click", () => {
+    plannerState.budgetMode = null;
+    const membersStepIdx = PLANNER_STEPS.findIndex(s => s.id === "members");
+    currentStep = membersStepIdx;
+    renderCurrentStep();
+  });
+
+  // ── Next: validate and advance ───────────────────────────
+  c.querySelector("#bg-next-btn")?.addEventListener("click", () => {
+    // Remove any empty groups
+    plannerState.budgetGroups = plannerState.budgetGroups.filter(g => g.memberIds.length > 0);
+    currentStep++;
+    renderCurrentStep();
+  });
+}
+
+// ── STEP 4: Resort ─────────────────────────────────────────
+
+async function renderStepResort() {
+  const c = document.getElementById("wizard-container");
+
+  // Try to pull timeshare name from user profile to pre-fill
+  let profileTimeshare = "";
+  try {
+    const user = typeof Auth !== "undefined" ? Auth.getUser() : null;
+    if (user) {
+      const profile = await apiFetch(`/user-profile/${user.id}`).catch(() => ({}));
+      if (profile && profile.timeshare_name) profileTimeshare = profile.timeshare_name;
+    }
+  } catch(e) { /* non-fatal */ }
+
+  // If resortType is timeshare and no resortName yet, pre-fill from profile
+  if (plannerState.resortType === "timeshare" && !plannerState.resortName && profileTimeshare) {
+    plannerState.resortName = profileTimeshare;
+  }
+
   c.innerHTML = `
     <section class="wizard-step-card">
       <div class="wizard-step-header">
@@ -339,28 +804,39 @@ function renderStepResort() {
         </div>
       </div>
 
+      <div class="wizard-field" style="margin-bottom:1.25rem;">
+        <label>Type of accommodation</label>
+        <div class="wizard-toggle-group" id="resort-type-toggles">
+          <button type="button" class="wizard-toggle ${plannerState.resortType === "disney"    ? "active" : ""}" data-rtype="disney">🏰 Disney Resort</button>
+          <button type="button" class="wizard-toggle ${plannerState.resortType === "timeshare" ? "active" : ""}" data-rtype="timeshare">🏖️ Timeshare</button>
+          <button type="button" class="wizard-toggle ${plannerState.resortType === "offsite"   ? "active" : ""}" data-rtype="offsite">🏨 Off-Site</button>
+        </div>
+      </div>
+
       <div class="wizard-field">
-        <label for="p-resort">Resort Name</label>
-        <input type="text" id="p-resort" value="${escHtml(plannerState.resortName)}" placeholder="e.g. Caribbean Beach Resort" />
+        <label for="p-resort" id="p-resort-label">${plannerState.resortType === "timeshare" ? "Timeshare / Property Name" : plannerState.resortType === "offsite" ? "Hotel Name" : "Resort Name"}</label>
+        <input type="text" id="p-resort" value="${escHtml(plannerState.resortName)}"
+          placeholder="${plannerState.resortType === "timeshare" ? "e.g. Marriott Grande Vista, Orange Lake" : plannerState.resortType === "offsite" ? "e.g. Hyatt Regency Orlando" : "e.g. Caribbean Beach Resort"}" />
+        ${profileTimeshare && plannerState.resortType === "timeshare" ? `<p style="font-size:0.78rem; color:var(--sky-blue); margin:0.3rem 0 0; font-weight:700;">✓ Pre-filled from your profile</p>` : ""}
       </div>
 
       <div class="wizard-field" style="margin-top:1.25rem;">
-        <label>Changing resorts during your stay?</label>
-        <div class="wizard-toggle-group">
+        <label>Changing accommodations during your stay?</label>
+        <div class="wizard-toggle-group" id="resort-change-toggles">
           <button type="button" class="wizard-toggle ${!plannerState.changingResorts ? "active" : ""}" data-val="no">No</button>
-          <button type="button" class="wizard-toggle ${plannerState.changingResorts ? "active" : ""}" data-val="yes">Yes</button>
+          <button type="button" class="wizard-toggle ${plannerState.changingResorts  ? "active" : ""}" data-val="yes">Yes</button>
         </div>
       </div>
 
       <div id="resort-change-fields" class="${plannerState.changingResorts ? "" : "hidden"}" style="margin-top:1.25rem;">
         <div class="wizard-form-grid">
           <div class="wizard-field">
-            <label for="p-resort-2">Second Resort</label>
+            <label for="p-resort-2">Second Property</label>
             <input type="text" id="p-resort-2" value="${escHtml(plannerState.secondResort)}" placeholder="e.g. Animal Kingdom Lodge" />
           </div>
           <div class="wizard-field">
-            <label for="p-resort-change-date">Change Date</label>
-            <input type="date" id="p-resort-change-date" value="${plannerState.resortChangeDate}" />
+            <label>Change Date</label>
+            ${renderTVDatePicker("p-resort-change-date", plannerState.resortChangeDate)}
           </div>
         </div>
       </div>
@@ -369,9 +845,34 @@ function renderStepResort() {
     </section>
   `;
 
-  c.querySelectorAll(".wizard-toggle").forEach(btn => {
+  // Property type toggles
+  c.querySelectorAll("#resort-type-toggles .wizard-toggle").forEach(btn => {
     btn.addEventListener("click", () => {
-      c.querySelectorAll(".wizard-toggle").forEach(b => b.classList.remove("active"));
+      c.querySelectorAll("#resort-type-toggles .wizard-toggle").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      plannerState.resortType = btn.dataset.rtype;
+      // Update label and placeholder
+      const label = document.getElementById("p-resort-label");
+      const input = document.getElementById("p-resort");
+      if (plannerState.resortType === "timeshare") {
+        label.textContent = "Timeshare / Property Name";
+        input.placeholder = "e.g. Marriott Grande Vista, Orange Lake";
+        // Pre-fill from profile if blank
+        if (!input.value && profileTimeshare) input.value = profileTimeshare;
+      } else if (plannerState.resortType === "offsite") {
+        label.textContent = "Hotel Name";
+        input.placeholder = "e.g. Hyatt Regency Orlando";
+      } else {
+        label.textContent = "Resort Name";
+        input.placeholder = "e.g. Caribbean Beach Resort";
+      }
+    });
+  });
+
+  // Changing resorts toggles
+  c.querySelectorAll("#resort-change-toggles .wizard-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      c.querySelectorAll("#resort-change-toggles .wizard-toggle").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       const yes = btn.dataset.val === "yes";
       plannerState.changingResorts = yes;
@@ -379,9 +880,11 @@ function renderStepResort() {
     });
   });
 
+  initTVDatePicker("p-resort-change-date");
+
   wireNavButtons(() => {
     plannerState.resortName = document.getElementById("p-resort").value.trim();
-    if (!plannerState.resortName) { alert("Please enter your resort name."); return false; }
+    if (!plannerState.resortName) { alert("Please enter your accommodation name."); return false; }
     if (plannerState.changingResorts) {
       plannerState.secondResort = document.getElementById("p-resort-2").value.trim();
       plannerState.resortChangeDate = document.getElementById("p-resort-change-date").value;
@@ -389,20 +892,11 @@ function renderStepResort() {
     return true;
   });
 
-  // Attach venue autocomplete to resort inputs
   if (typeof attachVenueAutocomplete === "function") {
     const resortInput = document.getElementById("p-resort");
-    if (resortInput) attachVenueAutocomplete(resortInput, {
-      filterType: "travel",
-      onSelect: (venue) => {
-        // Resort names don't need to fill other fields
-      }
-    });
+    if (resortInput) attachVenueAutocomplete(resortInput, { filterType: "travel", onSelect: () => {} });
     const resort2Input = document.getElementById("p-resort-2");
-    if (resort2Input) attachVenueAutocomplete(resort2Input, {
-      filterType: "travel",
-      onSelect: () => {}
-    });
+    if (resort2Input) attachVenueAutocomplete(resort2Input, { filterType: "travel", onSelect: () => {} });
   }
 }
 
@@ -1020,6 +1514,19 @@ async function handleSaveTrip() {
         }
       }
       console.log(`[Planner] Assigned ${plannerState.members.length} members to trip ${tripId}`);
+
+      // Save budget groups (only when shared mode with at least one group)
+      if (plannerState.budgetMode === "shared" && plannerState.budgetGroups.length > 0) {
+        try {
+          await apiFetch(`/trips/${tripId}/budget-groups`, {
+            method: "POST",
+            body: JSON.stringify({ groups: plannerState.budgetGroups }),
+          });
+          console.log(`[Planner] Saved ${plannerState.budgetGroups.length} budget group(s)`);
+        } catch (e) {
+          console.warn("[Planner] Could not save budget groups:", e);
+        }
+      }
     }
 
     // Create a trip_budgets entry so the trip date range is always stored

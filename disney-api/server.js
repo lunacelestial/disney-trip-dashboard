@@ -254,17 +254,117 @@ db.exec(`
   );
 `);
 
+// ── Budget Groups tables ───────────────────────────────────
+// Each group is one shared budget pool for a trip.
+// Members of the same group see and update the same budget row.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS budget_groups (
+    id        TEXT PRIMARY KEY,
+    trip_id   TEXT NOT NULL,
+    label     TEXT NOT NULL DEFAULT '',
+    created   TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (trip_id) REFERENCES trip_budgets(trip_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS budget_group_members (
+    group_id  TEXT NOT NULL,
+    user_id   TEXT NOT NULL,
+    PRIMARY KEY (group_id, user_id),
+    FOREIGN KEY (group_id) REFERENCES budget_groups(id),
+    FOREIGN KEY (user_id)  REFERENCES users(id)
+  );
+`);
+
 // Migrations
 try { db.exec("ALTER TABLE activities ADD COLUMN url TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE transactions ADD COLUMN trip_id TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE transactions ADD COLUMN user_id TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE user_budgets ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0"); } catch (e) { }
+try { db.exec("ALTER TABLE user_budgets ADD COLUMN budget_group_id TEXT DEFAULT NULL"); } catch (e) { }
 // Wishlist migrations — add new fields for rich wish cards
 try { db.exec("ALTER TABLE wishlist ADD COLUMN description TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN url TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN image TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN added_by TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN added_by_name TEXT DEFAULT ''"); } catch (e) { }
+
+// ── User Profile, Favorite Restaurants, Favorite Resorts tables ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id        TEXT PRIMARY KEY,
+    birthdate      TEXT DEFAULT '',
+    memberships    TEXT DEFAULT '',
+    timeshare_name TEXT DEFAULT '',
+    -- Party composition
+    party_adults   INTEGER DEFAULT 1,
+    party_children INTEGER DEFAULT 0,
+    party_toddlers INTEGER DEFAULT 0,
+    children_ages  TEXT DEFAULT '[]',
+    -- Accessibility
+    accessibility  TEXT DEFAULT '',
+    -- Dining preferences
+    dietary        TEXT DEFAULT '',
+    dining_style   TEXT DEFAULT '',
+    -- Ride preferences
+    thrill_level   TEXT DEFAULT '',
+    ride_avoid     TEXT DEFAULT '',
+    -- Passes & memberships
+    ap_type        TEXT DEFAULT 'none',
+    dvc_home       TEXT DEFAULT '',
+    budget_tier    TEXT DEFAULT '',
+    -- Travel profile
+    home_airport   TEXT DEFAULT '',
+    trip_length    TEXT DEFAULT '',
+    hotel_tier     TEXT DEFAULT '',
+    pace_style     TEXT DEFAULT '',
+    updated        TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS favorite_restaurants (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    restaurant_name TEXT NOT NULL,
+    park            TEXT DEFAULT '',
+    notes           TEXT DEFAULT '',
+    created         TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS favorite_resorts (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL,
+    resort_name TEXT NOT NULL,
+    resort_type TEXT DEFAULT 'disney',
+    notes       TEXT DEFAULT '',
+    created     TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+`);
+
+// ── Migrations for user_profiles new columns ─────────────
+// Must run BEFORE prepared statements are compiled.
+const profileCols = [
+  ["party_adults",   "INTEGER DEFAULT 1"],
+  ["party_children", "INTEGER DEFAULT 0"],
+  ["party_toddlers", "INTEGER DEFAULT 0"],
+  ["children_ages",  "TEXT DEFAULT '[]'"],
+  ["accessibility",  "TEXT DEFAULT ''"],
+  ["dietary",        "TEXT DEFAULT ''"],
+  ["dining_style",   "TEXT DEFAULT ''"],
+  ["thrill_level",   "TEXT DEFAULT ''"],
+  ["ride_avoid",     "TEXT DEFAULT ''"],
+  ["ap_type",        "TEXT DEFAULT 'none'"],
+  ["dvc_home",       "TEXT DEFAULT ''"],
+  ["budget_tier",    "TEXT DEFAULT ''"],
+  ["home_airport",   "TEXT DEFAULT ''"],
+  ["trip_length",    "TEXT DEFAULT ''"],
+  ["hotel_tier",     "TEXT DEFAULT ''"],
+  ["pace_style",     "TEXT DEFAULT ''"],
+];
+for (const [col, type] of profileCols) {
+  try { db.exec(`ALTER TABLE user_profiles ADD COLUMN ${col} ${type}`); } catch (e) { /* already exists */ }
+}
 
 // ── Seed default admin user if no users exist ──────────────
 const userCount = db.prepare("SELECT COUNT(*) as cnt FROM users").get();
@@ -449,6 +549,91 @@ const stmts = {
   updatePackingChecked: db.prepare("UPDATE packing_items SET checked = @checked, updated = datetime('now') WHERE id = @id AND user_id = @user_id"),
   deletePackingItem:    db.prepare("DELETE FROM packing_items WHERE id = ? AND user_id = ?"),
   clearPackingItems:    db.prepare("DELETE FROM packing_items WHERE trip_id = ? AND user_id = ?"),
+
+  // Budget Groups
+  getBudgetGroupsByTrip:         db.prepare("SELECT * FROM budget_groups WHERE trip_id = ? ORDER BY created"),
+  getBudgetGroup:                db.prepare("SELECT * FROM budget_groups WHERE id = ?"),
+  upsertBudgetGroup:             db.prepare(`
+    INSERT INTO budget_groups (id, trip_id, label)
+    VALUES (@id, @trip_id, @label)
+    ON CONFLICT(id) DO UPDATE SET label = excluded.label
+  `),
+  deleteBudgetGroupsByTrip:      db.prepare("DELETE FROM budget_groups WHERE trip_id = ?"),
+  getBudgetGroupMembers:         db.prepare("SELECT * FROM budget_group_members WHERE group_id = ?"),
+  getBudgetGroupForUser:         db.prepare(`
+    SELECT bg.* FROM budget_group_members bgm
+    JOIN budget_groups bg ON bgm.group_id = bg.id
+    WHERE bg.trip_id = ? AND bgm.user_id = ?
+    LIMIT 1
+  `),
+  addBudgetGroupMember:          db.prepare("INSERT OR IGNORE INTO budget_group_members (group_id, user_id) VALUES (?, ?)"),
+  clearBudgetGroupMembers:       db.prepare("DELETE FROM budget_group_members WHERE group_id = ?"),
+  clearBudgetGroupMembersByTrip: db.prepare(`
+    DELETE FROM budget_group_members WHERE group_id IN (
+      SELECT id FROM budget_groups WHERE trip_id = ?
+    )
+  `),
+  // Fetch the shared budget row by group_id (all group members read the same row)
+  getUserBudgetByGroup:          db.prepare("SELECT * FROM user_budgets WHERE trip_id = ? AND budget_group_id = ? LIMIT 1"),
+
+  // User Profiles
+  getUserProfile:    db.prepare("SELECT * FROM user_profiles WHERE user_id = ?"),
+  upsertUserProfile: db.prepare(`
+    INSERT INTO user_profiles (
+      user_id, birthdate, memberships, timeshare_name,
+      party_adults, party_children, party_toddlers, children_ages,
+      accessibility, dietary, dining_style,
+      thrill_level, ride_avoid,
+      ap_type, dvc_home, budget_tier,
+      home_airport, trip_length, hotel_tier, pace_style,
+      updated
+    ) VALUES (
+      @user_id, @birthdate, @memberships, @timeshare_name,
+      @party_adults, @party_children, @party_toddlers, @children_ages,
+      @accessibility, @dietary, @dining_style,
+      @thrill_level, @ride_avoid,
+      @ap_type, @dvc_home, @budget_tier,
+      @home_airport, @trip_length, @hotel_tier, @pace_style,
+      datetime('now')
+    )
+    ON CONFLICT(user_id) DO UPDATE SET
+      birthdate=excluded.birthdate,
+      memberships=excluded.memberships,
+      timeshare_name=excluded.timeshare_name,
+      party_adults=excluded.party_adults,
+      party_children=excluded.party_children,
+      party_toddlers=excluded.party_toddlers,
+      children_ages=excluded.children_ages,
+      accessibility=excluded.accessibility,
+      dietary=excluded.dietary,
+      dining_style=excluded.dining_style,
+      thrill_level=excluded.thrill_level,
+      ride_avoid=excluded.ride_avoid,
+      ap_type=excluded.ap_type,
+      dvc_home=excluded.dvc_home,
+      budget_tier=excluded.budget_tier,
+      home_airport=excluded.home_airport,
+      trip_length=excluded.trip_length,
+      hotel_tier=excluded.hotel_tier,
+      pace_style=excluded.pace_style,
+      updated=datetime('now')
+  `),
+
+  // Favorite Restaurants
+  getFavoriteRestaurants:    db.prepare("SELECT * FROM favorite_restaurants WHERE user_id = ? ORDER BY created DESC"),
+  insertFavoriteRestaurant:  db.prepare(`
+    INSERT INTO favorite_restaurants (id, user_id, restaurant_name, park, notes)
+    VALUES (@id, @user_id, @restaurant_name, @park, @notes)
+  `),
+  deleteFavoriteRestaurant:  db.prepare("DELETE FROM favorite_restaurants WHERE id = ?"),
+
+  // Favorite Resorts
+  getFavoriteResorts:    db.prepare("SELECT * FROM favorite_resorts WHERE user_id = ? ORDER BY resort_type, created DESC"),
+  insertFavoriteResort:  db.prepare(`
+    INSERT INTO favorite_resorts (id, user_id, resort_name, resort_type, notes)
+    VALUES (@id, @user_id, @resort_name, @resort_type, @notes)
+  `),
+  deleteFavoriteResort:  db.prepare("DELETE FROM favorite_resorts WHERE id = ?"),
 };
 
 // ── ACTIVITIES ROUTES ──────────────────────────────────────
@@ -633,13 +818,23 @@ app.get("/api/trip-budgets", (req, res) => {
     let mySpent = 0;
     let myTotal = 0;
     if (user) {
-      const ub = stmts.getUserBudget.get(tb.trip_id, user.id);
+      // Check group membership first — group members share one budget row
+      const group = stmts.getBudgetGroupForUser.get(tb.trip_id, user.id);
+      const ub = group
+        ? stmts.getUserBudgetByGroup.get(tb.trip_id, group.id)
+        : stmts.getUserBudget.get(tb.trip_id, user.id);
       if (ub) {
-        myBudget = ub;
+        myBudget = { ...ub, group_label: group ? group.label : null };
         myTotal = ub.hotel + ub.food + ub.extras + ub.souvenirs;
       }
-      const myTx = stmts.getTransactionsByTripAndUser.all(tb.trip_id, user.id);
-      mySpent = myTx.reduce((s, t) => s + t.amount, 0);
+      if (group) {
+        const members = stmts.getBudgetGroupMembers.all(group.id).map(m => m.user_id);
+        const myTx = members.flatMap(uid => stmts.getTransactionsByTripAndUser.all(tb.trip_id, uid));
+        mySpent = myTx.reduce((s, t) => s + t.amount, 0);
+      } else {
+        const myTx = stmts.getTransactionsByTripAndUser.all(tb.trip_id, user.id);
+        mySpent = myTx.reduce((s, t) => s + t.amount, 0);
+      }
     }
 
     return { ...tb, total, spent, transactions, myBudget, mySpent, myTotal };
@@ -744,6 +939,15 @@ app.delete("/api/trips/:tripId/cancel", (req, res) => {
     }
     for (const tid of allRelatedTripIds) {
       db.prepare("DELETE FROM budget_contributions WHERE trip_id = ?").run(tid);
+    }
+    // Clean up budget groups
+    for (const tid of allRelatedTripIds) {
+      db.prepare(`
+        DELETE FROM budget_group_members WHERE group_id IN (
+          SELECT id FROM budget_groups WHERE trip_id = ?
+        )
+      `).run(tid);
+      db.prepare("DELETE FROM budget_groups WHERE trip_id = ?").run(tid);
     }
   });
 
@@ -1072,22 +1276,97 @@ app.get("/api/users/:userId/trips", (req, res) => {
   res.json(stmts.getUserTrips.all(req.params.userId));
 });
 
-// ── USER BUDGET ROUTES ────────────────────────────────────
+// ── BUDGET GROUP ROUTES ────────────────────────────────────
+
+// POST /api/trips/:tripId/budget-groups
+// Called by the planner wizard on save. Replaces all existing groups for this trip.
+// Body: { groups: [ { id, memberIds[] } ] }
+app.post("/api/trips/:tripId/budget-groups", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const tripId = req.params.tripId;
+  const { groups } = req.body;
+  if (!Array.isArray(groups)) return res.status(400).json({ error: "groups array required" });
+
+  // Build name map so labels are human-readable (first names joined)
+  const nameMap = {};
+  db.prepare("SELECT id, name FROM users").all().forEach(u => { nameMap[u.id] = u.name; });
+
+  const save = db.transaction(() => {
+    stmts.clearBudgetGroupMembersByTrip.run(tripId);
+    stmts.deleteBudgetGroupsByTrip.run(tripId);
+    for (const g of groups) {
+      if (!g.id || !Array.isArray(g.memberIds) || g.memberIds.length === 0) continue;
+      const label = g.memberIds.map(uid => (nameMap[uid] || uid).split(" ")[0]).join(" & ");
+      stmts.upsertBudgetGroup.run({ id: g.id, trip_id: tripId, label });
+      for (const uid of g.memberIds) stmts.addBudgetGroupMember.run(g.id, uid);
+    }
+  });
+
+  try {
+    save();
+    const saved = stmts.getBudgetGroupsByTrip.all(tripId).map(g => ({
+      ...g,
+      memberIds: stmts.getBudgetGroupMembers.all(g.id).map(m => m.user_id),
+    }));
+    res.json({ ok: true, groups: saved });
+  } catch (err) {
+    console.error("POST /budget-groups error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/trips/:tripId/budget-groups
+// Returns all budget groups for the trip with their member lists.
+app.get("/api/trips/:tripId/budget-groups", (req, res) => {
+  const groups = stmts.getBudgetGroupsByTrip.all(req.params.tripId).map(g => ({
+    ...g,
+    memberIds: stmts.getBudgetGroupMembers.all(g.id).map(m => m.user_id),
+  }));
+  res.json(groups);
+});
+
+// Helper: resolve budget identity for a user on a trip.
+// Returns group-keyed budget when user is in a budget group, solo budget otherwise.
+function resolveBudget(tripId, userId) {
+  const group = stmts.getBudgetGroupForUser.get(tripId, userId);
+  const ub = group
+    ? stmts.getUserBudgetByGroup.get(tripId, group.id)
+    : stmts.getUserBudget.get(tripId, userId);
+
+  let myTx;
+  if (group) {
+    const members = stmts.getBudgetGroupMembers.all(group.id).map(m => m.user_id);
+    myTx = members.flatMap(uid => stmts.getTransactionsByTripAndUser.all(tripId, uid));
+    myTx.sort((a, b) => (b.created || "").localeCompare(a.created || ""));
+  } else {
+    myTx = stmts.getTransactionsByTripAndUser.all(tripId, userId);
+  }
+
+  const contributions = group
+    ? stmts.getBudgetGroupMembers.all(group.id).map(m => m.user_id)
+        .flatMap(uid => stmts.getContributionsByTripAndUser.all(tripId, uid))
+    : stmts.getContributionsByTripAndUser.all(tripId, userId);
+
+  return { ub, group, myTx, contributions };
+}
 
 app.get("/api/trips/:tripId/my-budget", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
 
-  const ub = stmts.getUserBudget.get(req.params.tripId, user.id);
-  const myTx = stmts.getTransactionsByTripAndUser.all(req.params.tripId, user.id);
+  const tripId = req.params.tripId;
+  const { ub, group, myTx, contributions } = resolveBudget(tripId, user.id);
   const mySpent = myTx.reduce((s, t) => s + t.amount, 0);
-  const contributions = stmts.getContributionsByTripAndUser.all(req.params.tripId, user.id);
   const totalContributed = contributions.reduce((s, c) => s + c.amount, 0);
 
   if (!ub) {
     return res.json({
-      trip_id: req.params.tripId,
+      trip_id: tripId,
       user_id: user.id,
+      budget_group_id: group ? group.id : null,
+      group_label: group ? group.label : null,
       hotel: 0, food: 0, extras: 0, souvenirs: 0,
       total: 0, spent: mySpent, transactions: myTx,
       contributions, totalContributed, confirmed: 0,
@@ -1099,6 +1378,8 @@ app.get("/api/trips/:tripId/my-budget", (req, res) => {
   res.json({
     ...ub, total, spent: mySpent, transactions: myTx,
     contributions, totalContributed, confirmed: ub.confirmed || 0,
+    budget_group_id: group ? group.id : null,
+    group_label: group ? group.label : null,
     exists: true,
   });
 });
@@ -1107,21 +1388,46 @@ app.put("/api/trips/:tripId/my-budget", (req, res) => {
   const user = getUserFromToken(req);
   if (!user) return res.status(401).json({ error: "Not logged in" });
 
+  const tripId = req.params.tripId;
   const { hotel, food, extras, souvenirs } = req.body;
-  stmts.upsertUserBudget.run({
-    trip_id:    req.params.tripId,
-    user_id:    user.id,
-    hotel:      hotel || 0,
-    food:       food || 0,
-    extras:     extras || 0,
-    souvenirs:  souvenirs || 0,
-  });
+  const group = stmts.getBudgetGroupForUser.get(tripId, user.id);
 
-  const ub = stmts.getUserBudget.get(req.params.tripId, user.id);
-  const myTx = stmts.getTransactionsByTripAndUser.all(req.params.tripId, user.id);
+  if (group) {
+    // Write the same amounts to every member in the group so all see the same budget
+    const members = stmts.getBudgetGroupMembers.all(group.id).map(m => m.user_id);
+    db.transaction(() => {
+      for (const uid of members) {
+        db.prepare(`
+          INSERT INTO user_budgets (trip_id, user_id, budget_group_id, hotel, food, extras, souvenirs, updated)
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(trip_id, user_id) DO UPDATE SET
+            hotel=excluded.hotel, food=excluded.food,
+            extras=excluded.extras, souvenirs=excluded.souvenirs,
+            budget_group_id=excluded.budget_group_id, updated=datetime('now')
+        `).run(tripId, uid, group.id, hotel || 0, food || 0, extras || 0, souvenirs || 0);
+      }
+    })();
+  } else {
+    // Solo — original behaviour
+    stmts.upsertUserBudget.run({
+      trip_id:   tripId,
+      user_id:   user.id,
+      hotel:     hotel || 0,
+      food:      food || 0,
+      extras:    extras || 0,
+      souvenirs: souvenirs || 0,
+    });
+  }
+
+  const { ub, myTx } = resolveBudget(tripId, user.id);
   const mySpent = myTx.reduce((s, t) => s + t.amount, 0);
-  const total = ub.hotel + ub.food + ub.extras + ub.souvenirs;
-  res.json({ ...ub, total, spent: mySpent, transactions: myTx, exists: true });
+  const total = ub ? ub.hotel + ub.food + ub.extras + ub.souvenirs : 0;
+  res.json({
+    ...(ub || {}), total, spent: mySpent, transactions: myTx,
+    budget_group_id: group ? group.id : null,
+    group_label: group ? group.label : null,
+    exists: true,
+  });
 });
 
 app.get("/api/trips/:tripId/budgets", (req, res) => {
@@ -1724,6 +2030,314 @@ app.get("/api/wait-times/hop-ranking", (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// GET /api/wait-times/status — admin health/stats endpoint
+// Returns collector health, data age, row counts, per-park today coverage.
+// Helper: next :00/:15/:30/:45 boundary in Eastern Time
+function nextSampleTimeET() {
+  const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const minsToNext = 15 - (nowET.getMinutes() % 15);
+  const next = new Date(nowET.getTime() + minsToNext * 60000);
+  next.setSeconds(0, 0);
+  return next.toLocaleTimeString("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  }) + " ET";
+}
+
+app.get("/api/wait-times/status", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, next_sample_at: nextSampleTimeET() });
+
+  try {
+    // Oldest and newest summary rows
+    const bounds = wtdb.prepare(`
+      SELECT MIN(sampled_at) AS oldest, MAX(sampled_at) AS newest
+      FROM park_summaries
+    `).get();
+
+    if (!bounds?.newest) return res.json({ available: false, next_sample_at: nextSampleTimeET() });
+
+    // Minutes since last sample
+    const minsAgo = bounds.newest
+      ? (Date.now() - new Date(bounds.newest).getTime()) / 60000
+      : null;
+
+    // Total row counts
+    const summaryCount  = wtdb.prepare("SELECT COUNT(*) AS n FROM park_summaries").get();
+    const snapshotCount = wtdb.prepare("SELECT COUNT(*) AS n FROM wait_snapshots").get();
+
+    // Days of history
+    const daysHistory = bounds.oldest
+      ? Math.round((Date.now() - new Date(bounds.oldest).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    // Per-park: today's sample count + total sample count
+    const todayET = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York",
+      year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+
+    const PARK_IDS = [
+      { id: "75ea578a-adc8-4116-a54d-dccb60765ef9", name: "Magic Kingdom"     },
+      { id: "47f90d2c-e191-4239-a466-5892ef59a88b", name: "EPCOT"             },
+      { id: "288747d1-8b4f-4a64-867e-ea7c9b27bad8", name: "Hollywood Studios" },
+      { id: "1c84a229-8862-4648-9c71-378ddd2c7693", name: "Animal Kingdom"    },
+    ];
+
+    const parks = PARK_IDS.map(park => {
+      const todaySamples = wtdb.prepare(`
+        SELECT COUNT(*) AS n FROM park_summaries
+        WHERE park_id = ? AND date(sampled_at) = ?
+      `).get(park.id, todayET);
+
+      const totalSamples = wtdb.prepare(`
+        SELECT COUNT(*) AS n FROM park_summaries WHERE park_id = ?
+      `).get(park.id);
+
+      return {
+        park_id:       park.id,
+        park_name:     park.name,
+        today_samples: todaySamples?.n ?? 0,
+        total_samples: totalSamples?.n ?? 0,
+      };
+    });
+
+    res.json({
+      available:              true,
+      oldest_sample:          bounds.oldest,
+      last_sample_at:         bounds.newest,
+      mins_since_last_sample: minsAgo !== null ? Math.round(minsAgo * 10) / 10 : null,
+      total_summary_rows:     summaryCount?.n  ?? 0,
+      total_snapshot_rows:    snapshotCount?.n ?? 0,
+      days_of_history:        daysHistory,
+      parks,
+      next_sample_at:         nextSampleTimeET(),
+      as_of:                  new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+// GET /api/wait-times/attractions/:parkId
+// Returns all distinct attraction names for a park that have snapshot data.
+// Used to populate the ride picker in the data viewer.
+app.get("/api/wait-times/attractions/:parkId", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, attractions: [] });
+
+  try {
+    const rows = wtdb.prepare(`
+      SELECT DISTINCT attraction_name
+      FROM wait_snapshots
+      WHERE park_id = ?
+        AND status = 'OPERATING'
+      ORDER BY attraction_name
+    `).all(req.params.parkId);
+
+    res.json({ available: true, attractions: rows.map(r => r.attraction_name) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/wait-times/attraction-history/:parkId
+// Query params: name (attraction name), from (YYYY-MM-DD), to (YYYY-MM-DD)
+// Returns hourly avg wait per day for a specific attraction over a date range.
+// Grouped by date + hour for charting.
+app.get("/api/wait-times/attraction-history/:parkId", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, data: [] });
+
+  const { name, from, to } = req.query;
+  if (!name) return res.status(400).json({ error: "name param required" });
+
+  // Default to last 7 days if no range given
+  const toDate   = to   || new Date().toISOString().slice(0, 10);
+  const fromDate = from || (() => {
+    const d = new Date(toDate);
+    d.setDate(d.getDate() - 6);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  try {
+    // Daily avg — one data point per day
+    const daily = wtdb.prepare(`
+      SELECT
+        date(sampled_at)                      AS day,
+        ROUND(AVG(wait_minutes), 1)           AS avg_wait,
+        MIN(wait_minutes)                     AS min_wait,
+        MAX(wait_minutes)                     AS max_wait,
+        COUNT(*)                              AS sample_count
+      FROM wait_snapshots
+      WHERE park_id = ?
+        AND LOWER(attraction_name) = LOWER(?)
+        AND status = 'OPERATING'
+        AND wait_minutes IS NOT NULL
+        AND date(sampled_at) BETWEEN ? AND ?
+      GROUP BY day
+      ORDER BY day
+    `).all(req.params.parkId, name, fromDate, toDate);
+
+    // Hourly detail for a single day (if from == to, return intra-day breakdown)
+    let hourly = [];
+    if (fromDate === toDate) {
+      hourly = wtdb.prepare(`
+        SELECT
+          strftime('%H', sampled_at)            AS hour,
+          ROUND(AVG(wait_minutes), 1)           AS avg_wait,
+          MIN(wait_minutes)                     AS min_wait,
+          MAX(wait_minutes)                     AS max_wait,
+          COUNT(*)                              AS sample_count
+        FROM wait_snapshots
+        WHERE park_id = ?
+          AND LOWER(attraction_name) = LOWER(?)
+          AND status = 'OPERATING'
+          AND wait_minutes IS NOT NULL
+          AND date(sampled_at) = ?
+        GROUP BY hour
+        ORDER BY hour
+      `).all(req.params.parkId, name, fromDate);
+    }
+
+    res.json({
+      available:   true,
+      park_id:     req.params.parkId,
+      attraction:  name,
+      from:        fromDate,
+      to:          toDate,
+      is_single_day: fromDate === toDate,
+      daily,
+      hourly,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── USER PROFILE ROUTES ───────────────────────────────────
+
+// GET /api/user-profile/:userId — get profile (birthdate, memberships, timeshare_name)
+app.get("/api/user-profile/:userId", (req, res) => {
+  const row = stmts.getUserProfile.get(req.params.userId);
+  // Return empty defaults when no row exists yet — not a 404
+  res.json(row || { user_id: req.params.userId, birthdate: "", memberships: "", timeshare_name: "" });
+});
+
+// PUT /api/user-profile/:userId — upsert profile fields
+app.put("/api/user-profile/:userId", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  if (user.id !== req.params.userId && user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  // Merge with existing row so partial PUTs don't wipe unrelated fields
+  const existing = stmts.getUserProfile.get(req.params.userId) || {};
+  const b = req.body;
+
+  // Helper: pick body value if present, else fall back to existing DB value, else use default
+  function pick(key, def = "") {
+    return b[key] !== undefined ? b[key] : (existing[key] !== undefined ? existing[key] : def);
+  }
+
+  try {
+    stmts.upsertUserProfile.run({
+      user_id:        req.params.userId,
+      birthdate:      pick("birthdate"),
+      memberships:    pick("memberships"),
+      timeshare_name: pick("timeshare_name"),
+      party_adults:   pick("party_adults",   1),
+      party_children: pick("party_children", 0),
+      party_toddlers: pick("party_toddlers", 0),
+      children_ages:  pick("children_ages",  "[]"),
+      accessibility:  pick("accessibility"),
+      dietary:        pick("dietary"),
+      dining_style:   pick("dining_style"),
+      thrill_level:   pick("thrill_level"),
+      ride_avoid:     pick("ride_avoid"),
+      ap_type:        pick("ap_type",    "none"),
+      dvc_home:       pick("dvc_home"),
+      budget_tier:    pick("budget_tier"),
+      home_airport:   pick("home_airport"),
+      trip_length:    pick("trip_length"),
+      hotel_tier:     pick("hotel_tier"),
+      pace_style:     pick("pace_style"),
+    });
+    res.json(stmts.getUserProfile.get(req.params.userId));
+  } catch (err) {
+    console.error("PUT /api/user-profile error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── FAVORITE RESTAURANTS ROUTES ───────────────────────────
+
+// GET /api/favorite-restaurants/:userId
+app.get("/api/favorite-restaurants/:userId", (req, res) => {
+  res.json(stmts.getFavoriteRestaurants.all(req.params.userId));
+});
+
+// POST /api/favorite-restaurants
+app.post("/api/favorite-restaurants", (req, res) => {
+  const { user_id, restaurant_name, park, notes } = req.body;
+  if (!user_id || !restaurant_name) {
+    return res.status(400).json({ error: "user_id and restaurant_name required" });
+  }
+  try {
+    stmts.insertFavoriteRestaurant.run({
+      id:              `favr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      user_id:         user_id,
+      restaurant_name: restaurant_name,
+      park:            park  || "",
+      notes:           notes || "",
+    });
+    res.json(stmts.getFavoriteRestaurants.all(user_id));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// DELETE /api/favorite-restaurants/:id
+app.delete("/api/favorite-restaurants/:id", (req, res) => {
+  stmts.deleteFavoriteRestaurant.run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── FAVORITE RESORTS ROUTES ───────────────────────────────
+
+// GET /api/favorite-resorts/:userId
+app.get("/api/favorite-resorts/:userId", (req, res) => {
+  res.json(stmts.getFavoriteResorts.all(req.params.userId));
+});
+
+// POST /api/favorite-resorts
+app.post("/api/favorite-resorts", (req, res) => {
+  const { user_id, resort_name, resort_type, notes } = req.body;
+  if (!user_id || !resort_name) {
+    return res.status(400).json({ error: "user_id and resort_name required" });
+  }
+  try {
+    stmts.insertFavoriteResort.run({
+      id:          `favrs-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      user_id:     user_id,
+      resort_name: resort_name,
+      resort_type: resort_type || "disney",
+      notes:       notes || "",
+    });
+    res.json(stmts.getFavoriteResorts.all(user_id));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// DELETE /api/favorite-resorts/:id
+app.delete("/api/favorite-resorts/:id", (req, res) => {
+  stmts.deleteFavoriteResort.run(req.params.id);
+  res.json({ ok: true });
 });
 
 // ── Start server ───────────────────────────────────────────

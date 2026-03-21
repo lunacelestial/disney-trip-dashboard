@@ -6,10 +6,17 @@ COPY package.json ./
 RUN npm install --production
 
 COPY server.js ./
+COPY wait-collector.js ./
+COPY start.sh ./
 
-# Create a directory for the SQLite database
-RUN mkdir -p /data
+# Make start script executable
+RUN chmod +x start.sh
+
+# /data  — SQLite DB volume (disney.db)
+# /storage — motherbrain ironwolf_01 bind mount (photos, wishlist, venues)
+# /waittimes — motherbrain ironwolf_02 bind mount (waittimes.db)
+RUN mkdir -p /data /storage /waittimes
 
 EXPOSE 3001
 
-CMD ["node", "server.js"]
+CMD ["./start.sh"]
