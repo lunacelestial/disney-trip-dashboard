@@ -8,6 +8,8 @@ RUN npm install --production
 COPY server.js ./
 COPY wait-collector.js ./
 COPY start.sh ./
+COPY ride-scorer.js ./
+COPY seed-attraction-metadata.js ./
 
 # Make start script executable
 RUN chmod +x start.sh

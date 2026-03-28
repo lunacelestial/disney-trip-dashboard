@@ -419,7 +419,7 @@ async function deleteTransaction(id) {
 
 async function openBudgetWizard(editTripId) {
   try {
-    const allTrips = await apiFetch('/trip-budgets').catch(() => []);
+    const allTrips = sortTripsByStatus(await apiFetch('/trip-budgets').catch(() => []));
 
     // If editing a specific trip, prefill from the user's personal budget
     let prefill = null;

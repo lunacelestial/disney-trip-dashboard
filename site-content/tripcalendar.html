@@ -133,6 +133,46 @@
     @media (max-width: 640px) {
       .cal-grid { grid-template-columns: 1fr; }
     }
+
+    /* Day detail modal — activity list items */
+    .cal-modal-activity {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.02);
+      border: 1px solid rgba(0,0,0,0.05);
+      transition: background 0.1s;
+    }
+    .cal-modal-activity:hover {
+      background: rgba(0,0,0,0.04);
+    }
+    .cal-modal-act-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+    .cal-modal-delete-btn {
+      flex-shrink: 0;
+      width: 26px; height: 26px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(239,68,68,0.08);
+      color: #ef4444;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      margin-top: 0.1rem;
+    }
+    .cal-modal-activity:hover .cal-modal-delete-btn {
+      opacity: 1;
+    }
+    .cal-modal-delete-btn:hover {
+      background: rgba(239,68,68,0.18);
+    }
   </style>
 </head>
 <body class="page-tripcalendar">
@@ -213,7 +253,7 @@
 
   const CAL_TYPE_ICONS = {
     ride: "🎢", dining: "🍽️", show: "🎭", merch: "🛍️",
-    shopping: "🛍️", travel: "🚗", break: "☀️",
+    shopping: "🛍️", travel: "🚗", break: "☀️", "lightning lane": "⚡",
   };
 
   async function loadCalendar() {
@@ -226,6 +266,15 @@
     // Load trips
     let allTrips = [];
     try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { }
+
+    // Sort: active trip first, then upcoming (chronological), then past (reverse chronological)
+    const sortToday = new Date().toISOString().split("T")[0];
+    allTrips.sort((a, b) => {
+      const score = t => (sortToday >= t.start_date && sortToday <= t.end_date) ? 0 : t.start_date > sortToday ? 1 : 2;
+      const sa = score(a), sb = score(b);
+      if (sa !== sb) return sa - sb;
+      return sa === 1 ? a.start_date.localeCompare(b.start_date) : b.start_date.localeCompare(a.start_date);
+    });
 
     if (allTrips.length === 0) {
       app.innerHTML = `
@@ -356,7 +405,7 @@
       }
 
       return `
-        <div class="cal-day${isToday ? " is-today" : ""}${isPast ? " is-past" : ""}">
+        <div class="cal-day${isToday ? " is-today" : ""}${isPast ? " is-past" : ""}" data-date="${date}" role="button" tabindex="0" style="cursor:pointer;">
           <div class="cal-day-header">
             <div>
               <span class="cal-day-name">${dayName}</span>
@@ -426,6 +475,163 @@
       window.history.replaceState({}, "", `tripcalendar.html?trip=${encodeURIComponent(newTripId)}`);
       loadCalendar();
     });
+
+    // Wire day cards to open detail modal
+    app.querySelectorAll(".cal-day[data-date]").forEach(card => {
+      card.addEventListener("click", () => {
+        const date = card.dataset.date;
+        const activities = actsByDate[date] || [];
+        const park = parkMap[date];
+        openCalDayModal(date, activities, park);
+      });
+    });
+  }
+
+  // ── Day Detail Modal ────────────────────────────────────────
+
+  function openCalDayModal(date, activities, parkSlug) {
+    // Remove any existing modal
+    document.getElementById("cal-day-modal-overlay")?.remove();
+
+    const [y, m, d] = date.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const dayLabel = dateObj.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const parkInfo = parkSlug ? CAL_PARK_INFO[parkSlug] : null;
+
+    const sorted = [...activities].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+    let listHtml = "";
+    if (sorted.length === 0) {
+      listHtml = `<p style="text-align:center; color:var(--muted); padding:1.5rem 0; font-style:italic;">No activities planned yet.</p>`;
+    } else {
+      listHtml = sorted.map(a => {
+        const type = (a.type || "").toLowerCase();
+        const icon = CAL_TYPE_ICONS[type] || "📌";
+        return `
+          <div class="cal-modal-activity" data-id="${a.id}">
+            <span class="cal-modal-act-icon">${icon}</span>
+            <div style="flex:1; min-width:0;">
+              <div style="font-family:'Nunito',sans-serif; font-size:0.92rem; font-weight:700; color:var(--ink);">${escapeHtml(a.title)}</div>
+              <div style="font-family:'Nunito',sans-serif; font-size:0.78rem; color:var(--muted);">
+                ${formatTimeForDisplay(a.time)}${a.location ? " · " + escapeHtml(a.location) : ""}${a.type ? " · " + escapeHtml(a.type) : ""}
+              </div>
+              ${a.notes ? `<div style="font-family:'Nunito',sans-serif; font-size:0.72rem; color:var(--slate); margin-top:0.15rem; font-style:italic;">${escapeHtml(a.notes)}</div>` : ""}
+            </div>
+            <button class="cal-modal-delete-btn" data-id="${a.id}" title="Delete activity">✕</button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    const overlay = document.createElement("div");
+    overlay.id = "cal-day-modal-overlay";
+    overlay.className = "modal-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.innerHTML = `
+      <div class="modal-card" style="max-width:500px; width:95vw;">
+        <button class="modal-close-btn" id="cal-day-modal-close" aria-label="Close">✕</button>
+        <div class="modal-header">
+          <p class="card-label">${parkInfo ? parkInfo.emoji + " " + parkInfo.label : "📅 Day Plan"}</p>
+          <h2>${dayLabel}</h2>
+          <p class="modal-meta">${sorted.length} activit${sorted.length === 1 ? "y" : "ies"} planned</p>
+        </div>
+
+        <div id="cal-day-modal-list" style="padding:0 1.75rem; display:flex; flex-direction:column; gap:0.4rem;">
+          ${listHtml}
+        </div>
+
+        <div style="padding:0 1.75rem 0.75rem; margin-top:1rem; border-top:1.5px solid rgba(0,0,0,0.06); padding-top:1rem;">
+          <button type="button" id="cal-add-toggle-btn" class="primary-button" style="width:100%; font-size:0.88rem; padding:0.55rem 1rem;">+ Add Activity</button>
+          <form id="cal-day-add-form" style="display:none; flex-direction:column; gap:0.5rem; margin-top:0.75rem;">
+            <div style="display:flex; gap:0.5rem;">
+              <input type="time" id="cal-add-time" required style="flex:1; padding:0.5rem 0.6rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.88rem;" />
+              <select id="cal-add-type" required style="flex:1; padding:0.5rem 0.6rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.88rem;">
+                <option value="Break">Break</option>
+                <option value="Dining">Dining</option>
+                <option value="Lightning Lane">Lightning Lane</option>
+                <option value="Ride" selected>Ride</option>
+                <option value="Merch">Shopping</option>
+                <option value="Show">Show</option>
+                <option value="Travel">Travel</option>
+              </select>
+            </div>
+            <input type="text" id="cal-add-title" placeholder="Activity name" required style="padding:0.5rem 0.6rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.88rem;" />
+            <input type="text" id="cal-add-location" placeholder="Location (e.g. Fantasyland)" required style="padding:0.5rem 0.6rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.88rem;" />
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+              <button type="button" id="cal-add-cancel-btn" class="secondary-button" style="font-size:0.82rem; padding:0.45rem 0.9rem;">Cancel</button>
+              <button type="submit" class="primary-button" style="font-size:0.88rem; padding:0.55rem 1rem;">Save</button>
+            </div>
+          </form>
+        </div>
+
+        <div style="padding:0.75rem 1.75rem 1.5rem; text-align:center;">
+          <a href="itinerary.html" class="secondary-button" style="text-decoration:none; font-size:0.82rem; display:inline-block;">View Full Itinerary</a>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Close handlers
+    document.getElementById("cal-day-modal-close").addEventListener("click", closeCalDayModal);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeCalDayModal(); });
+    document.addEventListener("keydown", function _esc(e) {
+      if (e.key === "Escape") { closeCalDayModal(); document.removeEventListener("keydown", _esc); }
+    });
+
+    // Delete activity buttons
+    overlay.querySelectorAll(".cal-modal-delete-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        await ItineraryDB.delete(id);
+        closeCalDayModal();
+        await loadCalendar();
+        showToast("Activity removed");
+      });
+    });
+
+    // Toggle add-activity form
+    const addToggle = document.getElementById("cal-add-toggle-btn");
+    const addForm = document.getElementById("cal-day-add-form");
+    const addCancel = document.getElementById("cal-add-cancel-btn");
+
+    addToggle.addEventListener("click", () => {
+      addToggle.style.display = "none";
+      addForm.style.display = "flex";
+      document.getElementById("cal-add-time").focus();
+    });
+    addCancel.addEventListener("click", () => {
+      addForm.style.display = "none";
+      addToggle.style.display = "";
+      addForm.reset();
+    });
+
+    // Add activity form
+    document.getElementById("cal-day-add-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const newActivity = {
+        id: "act-" + Date.now(),
+        date: date,
+        time: document.getElementById("cal-add-time").value,
+        type: document.getElementById("cal-add-type").value,
+        title: document.getElementById("cal-add-title").value.trim(),
+        location: document.getElementById("cal-add-location").value.trim(),
+        notes: "",
+        image: "",
+        url: "",
+      };
+      await ItineraryDB.add(newActivity);
+      closeCalDayModal();
+      await loadCalendar();
+      showToast("Activity added!");
+    });
+  }
+
+  function closeCalDayModal() {
+    const overlay = document.getElementById("cal-day-modal-overlay");
+    if (overlay) overlay.remove();
   }
 
   // Hook into initApp

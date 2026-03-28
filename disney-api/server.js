@@ -12,9 +12,13 @@ const Database = require("better-sqlite3");
 const path = require("path");
 const cors = require("cors");
 const multer = require("multer");
+const { scoreRides } = require("./ride-scorer");
 
 const app = express();
 const PORT = 3001;
+// Ollama runs on motherbrain (NAS). Overrideable via env var for prod/dev parity.
+const OLLAMA_URL   = process.env.OLLAMA_URL   || "http://192.168.200.100:11434";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:14b";
 
 // ── Storage Setup ─────────────────────────────────────────
 // In Docker, /storage is a bind mount to motherbrain's NAS.
@@ -24,11 +28,13 @@ const STORAGE_ROOT = fs.existsSync("/storage") ? "/storage" : path.join(__dirnam
 const PHOTOS_DIR = path.join(STORAGE_ROOT, "photos");
 const WISHLIST_DIR = path.join(STORAGE_ROOT, "wishlist");
 const VENUES_DIR = path.join(STORAGE_ROOT, "venues");
+const AVATARS_DIR = path.join(STORAGE_ROOT, "avatars");
 
 // Ensure directories exist
 fs.mkdirSync(PHOTOS_DIR, { recursive: true });
 fs.mkdirSync(WISHLIST_DIR, { recursive: true });
 fs.mkdirSync(VENUES_DIR, { recursive: true });
+fs.mkdirSync(AVATARS_DIR, { recursive: true });
 
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors());
@@ -252,6 +258,39 @@ db.exec(`
     PRIMARY KEY (trip_id, user_id),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS user_ride_profiles (
+    user_id           TEXT PRIMARY KEY,
+    drops             INTEGER DEFAULT 3,
+    has_young_kids    INTEGER DEFAULT 0,
+    prefer_indoor     INTEGER DEFAULT 0,
+    ride_or_show      TEXT    DEFAULT 'both',
+    updated           TEXT    DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS attraction_metadata (
+    attraction_name   TEXT PRIMARY KEY,
+    park_id           TEXT NOT NULL,
+    height_req        INTEGER,
+    intensity         TEXT NOT NULL DEFAULT 'moderate',
+    indoor            INTEGER NOT NULL DEFAULT 1,
+    type              TEXT NOT NULL DEFAULT 'family',
+    lightning_lane    TEXT NOT NULL DEFAULT 'none',
+    accessibility     TEXT DEFAULT '',
+    description       TEXT DEFAULT '',
+    updated           TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS recommendation_cache (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    park_id          TEXT NOT NULL,
+    attraction_name  TEXT NOT NULL,
+    quips            TEXT NOT NULL DEFAULT '[]',
+    context_blob     TEXT DEFAULT '',
+    generated_at     TEXT DEFAULT (datetime('now')),
+    UNIQUE(park_id, attraction_name)
+  );
 `);
 
 // ── Budget Groups tables ───────────────────────────────────
@@ -287,6 +326,30 @@ try { db.exec("ALTER TABLE wishlist ADD COLUMN url TEXT DEFAULT ''"); } catch (e
 try { db.exec("ALTER TABLE wishlist ADD COLUMN image TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN added_by TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN added_by_name TEXT DEFAULT ''"); } catch (e) { }
+
+// Avatar column on users table
+try { db.exec("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT ''"); } catch (e) { }
+
+// ── Flights table ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS flights (
+    id                TEXT PRIMARY KEY,
+    trip_id           TEXT NOT NULL,
+    user_id           TEXT NOT NULL,
+    direction         TEXT NOT NULL DEFAULT 'outbound',
+    airline           TEXT DEFAULT '',
+    flight_number     TEXT DEFAULT '',
+    confirmation      TEXT DEFAULT '',
+    departure_airport TEXT DEFAULT '',
+    arrival_airport   TEXT DEFAULT '',
+    departure_time    TEXT DEFAULT '',
+    arrival_time      TEXT DEFAULT '',
+    seat              TEXT DEFAULT '',
+    notes             TEXT DEFAULT '',
+    created           TEXT DEFAULT (datetime('now')),
+    updated           TEXT DEFAULT (datetime('now'))
+  );
+`);
 
 // ── User Profile, Favorite Restaurants, Favorite Resorts tables ──
 db.exec(`
@@ -364,6 +427,17 @@ const profileCols = [
 ];
 for (const [col, type] of profileCols) {
   try { db.exec(`ALTER TABLE user_profiles ADD COLUMN ${col} ${type}`); } catch (e) { /* already exists */ }
+}
+
+// ── Migrations for user_ride_profiles ────────────────────────
+const rideProfileCols = [
+  ["drops",          "INTEGER DEFAULT 3"],
+  ["has_young_kids", "INTEGER DEFAULT 0"],
+  ["prefer_indoor",  "INTEGER DEFAULT 0"],
+  ["ride_or_show",   "TEXT DEFAULT 'both'"],
+];
+for (const [col, type] of rideProfileCols) {
+  try { db.exec(`ALTER TABLE user_ride_profiles ADD COLUMN ${col} ${type}`); } catch (e) { /* already exists */ }
 }
 
 // ── Seed default admin user if no users exist ──────────────
@@ -634,6 +708,35 @@ const stmts = {
     VALUES (@id, @user_id, @resort_name, @resort_type, @notes)
   `),
   deleteFavoriteResort:  db.prepare("DELETE FROM favorite_resorts WHERE id = ?"),
+
+  // Ride Profiles
+  getRideProfile:    db.prepare("SELECT * FROM user_ride_profiles WHERE user_id = ?"),
+  upsertRideProfile: db.prepare(`
+    INSERT INTO user_ride_profiles (user_id, drops, has_young_kids, prefer_indoor, ride_or_show, updated)
+    VALUES (@user_id, @drops, @has_young_kids, @prefer_indoor, @ride_or_show, datetime('now'))
+    ON CONFLICT(user_id) DO UPDATE SET
+      drops          = excluded.drops,
+      has_young_kids = excluded.has_young_kids,
+      prefer_indoor  = excluded.prefer_indoor,
+      ride_or_show   = excluded.ride_or_show,
+      updated        = datetime('now')
+  `),
+
+  // Recommendation Cache
+  getCachedRecommendations: db.prepare(`
+    SELECT * FROM recommendation_cache
+    WHERE park_id = ? AND generated_at >= datetime('now', '-20 minutes')
+    ORDER BY rowid ASC
+  `),
+  upsertRecommendationCache: db.prepare(`
+    INSERT INTO recommendation_cache (park_id, attraction_name, quips, context_blob, generated_at)
+    VALUES (@park_id, @attraction_name, @quips, @context_blob, datetime('now'))
+    ON CONFLICT(park_id, attraction_name) DO UPDATE SET
+      quips        = excluded.quips,
+      context_blob = excluded.context_blob,
+      generated_at = datetime('now')
+  `),
+  clearRecommendationCache: db.prepare("DELETE FROM recommendation_cache WHERE park_id = ?"),
 };
 
 // ── ACTIVITIES ROUTES ──────────────────────────────────────
@@ -882,6 +985,97 @@ app.delete("/api/trip-budgets/:trip_id", (req, res) => {
   res.json({ ok: true });
 });
 
+// PUT /api/trips/:tripId/resize — change trip start/end dates
+// Migrates all related records to the new trip_id (which encodes dates).
+// Removes parkdays and activities that fall outside the new date range.
+app.put("/api/trips/:tripId/resize", (req, res) => {
+  const oldTripId = req.params.tripId;
+  const { start_date, end_date } = req.body;
+
+  if (!start_date || !end_date) {
+    return res.status(400).json({ error: "start_date and end_date required" });
+  }
+  if (start_date > end_date) {
+    return res.status(400).json({ error: "start_date must be before or equal to end_date" });
+  }
+
+  const oldTrip = stmts.getTripBudget.get(oldTripId);
+  if (!oldTrip) return res.status(404).json({ error: "Trip not found" });
+
+  if (oldTrip.start_date === start_date && oldTrip.end_date === end_date) {
+    return res.json({ ok: true, trip_id: oldTripId, changed: false });
+  }
+
+  const newTripId = `trip-${start_date}-${end_date}`;
+
+  // Don't overwrite a different existing trip
+  if (newTripId !== oldTripId) {
+    const existing = stmts.getTripBudget.get(newTripId);
+    if (existing) {
+      return res.status(409).json({ error: "A trip with those dates already exists" });
+    }
+  }
+
+  // Build a human-readable label
+  const fmtDate = d => {
+    const dt = new Date(d + "T12:00:00");
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+  const newLabel = `${fmtDate(start_date)} – ${fmtDate(end_date)}`;
+
+  const resize = db.transaction(() => {
+    if (newTripId !== oldTripId) {
+      // Create new trip row, copy budget amounts
+      db.prepare(`
+        INSERT INTO trip_budgets (trip_id, label, start_date, end_date, hotel, food, extras, souvenirs, created, updated)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).run(newTripId, newLabel, start_date, end_date,
+             oldTrip.hotel, oldTrip.food, oldTrip.extras, oldTrip.souvenirs, oldTrip.created);
+
+      // Migrate all related tables
+      const migrateTables = [
+        "trip_members", "transactions", "user_budgets",
+        "budget_contributions", "trip_acknowledged", "photos",
+      ];
+      for (const tbl of migrateTables) {
+        db.prepare(`UPDATE ${tbl} SET trip_id = ? WHERE trip_id = ?`).run(newTripId, oldTripId);
+      }
+      db.prepare("UPDATE budget_groups SET trip_id = ? WHERE trip_id = ?").run(newTripId, oldTripId);
+
+      // Remove old trip budget row
+      stmts.deleteTripBudget.run(oldTripId);
+    } else {
+      // Same trip_id (shouldn't happen given the early return, but defensive)
+      db.prepare("UPDATE trip_budgets SET label = ?, start_date = ?, end_date = ?, updated = datetime('now') WHERE trip_id = ?")
+        .run(newLabel, start_date, end_date, oldTripId);
+    }
+
+    // Remove parkdays + activities that fall outside the new date range
+    if (start_date > oldTrip.start_date) {
+      db.prepare("DELETE FROM parkdays WHERE date >= ? AND date < ?").run(oldTrip.start_date, start_date);
+      db.prepare("DELETE FROM activities WHERE date >= ? AND date < ?").run(oldTrip.start_date, start_date);
+    }
+    if (end_date < oldTrip.end_date) {
+      db.prepare("DELETE FROM parkdays WHERE date > ? AND date <= ?").run(end_date, oldTrip.end_date);
+      db.prepare("DELETE FROM activities WHERE date > ? AND date <= ?").run(end_date, oldTrip.end_date);
+    }
+  });
+
+  try {
+    resize();
+    // Rename photo directory if trip_id changed
+    if (newTripId !== oldTripId) {
+      const oldDir = path.join(PHOTOS_DIR, oldTripId);
+      const newDir = path.join(PHOTOS_DIR, newTripId);
+      try { if (fs.existsSync(oldDir)) fs.renameSync(oldDir, newDir); } catch (e) { /* ok */ }
+    }
+    res.json({ ok: true, old_trip_id: oldTripId, trip_id: newTripId, changed: newTripId !== oldTripId });
+  } catch (err) {
+    console.error("Trip resize error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE /api/trips/:tripId/cancel — full trip cancellation
 app.delete("/api/trips/:tripId/cancel", (req, res) => {
   const tripId = req.params.tripId;
@@ -1090,7 +1284,7 @@ app.get("/api/auth/me", (req, res) => {
   if (!token) return res.status(401).json({ error: "Not logged in" });
 
   const row = db.prepare(`
-    SELECT u.id, u.email, u.name, u.role FROM sessions s
+    SELECT u.id, u.email, u.name, u.role, u.avatar FROM sessions s
     JOIN users u ON s.user_id = u.id WHERE s.token = ?
   `).get(token);
 
@@ -1547,6 +1741,35 @@ app.get("/api/trips/:tripId/photos", (req, res) => {
   res.json(stmts.getPhotosByTrip.all(req.params.tripId));
 });
 
+// GET /api/my/photos — all photos uploaded by the current user, grouped by trip
+app.get("/api/my/photos", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const photos = db.prepare(
+    "SELECT p.*, tb.label AS trip_label, tb.start_date, tb.end_date FROM photos p LEFT JOIN trip_budgets tb ON p.trip_id = tb.trip_id WHERE p.uploaded_by = ? ORDER BY p.created DESC"
+  ).all(user.id);
+
+  // Group by trip
+  const byTrip = {};
+  for (const p of photos) {
+    if (!byTrip[p.trip_id]) {
+      byTrip[p.trip_id] = {
+        trip_id: p.trip_id,
+        trip_label: p.trip_label || p.trip_id,
+        start_date: p.start_date || "",
+        end_date: p.end_date || "",
+        photos: [],
+      };
+    }
+    byTrip[p.trip_id].photos.push(p);
+  }
+
+  // Sort trips: most recent first
+  const trips = Object.values(byTrip).sort((a, b) => b.start_date.localeCompare(a.start_date));
+  res.json({ total: photos.length, trips });
+});
+
 app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), (req, res) => {
   try {
     const results = [];
@@ -1846,6 +2069,83 @@ app.get("/api/wait-times/live/:parkId", (req, res) => {
   }
 });
 
+// GET /api/wait-times/rides/:parkId
+// Returns only actual rides/attractions (not restaurants, meet-and-greets, etc.)
+// by joining wait_snapshots with attraction_metadata. Sorted by wait time ASC.
+app.get("/api/wait-times/rides/:parkId", (req, res) => {
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, rides: [] });
+
+  try {
+    // Find the most recent sample that has actual wait times (not null/closed)
+    const latest = wtdb.prepare(`
+      SELECT sampled_at AS ts FROM wait_snapshots
+      WHERE park_id = ? AND status = 'OPERATING' AND wait_minutes IS NOT NULL
+      ORDER BY sampled_at DESC LIMIT 1
+    `).get(req.params.parkId);
+
+    if (!latest?.ts) return res.json({ available: false, rides: [] });
+
+    // Get all operating attractions from that sample
+    const liveRows = wtdb.prepare(`
+      SELECT attraction_name, wait_minutes, status, queue_type
+      FROM wait_snapshots
+      WHERE park_id = ? AND sampled_at = ? AND status = 'OPERATING' AND wait_minutes IS NOT NULL
+    `).all(req.params.parkId, latest.ts);
+
+    // Get metadata for this park (only entries with ride-like types)
+    const metaRows = db.prepare(`
+      SELECT attraction_name, type, intensity, indoor, height_req, lightning_lane
+      FROM attraction_metadata
+      WHERE park_id = ?
+    `).all(req.params.parkId);
+
+    const metaMap = {};
+    metaRows.forEach(r => { metaMap[r.attraction_name.toLowerCase()] = r; });
+
+    // Match live waits to metadata — only include actual rides/attractions
+    const rides = [];
+    for (const row of liveRows) {
+      const cleanName = row.attraction_name.replace(/^["']|["']$/g, "").trim();
+      const key = cleanName.toLowerCase();
+
+      // Try exact match first, then fuzzy
+      let meta = metaMap[key];
+      if (!meta) {
+        for (const [mk, mv] of Object.entries(metaMap)) {
+          if (mk.includes(key) || key.includes(mk)) { meta = mv; break; }
+        }
+      }
+
+      // Skip anything without metadata (restaurants, meet-and-greets, etc.)
+      if (!meta) continue;
+
+      rides.push({
+        attraction_name: cleanName,
+        wait_minutes:    row.wait_minutes,
+        queue_type:      row.queue_type,
+        type:            meta.type,
+        intensity:       meta.intensity,
+        indoor:          meta.indoor,
+        height_req:      meta.height_req,
+        lightning_lane:  meta.lightning_lane,
+      });
+    }
+
+    // Sort by wait time ascending (shortest first)
+    rides.sort((a, b) => a.wait_minutes - b.wait_minutes);
+
+    res.json({
+      available:  true,
+      park_id:    req.params.parkId,
+      sampled_at: latest.ts,
+      rides,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/wait-times/trends/:parkId
 app.get("/api/wait-times/trends/:parkId", (req, res) => {
   const wtdb = getWtDb();
@@ -1857,13 +2157,15 @@ app.get("/api/wait-times/trends/:parkId", (req, res) => {
     const trend = wtdb.prepare(`
       SELECT
         strftime('%H', sampled_at) AS hour,
-        ROUND(AVG(avg_wait), 1)    AS avg_wait,
-        ROUND(AVG(median_wait), 1) AS median_wait,
-        COUNT(*)                   AS sample_count
-      FROM park_summaries
+        ROUND(AVG(wait_minutes), 1)   AS avg_wait,
+        COUNT(DISTINCT attraction_name) AS ride_count,
+        COUNT(*)                        AS sample_count
+      FROM wait_snapshots
       WHERE park_id = ?
         AND date(sampled_at) = ?
-        AND avg_wait IS NOT NULL
+        AND status = 'OPERATING'
+        AND wait_minutes IS NOT NULL
+        AND wait_minutes <= 180
       GROUP BY hour
       ORDER BY hour
     `).all(req.params.parkId, date);
@@ -1892,34 +2194,55 @@ app.get("/api/wait-times/compare", (req, res) => {
       "1c84a229-8862-4648-9c71-378ddd2c7693",
     ];
 
+    // Find the latest sample timestamp to anchor "current" window
+    const latestRow = wtdb.prepare(`
+      SELECT MAX(sampled_at) AS latest FROM wait_snapshots
+      WHERE status = 'OPERATING' AND wait_minutes IS NOT NULL
+    `).get();
+    const latestTs = latestRow?.latest;
+
     const results = PARK_IDS.map(parkId => {
+      // Morning average: raw snapshots 8am–12pm today
       const morning = wtdb.prepare(`
-        SELECT ROUND(AVG(avg_wait), 1) AS avg
-        FROM park_summaries
+        SELECT ROUND(AVG(wait_minutes), 1) AS avg
+        FROM wait_snapshots
         WHERE park_id = ?
           AND date(sampled_at) = ?
           AND CAST(strftime('%H', sampled_at) AS INTEGER) BETWEEN 8 AND 12
-          AND avg_wait IS NOT NULL
+          AND status = 'OPERATING'
+          AND wait_minutes IS NOT NULL
+          AND wait_minutes <= 180
       `).get(parkId, today);
 
+      // Current average: raw snapshots from last 45 min (3 sample rounds)
       const current = wtdb.prepare(`
-        SELECT ROUND(AVG(avg_wait), 1) AS avg, park_name
-        FROM park_summaries
+        SELECT ROUND(AVG(wait_minutes), 1) AS avg
+        FROM wait_snapshots
         WHERE park_id = ?
-          AND avg_wait IS NOT NULL
-        ORDER BY sampled_at DESC
-        LIMIT 3
+          AND status = 'OPERATING'
+          AND wait_minutes IS NOT NULL
+          AND wait_minutes <= 180
+          AND sampled_at >= datetime(?, '-45 minutes')
+      `).get(parkId, latestTs || 'now');
+
+      // Park name from most recent snapshot
+      const nameRow = wtdb.prepare(`
+        SELECT park_name FROM wait_snapshots
+        WHERE park_id = ? ORDER BY sampled_at DESC LIMIT 1
       `).get(parkId);
 
+      // Historical average: raw snapshots, same day-of-week, ±2 hours, past 30 days
       const historical = wtdb.prepare(`
-        SELECT ROUND(AVG(avg_wait), 1) AS avg
-        FROM park_summaries
+        SELECT ROUND(AVG(wait_minutes), 1) AS avg
+        FROM wait_snapshots
         WHERE park_id = ?
           AND date(sampled_at) < ?
           AND date(sampled_at) >= date(?, '-30 days')
           AND CAST(strftime('%w', sampled_at) AS INTEGER) = ?
           AND ABS(CAST(strftime('%H', sampled_at) AS INTEGER) - ?) <= 2
-          AND avg_wait IS NOT NULL
+          AND status = 'OPERATING'
+          AND wait_minutes IS NOT NULL
+          AND wait_minutes <= 180
       `).get(parkId, today, today, dowNow, hourNow);
 
       const cur  = current?.avg  ?? null;
@@ -1931,7 +2254,7 @@ app.get("/api/wait-times/compare", (req, res) => {
 
       return {
         park_id:        parkId,
-        park_name:      current?.park_name ?? "",
+        park_name:      nameRow?.park_name ?? "",
         morning_avg:    morning?.avg ?? null,
         current_avg:    cur,
         historical_avg: hist,
@@ -1963,35 +2286,51 @@ app.get("/api/wait-times/hop-ranking", (req, res) => {
       { id: "1c84a229-8862-4648-9c71-378ddd2c7693", name: "Animal Kingdom"    },
     ];
 
-    const ranked = PARKS_META.map(park => {
-      const recent = wtdb.prepare(`
-        SELECT avg_wait, sampled_at FROM park_summaries
-        WHERE park_id = ? AND avg_wait IS NOT NULL
-        ORDER BY sampled_at DESC LIMIT 3
-      `).all(park.id);
+    // Find the latest sample timestamp to anchor "current" window
+    const latestRow = wtdb.prepare(`
+      SELECT MAX(sampled_at) AS latest FROM wait_snapshots
+      WHERE status = 'OPERATING' AND wait_minutes IS NOT NULL
+    `).get();
+    const latestTs = latestRow?.latest;
 
-      const older = wtdb.prepare(`
-        SELECT avg_wait FROM park_summaries
+    const ranked = PARKS_META.map(park => {
+      // Current average: raw snapshots from last 45 min
+      const recentAvg = wtdb.prepare(`
+        SELECT ROUND(AVG(wait_minutes), 1) AS avg
+        FROM wait_snapshots
         WHERE park_id = ?
-          AND avg_wait IS NOT NULL
-          AND sampled_at <= datetime('now', '-2 hours')
-        ORDER BY sampled_at DESC LIMIT 1
+          AND status = 'OPERATING'
+          AND wait_minutes IS NOT NULL
+          AND wait_minutes <= 180
+          AND sampled_at >= datetime(?, '-45 minutes')
+      `).get(park.id, latestTs || 'now');
+
+      // Older average: snapshot from ~2 hours ago for trend detection
+      const older = wtdb.prepare(`
+        SELECT ROUND(AVG(wait_minutes), 1) AS avg_wait
+        FROM wait_snapshots
+        WHERE park_id = ?
+          AND status = 'OPERATING'
+          AND wait_minutes IS NOT NULL
+          AND wait_minutes <= 180
+          AND sampled_at BETWEEN datetime('now', '-150 minutes') AND datetime('now', '-90 minutes')
       `).get(park.id);
 
+      // Historical average: raw snapshots, same day-of-week, ±2 hours, past 30 days
       const historical = wtdb.prepare(`
-        SELECT ROUND(AVG(avg_wait), 1) AS avg
-        FROM park_summaries
+        SELECT ROUND(AVG(wait_minutes), 1) AS avg
+        FROM wait_snapshots
         WHERE park_id = ?
           AND date(sampled_at) < ?
           AND date(sampled_at) >= date(?, '-30 days')
           AND CAST(strftime('%w', sampled_at) AS INTEGER) = ?
           AND ABS(CAST(strftime('%H', sampled_at) AS INTEGER) - ?) <= 2
-          AND avg_wait IS NOT NULL
+          AND status = 'OPERATING'
+          AND wait_minutes IS NOT NULL
+          AND wait_minutes <= 180
       `).get(park.id, today, today, dowNow, hourNow);
 
-      const current_avg = recent.length
-        ? Math.round(recent.reduce((s, r) => s + r.avg_wait, 0) / recent.length)
-        : null;
+      const current_avg = recentAvg?.avg !== null ? Math.round(recentAvg.avg) : null;
 
       const hist_avg    = historical?.avg ?? null;
 
@@ -2274,6 +2613,137 @@ app.put("/api/user-profile/:userId", (req, res) => {
   }
 });
 
+// ── FLIGHT ROUTES ─────────────────────────────────────────
+
+// GET /api/trips/:tripId/flights — list flights for a trip (for current user)
+app.get("/api/trips/:tripId/flights", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const rows = db.prepare(
+    "SELECT * FROM flights WHERE trip_id = ? AND user_id = ? ORDER BY direction, departure_time"
+  ).all(req.params.tripId, user.id);
+  res.json(rows);
+});
+
+// POST /api/trips/:tripId/flights — add a flight
+app.post("/api/trips/:tripId/flights", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const b = req.body;
+  const flight = {
+    id: `flight-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    trip_id: req.params.tripId,
+    user_id: user.id,
+    direction: b.direction || "outbound",
+    airline: b.airline || "",
+    flight_number: b.flight_number || "",
+    confirmation: b.confirmation || "",
+    departure_airport: b.departure_airport || "",
+    arrival_airport: b.arrival_airport || "",
+    departure_time: b.departure_time || "",
+    arrival_time: b.arrival_time || "",
+    seat: b.seat || "",
+    notes: b.notes || "",
+  };
+  db.prepare(`
+    INSERT INTO flights (id, trip_id, user_id, direction, airline, flight_number, confirmation, departure_airport, arrival_airport, departure_time, arrival_time, seat, notes)
+    VALUES (@id, @trip_id, @user_id, @direction, @airline, @flight_number, @confirmation, @departure_airport, @arrival_airport, @departure_time, @arrival_time, @seat, @notes)
+  `).run(flight);
+  res.json(flight);
+});
+
+// PUT /api/flights/:id — update a flight
+app.put("/api/flights/:id", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const existing = db.prepare("SELECT * FROM flights WHERE id = ? AND user_id = ?").get(req.params.id, user.id);
+  if (!existing) return res.status(404).json({ error: "Flight not found" });
+  const b = req.body;
+  db.prepare(`
+    UPDATE flights SET airline = ?, flight_number = ?, confirmation = ?, departure_airport = ?, arrival_airport = ?,
+    departure_time = ?, arrival_time = ?, seat = ?, notes = ?, updated = datetime('now') WHERE id = ?
+  `).run(b.airline ?? existing.airline, b.flight_number ?? existing.flight_number, b.confirmation ?? existing.confirmation,
+    b.departure_airport ?? existing.departure_airport, b.arrival_airport ?? existing.arrival_airport,
+    b.departure_time ?? existing.departure_time, b.arrival_time ?? existing.arrival_time,
+    b.seat ?? existing.seat, b.notes ?? existing.notes, req.params.id);
+  res.json(db.prepare("SELECT * FROM flights WHERE id = ?").get(req.params.id));
+});
+
+// DELETE /api/flights/:id — delete a flight
+app.delete("/api/flights/:id", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const existing = db.prepare("SELECT * FROM flights WHERE id = ? AND user_id = ?").get(req.params.id, user.id);
+  if (!existing) return res.status(404).json({ error: "Flight not found" });
+  db.prepare("DELETE FROM flights WHERE id = ?").run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── AVATAR ROUTES ─────────────────────────────────────────
+
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, AVATARS_DIR),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `${req.params.userId}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, file.mimetype.startsWith("image/")),
+});
+
+// POST /api/users/:userId/avatar — upload avatar image
+app.post("/api/users/:userId/avatar", avatarUpload.single("avatar"), (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  if (user.id !== req.params.userId && user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+
+  // Remove any old avatar with a different extension
+  try {
+    const files = fs.readdirSync(AVATARS_DIR);
+    for (const f of files) {
+      if (f.startsWith(req.params.userId) && f !== req.file.filename) {
+        fs.unlinkSync(path.join(AVATARS_DIR, f));
+      }
+    }
+  } catch (e) { /* ok */ }
+
+  // Save avatar filename to user record
+  db.prepare("UPDATE users SET avatar = ? WHERE id = ?").run(req.file.filename, req.params.userId);
+  res.json({ ok: true, filename: req.file.filename });
+});
+
+// GET /api/users/:userId/avatar — serve avatar image
+app.get("/api/users/:userId/avatar", (req, res) => {
+  const row = db.prepare("SELECT avatar FROM users WHERE id = ?").get(req.params.userId);
+  if (!row?.avatar) return res.status(404).json({ error: "No avatar" });
+
+  const filePath = path.join(AVATARS_DIR, row.avatar);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
+
+  res.sendFile(filePath);
+});
+
+// DELETE /api/users/:userId/avatar — remove avatar
+app.delete("/api/users/:userId/avatar", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  if (user.id !== req.params.userId && user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const row = db.prepare("SELECT avatar FROM users WHERE id = ?").get(req.params.userId);
+  if (row?.avatar) {
+    try { fs.unlinkSync(path.join(AVATARS_DIR, row.avatar)); } catch (e) { /* ok */ }
+    db.prepare("UPDATE users SET avatar = '' WHERE id = ?").run(req.params.userId);
+  }
+  res.json({ ok: true });
+});
+
 // ── FAVORITE RESTAURANTS ROUTES ───────────────────────────
 
 // GET /api/favorite-restaurants/:userId
@@ -2340,9 +2810,223 @@ app.delete("/api/favorite-resorts/:id", (req, res) => {
   res.json({ ok: true });
 });
 
+// ── RIDE PROFILE ROUTES ──────────────────────────────────────
+
+// GET /api/my/ride-profile
+app.get("/api/my/ride-profile", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const row = stmts.getRideProfile.get(user.id) || {
+    user_id: user.id, drops: 3, has_young_kids: 0, prefer_indoor: 0, ride_or_show: "both",
+  };
+  res.json(row);
+});
+
+// PUT /api/my/ride-profile
+app.put("/api/my/ride-profile", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const { drops, has_young_kids, prefer_indoor, ride_or_show } = req.body;
+  try {
+    stmts.upsertRideProfile.run({
+      user_id:        user.id,
+      drops:          drops          ?? 3,
+      has_young_kids: has_young_kids ?? 0,
+      prefer_indoor:  prefer_indoor  ?? 0,
+      ride_or_show:   ride_or_show   ?? "both",
+    });
+    res.json(stmts.getRideProfile.get(user.id));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── RECOMMENDATIONS ROUTES ────────────────────────────────────
+
+// GET /api/recommendations/:parkId
+// Scores + ranks rides for the given park for the current user.
+// Pulls cached quips from recommendation_cache if fresh (<20 min).
+app.get("/api/recommendations/:parkId", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const { parkId } = req.params;
+  const userLat = req.query.lat ? parseFloat(req.query.lat) : null;
+  const userLng = req.query.lng ? parseFloat(req.query.lng) : null;
+
+  const wtdb = getWtDb();
+  if (!wtdb) return res.json({ available: false, rides: [] });
+
+  try {
+    const rides = scoreRides(user.id, parkId, userLat, userLng, db, wtdb);
+    res.json({
+      available: true,
+      park_id:   parkId,
+      as_of:     new Date().toISOString(),
+      rides,
+    });
+  } catch (err) {
+    console.error("[recommendations] score error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Start server ───────────────────────────────────────────
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✨ Disney API server running on http://0.0.0.0:${PORT}`);
   console.log(`📁 Database: ${DB_PATH}`);
 });
+
+// ══════════════════════════════════════════════════════════════
+// RECOMMENDATION CACHE BACKGROUND JOB
+// Runs every 15 minutes. Scores all 4 parks, generates quips
+// for top-5 rides via Ollama, caches to recommendation_cache.
+// ══════════════════════════════════════════════════════════════
+
+const RECOMMENDATION_PARKS = [
+  "75ea578a-adc8-4116-a54d-dccb60765ef9", // Magic Kingdom
+  "47f90d2c-e191-4239-a466-5892ef59a88b", // EPCOT
+  "288747d1-8b4f-4a64-867e-ea7c9b27bad8", // Hollywood Studios
+  "1c84a229-8862-4648-9c71-378ddd2c7693", // Animal Kingdom
+];
+
+async function generateQuipsForRide(ride) {
+  const context = {
+    ride:           ride.attraction_name,
+    live_wait:      ride.live_wait,
+    hist_avg_now:   ride.hist_avg,
+    wait_delta:     ride.wait_delta,
+    intensity:      ride.intensity,
+    type:           ride.type,
+    indoor:         ride.indoor === 1,
+    height_req:     ride.height_req,
+    lightning_lane: ride.lightning_lane,
+    is_favorite:    ride.is_favorite,
+    description:    ride.description,
+  };
+
+  const prompt = `You are a cheerful Disney cast member giving a guest a quick tip about a ride.
+Given this ride data: ${JSON.stringify(context)}
+
+Write exactly 3 short punchy reasons to ride it RIGHT NOW.
+Rules:
+- Max 8 words each
+- Warm, fun, Disney cast member tone
+- Reference specific data (wait time, indoors, etc.)
+- No punctuation at the end of each line
+- Return ONLY a JSON array of 3 strings. No other text, no markdown backticks.
+
+Example output: ["Only a 12 minute wait right now","Great break from the Florida heat","Your favorite ride is basically a walk-on"]`;
+
+  try {
+    const resp = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model:  OLLAMA_MODEL,
+        prompt: prompt,
+        stream: false,
+        options: { temperature: 0.7, num_predict: 120 },
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!resp.ok) throw new Error(`Ollama HTTP ${resp.status}`);
+
+    const data    = await resp.json();
+    const raw     = (data.response || "").trim();
+    const match   = raw.match(/\[[\s\S]*?\]/);
+    if (!match) throw new Error("No JSON array found in response");
+    const cleaned = match[0].replace(/```json|```/g, "").trim();
+    const quips   = JSON.parse(cleaned);
+    if (!Array.isArray(quips)) throw new Error("Response not an array");
+    return quips.slice(0, 5).map(q => String(q).slice(0, 80));
+
+  } catch (err) {
+    console.warn(`[recs] Ollama quip failed for "${ride.attraction_name}": ${err.message}`);
+    return _buildFallbackQuips(ride);
+  }
+}
+
+function _buildFallbackQuips(ride) {
+  const quips = [];
+  const delta    = ride.wait_delta;
+  const wait     = ride.live_wait;
+  const name     = ride.attraction_name || "this one";
+
+  // ── Line 1: wait-time hook ────────────────────────────────
+  if (delta >= 30)          quips.push(`${delta} min shorter than usual — rare window`);
+  else if (delta >= 15)     quips.push(`Wait is ${delta} min below average right now`);
+  else if (delta > 0)       quips.push(`Shorter than normal — good time to go`);
+  else if (wait !== null && wait <= 10)  quips.push(`${wait} min wait — practically a walk-on`);
+  else if (wait !== null && wait <= 20)  quips.push(`Only ${wait} minutes — well worth it`);
+  else if (wait !== null && wait <= 40)  quips.push(`${wait} min wait — about average for this one`);
+  else if (wait !== null)   quips.push(`Long line but one of the park's best`);
+  else                      quips.push(`One of the top picks in this park`);
+
+  // ── Line 2: ride character / context ─────────────────────
+  if (ride.is_favorite)                             quips.push(`A personal favorite — you rated it highly`);
+  else if (ride.lightning_lane === "individual")    quips.push(`Skips the LL line — saves you real money`);
+  else if (ride.lightning_lane === "standard")      quips.push(`Grab a Lightning Lane if the line climbs`);
+  else if (ride.intensity === "extreme")            quips.push(`The park's biggest thrill — don't leave without it`);
+  else if (ride.intensity === "high")               quips.push(`High energy — great for the whole crew`);
+  else if (ride.type === "dark")                    quips.push(`Classic dark ride — a Disney staple`);
+  else if (ride.type === "family")                  quips.push(`Everyone in the group can ride this one`);
+  else if (ride.type === "show")                    quips.push(`Great chance to sit down and recharge`);
+  else                                              quips.push(`A crowd favorite in this area of the park`);
+
+  // ── Line 3: environment / timing tip ─────────────────────
+  if (ride.indoor === 1 && ride.prefer_indoor)      quips.push(`Air-conditioned — perfect break from the heat`);
+  else if (ride.indoor === 1)                       quips.push(`Fully indoors — cool and comfortable`);
+  else if (ride.height_req && ride.height_req >= 48) quips.push(`Height req: ${ride.height_req}" — thrill seekers only`);
+  else if (ride.height_req && ride.height_req >= 40) quips.push(`${ride.height_req}" height req — most of the crew qualifies`);
+  else if (delta < 0 && Math.abs(delta) >= 10)     quips.push(`Busier than usual — go early or late in the day`);
+  else                                              quips.push(`Scores well for this time of day`);
+
+  return quips.slice(0, 3);
+}
+
+async function runRecommendationJob() {
+  console.log("[recs] Starting recommendation cache update...");
+  const wtdb = getWtDb();
+  if (!wtdb) {
+    console.log("[recs] waittimes DB not available — skipping");
+    return;
+  }
+
+  for (const parkId of RECOMMENDATION_PARKS) {
+    try {
+      const adminUser = db.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").get();
+      const userId    = adminUser?.id || "user-admin-001";
+
+      const rides = scoreRides(userId, parkId, null, null, db, wtdb);
+      if (rides.length === 0) continue;
+
+      stmts.clearRecommendationCache.run(parkId);
+
+      const top5 = rides.slice(0, 5);
+      for (const ride of top5) {
+        const quips = await generateQuipsForRide(ride);
+        stmts.upsertRecommendationCache.run({
+          park_id:         parkId,
+          attraction_name: ride.attraction_name,
+          quips:           JSON.stringify(quips),
+          context_blob:    JSON.stringify({ live_wait: ride.live_wait, hist_avg: ride.hist_avg }),
+        });
+        console.log(`[recs] ✓ ${ride.attraction_name} (score: ${ride.total_score})`);
+      }
+    } catch (err) {
+      console.error(`[recs] Park ${parkId} failed: ${err.message}`);
+    }
+  }
+  console.log("[recs] Cache update complete.");
+}
+
+// Delay 15s on startup (let DB settle), then every 15 min
+setTimeout(() => {
+  runRecommendationJob().catch(e => console.error("[recs] startup job error:", e.message));
+}, 15000);
+setInterval(() => {
+  runRecommendationJob().catch(e => console.error("[recs] interval job error:", e.message));
+}, 15 * 60 * 1000);

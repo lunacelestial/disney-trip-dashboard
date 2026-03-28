@@ -69,6 +69,33 @@
     .tv-relax-title { font-family:'Mouse Memoirs',sans-serif; font-size:5vh; color:var(--pixie-gold); }
     .tv-relax-sub { font-size:2.2vh; color:rgba(255,255,255,0.45); font-weight:600; margin-top:1vh; }
 
+    /* Ambient idle screen */
+    .tv-ambient { flex:1; display:flex; flex-direction:column; padding:2vh 3vw; overflow:hidden; gap:2vh; }
+    .tv-ambient-hero { text-align:center; padding:2vh 0 1vh; }
+    .tv-ambient-hero-emoji { font-size:8vh; margin-bottom:1vh; display:block; }
+    .tv-ambient-hero-title { font-family:'Mouse Memoirs',sans-serif; font-size:4.5vh; color:var(--pixie-gold); line-height:1.1; }
+    .tv-ambient-hero-sub { font-size:1.8vh; color:rgba(255,255,255,0.45); font-weight:600; margin-top:0.5vh; }
+
+    .tv-ambient-cards { display:flex; gap:1.5vw; flex:1; min-height:0; }
+    .tv-ambient-card { flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:2vh; padding:2vh 2vw; display:flex; flex-direction:column; gap:1vh; overflow:hidden; }
+    .tv-ambient-card-title { font-size:1.3vh; font-weight:800; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.4); }
+    .tv-ambient-card-body { flex:1; display:flex; flex-direction:column; justify-content:center; }
+
+    .tv-ambient-park-row { display:flex; align-items:center; gap:1vw; padding:0.8vh 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .tv-ambient-park-row:last-child { border-bottom:none; }
+    .tv-ambient-park-emoji { font-size:2.8vh; }
+    .tv-ambient-park-day { font-size:1.4vh; color:rgba(255,255,255,0.4); font-weight:700; }
+    .tv-ambient-park-name { font-family:'Mouse Memoirs',sans-serif; font-size:2.2vh; color:white; }
+
+    .tv-ambient-tip { font-size:2vh; color:rgba(255,255,255,0.75); font-weight:600; line-height:1.5; text-align:center; }
+    .tv-ambient-tip-icon { font-size:3.5vh; display:block; margin-bottom:1vh; }
+
+    .tv-ambient-stat { text-align:center; padding:0.5vh 0; }
+    .tv-ambient-stat-value { font-family:'Mouse Memoirs',sans-serif; font-size:3.5vh; color:var(--pixie-gold); }
+    .tv-ambient-stat-label { font-size:1.2vh; color:rgba(255,255,255,0.35); font-weight:700; text-transform:uppercase; letter-spacing:0.08em; }
+
+    @keyframes tvTipFade { 0%{opacity:0;transform:translateY(1vh)} 10%{opacity:1;transform:translateY(0)} 90%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-1vh)} }
+
     @media (max-width:768px) { .tv-track .eticket { width:55vw !important; min-width:55vw !important; max-width:55vw !important; } }
   </style>
 </head>
@@ -192,7 +219,171 @@ async function loadTV(){
   if(mode==="today"){if(window._tvCd)clearInterval(window._tvCd);window._tvCd=setInterval(()=>{const nm=new Date().getHours()*60+new Date().getMinutes(),d=timeStringToMinutes(na.time)-nm,el=document.getElementById("tv-cd");if(el)el.textContent=d<=0?"NOW!":d<60?d+"m":Math.floor(d/60)+"h "+(d%60)+"m";},30000);}
 }
 
-function showRelax(t,s){document.getElementById("tv-park").style.display="none";document.getElementById("tv-next-wrap").style.display="none";if(rafId)cancelAnimationFrame(rafId);document.getElementById("tv-main").innerHTML=`<div class="tv-relax"><div class="tv-relax-emoji">🌙</div><div class="tv-relax-title">${t}</div><div class="tv-relax-sub">${s}</div></div>`;}
+function showRelax(t,s){
+  document.getElementById("tv-park").style.display="none";
+  document.getElementById("tv-next-wrap").style.display="none";
+  if(rafId)cancelAnimationFrame(rafId);
+  showAmbient(t,s);
+}
+
+const DISNEY_TIPS = [
+  { icon: "💧", text: "Stay hydrated! Florida humidity is no joke — grab a free cup of ice water at any counter-service restaurant." },
+  { icon: "⚡", text: "Lightning Lane tip: book your first Individual LL at 7:00 AM sharp — the popular ones sell out fast." },
+  { icon: "📱", text: "Download the My Disney Experience app for real-time wait times, mobile ordering, and Genie+ selections." },
+  { icon: "🌅", text: "Magic Kingdom's rope drop is worth the early wake-up — ride Seven Dwarfs Mine Train or TRON with minimal wait." },
+  { icon: "🍽️", text: "Mobile order your meals in advance! You can place an order and pick it up when you're ready to eat." },
+  { icon: "☀️", text: "Take a mid-day break! Head back to the resort pool when it's hottest, then return for the evening fireworks." },
+  { icon: "🎆", text: "EPCOT's fireworks are best viewed from the Japan pavilion or the bridge near World Showcase." },
+  { icon: "🚌", text: "Disney buses run every 20 minutes. Skyliner and monorail are faster when available for your park." },
+  { icon: "🧊", text: "Dole Whip from Aloha Isle in Magic Kingdom is the #1 Disney snack. Get the float — you won't regret it." },
+  { icon: "🎢", text: "Single rider lines at Test Track, Expedition Everest, and Rock 'n' Roller Coaster can save major time." },
+  { icon: "📸", text: "PhotoPass photographers are everywhere! They'll use your phone too — just ask." },
+  { icon: "🏰", text: "Cinderella Castle has a hidden suite inside. You can't book it, but lucky guests win a night there." },
+  { icon: "🌙", text: "After park close, ride the resort monorail loop for a peaceful tour of the Grand Floridian, Polynesian, and Contemporary." },
+  { icon: "🎭", text: "Festival of the Lion King at Animal Kingdom is one of the best live shows on property — don't skip it." },
+  { icon: "👻", text: "The Haunted Mansion has 999 happy haunts — but there's always room for one more." },
+];
+
+async function showAmbient(title, subtitle) {
+  const main = document.getElementById("tv-main");
+  const todayStr = getTodayString();
+
+  // Gather data
+  let allTrips = [], parkDays = [], budget = null;
+  try { allTrips = await apiFetch("/trip-budgets"); } catch(e) {}
+  try { parkDays = await ParkDaysDB.getAll(); } catch(e) {}
+
+  const activeTrip = allTrips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
+
+  // Trip day number and days remaining
+  let dayNum = 0, daysLeft = 0, tripLabel = "";
+  if (activeTrip) {
+    const [sy,sm,sd] = activeTrip.start_date.split("-").map(Number);
+    const [ey,em,ed] = activeTrip.end_date.split("-").map(Number);
+    const start = new Date(sy, sm-1, sd), end = new Date(ey, em-1, ed), now = new Date();
+    now.setHours(0,0,0,0);
+    dayNum = Math.floor((now - start) / 86400000) + 1;
+    daysLeft = Math.floor((end - now) / 86400000);
+    tripLabel = activeTrip.label || "";
+
+    // Budget
+    try {
+      const user = Auth.getUser();
+      if (user) {
+        const myBudget = await apiFetch(`/trips/${activeTrip.trip_id}/my-budget`);
+        if (myBudget && myBudget.exists) budget = myBudget;
+      }
+    } catch(e) {}
+  }
+
+  // Upcoming park days
+  const upcomingParks = parkDays
+    .filter(pd => pd.date >= todayStr)
+    .sort((a,b) => a.date.localeCompare(b.date))
+    .slice(0, 4);
+
+  // Build hero
+  let heroEmoji = "🌙", heroTitle = title || "Relax & Recharge", heroSub = subtitle || "";
+  if (activeTrip && dayNum > 0) {
+    heroEmoji = "✨";
+    heroTitle = `Day ${dayNum} of Your Disney Trip`;
+    heroSub = daysLeft > 0 ? `${daysLeft} magical day${daysLeft !== 1 ? "s" : ""} remaining` : "Last day — make it count!";
+  }
+
+  // Park schedule card
+  let parkHtml = "";
+  if (upcomingParks.length > 0) {
+    parkHtml = upcomingParks.map(pd => {
+      const pi = PKD[pd.park] || { e:"📅", n: pd.park };
+      const [py,pm,pdd] = pd.date.split("-").map(Number);
+      const dayLabel = pd.date === todayStr ? "Today" :
+        new Date(py, pm-1, pdd).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      return `<div class="tv-ambient-park-row">
+        <span class="tv-ambient-park-emoji">${pi.e}</span>
+        <div>
+          <div class="tv-ambient-park-day">${dayLabel}</div>
+          <div class="tv-ambient-park-name">${pi.n}</div>
+        </div>
+      </div>`;
+    }).join("");
+  } else {
+    parkHtml = `<div style="color:rgba(255,255,255,0.3); font-size:1.6vh; text-align:center; padding:2vh 0;">No parks scheduled</div>`;
+  }
+
+  // Budget card
+  let budgetHtml = "";
+  if (budget) {
+    const remaining = budget.total - budget.spent;
+    const pct = budget.total > 0 ? Math.min(100, Math.round((budget.spent / budget.total) * 100)) : 0;
+    budgetHtml = `
+      <div class="tv-ambient-stat">
+        <div class="tv-ambient-stat-value">$${Math.round(remaining)}</div>
+        <div class="tv-ambient-stat-label">Budget Remaining</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.1); border-radius:999px; height:0.8vh; margin:0.5vh 0; overflow:hidden;">
+        <div style="height:100%; width:${pct}%; background:${remaining >= 0 ? "var(--pixie-gold)" : "#ef4444"}; border-radius:999px; transition:width 0.5s;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:1.1vh; color:rgba(255,255,255,0.35); font-weight:700;">
+        <span>$${Math.round(budget.spent)} spent</span>
+        <span>$${Math.round(budget.total)} total</span>
+      </div>
+    `;
+  } else {
+    budgetHtml = `<div style="color:rgba(255,255,255,0.3); font-size:1.6vh; text-align:center; padding:2vh 0;">No budget set up</div>`;
+  }
+
+  // Tip rotation
+  const tipIdx = Math.floor(Math.random() * DISNEY_TIPS.length);
+  const tip = DISNEY_TIPS[tipIdx];
+
+  main.innerHTML = `
+    <div class="tv-ambient">
+      <div class="tv-ambient-hero">
+        <span class="tv-ambient-hero-emoji">${heroEmoji}</span>
+        <div class="tv-ambient-hero-title">${heroTitle}</div>
+        <div class="tv-ambient-hero-sub">${heroSub}</div>
+      </div>
+
+      <div class="tv-ambient-cards">
+        <div class="tv-ambient-card">
+          <div class="tv-ambient-card-title">🗓️ Park Schedule</div>
+          <div class="tv-ambient-card-body">${parkHtml}</div>
+        </div>
+
+        <div class="tv-ambient-card">
+          <div class="tv-ambient-card-title">💡 Disney Tip</div>
+          <div class="tv-ambient-card-body" style="justify-content:center;">
+            <div class="tv-ambient-tip" id="tv-tip">
+              <span class="tv-ambient-tip-icon">${tip.icon}</span>
+              ${tip.text}
+            </div>
+          </div>
+        </div>
+
+        <div class="tv-ambient-card">
+          <div class="tv-ambient-card-title">💰 My Budget</div>
+          <div class="tv-ambient-card-body">${budgetHtml}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Rotate tips every 12 seconds
+  if (window._tvTipInterval) clearInterval(window._tvTipInterval);
+  let currentTip = tipIdx;
+  window._tvTipInterval = setInterval(() => {
+    const tipEl = document.getElementById("tv-tip");
+    if (!tipEl) { clearInterval(window._tvTipInterval); return; }
+    tipEl.style.animation = "tvTipFade 12s ease both";
+    currentTip = (currentTip + 1) % DISNEY_TIPS.length;
+    const t = DISNEY_TIPS[currentTip];
+    tipEl.innerHTML = `<span class="tv-ambient-tip-icon">${t.icon}</span>${t.text}`;
+    // Reset animation
+    tipEl.style.animation = "none";
+    void tipEl.offsetHeight;
+    tipEl.style.animation = "tvTipFade 12s ease both";
+  }, 12000);
+}
 
 async function initTV(){await Auth.verify();await loadTV();setInterval(loadTV,5*60*1000);}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initTV);else initTV();

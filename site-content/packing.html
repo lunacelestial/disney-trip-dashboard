@@ -239,6 +239,14 @@
     let allTrips = [];
     try { allTrips = await apiFetch("/trip-budgets"); } catch (e) {}
 
+    // Sort: active trip first, then upcoming (chronological), then past (reverse chronological)
+    allTrips.sort((a, b) => {
+      const score = t => (todayStr >= t.start_date && todayStr <= t.end_date) ? 0 : t.start_date > todayStr ? 1 : 2;
+      const sa = score(a), sb = score(b);
+      if (sa !== sb) return sa - sb;
+      return sa === 1 ? a.start_date.localeCompare(b.start_date) : b.start_date.localeCompare(a.start_date);
+    });
+
     if (allTrips.length === 0) {
       app.innerHTML = `
         <div style="text-align:center; padding:3rem 1rem;">

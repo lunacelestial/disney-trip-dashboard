@@ -14,6 +14,15 @@ async function initializePhotosPage() {
   let trips = [];
   try { trips = await apiFetch("/trip-budgets"); } catch (e) { }
 
+  // Sort: active trip first, then upcoming (chronological), then past (reverse chronological)
+  const todaySrt = new Date().toISOString().split("T")[0];
+  trips.sort((a, b) => {
+    const score = t => (todaySrt >= t.start_date && todaySrt <= t.end_date) ? 0 : t.start_date > todaySrt ? 1 : 2;
+    const sa = score(a), sb = score(b);
+    if (sa !== sb) return sa - sb;
+    return sa === 1 ? a.start_date.localeCompare(b.start_date) : b.start_date.localeCompare(a.start_date);
+  });
+
   if (trips.length === 0) {
     bubblesEl.innerHTML = `<p style="color:var(--muted); font-style:italic;">No trips yet. Create one in the Planner!</p>`;
     return;

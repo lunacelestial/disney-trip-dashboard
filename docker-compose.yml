@@ -15,6 +15,11 @@ services:
     build: ./disney-api
     container_name: disney_api_dev
     restart: unless-stopped
+    environment:
+      # Ollama runs on motherbrain (192.168.200.100) — reachable over LAN
+      # from inside the container via the host's bridge network.
+      - OLLAMA_URL=http://192.168.200.100:11435
+      - OLLAMA_MODEL=qwen2.5:7b
     volumes:
       - disney-db-dev:/data
       - /mnt/motherbrain/ironwolf_01/disney-site/storage:/storage

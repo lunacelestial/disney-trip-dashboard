@@ -493,9 +493,11 @@ async function initializeDashboardPage() {
 function renderNormalDashboard() {
   renderNextActivityCard();
   renderDashboardItinerary();
+  renderRecommendationStrip();
   renderDashboardBudgetCard();
   renderDashboardWishlistCard();
   renderWaitTimesCard();
+  startDashboardAutoRefresh();
 
   const dashList = document.getElementById("dashboard-itinerary-list");
   if (dashList) {
@@ -507,6 +509,32 @@ function renderNormalDashboard() {
       }
     });
   }
+}
+
+// ── Auto-refresh: re-render activity cards when the current one passes ──
+function startDashboardAutoRefresh() {
+  if (window._dashRefreshInterval) clearInterval(window._dashRefreshInterval);
+
+  // Track what the "next activity" is so we can detect when it changes
+  let lastNextId = null;
+
+  window._dashRefreshInterval = setInterval(async () => {
+    try {
+      const allSorted = sortItineraryByTime(await getStoredItinerary());
+      const itinerary = await filterToCurrentTrip(allSorted);
+      const next = getNextActivity(itinerary);
+      const nextId = next ? next.id : null;
+
+      // If the next activity changed (previous one ended or was removed), refresh
+      if (nextId !== lastNextId) {
+        lastNextId = nextId;
+        renderNextActivityCard();
+        renderDashboardItinerary();
+      }
+    } catch (e) {
+      // Silently ignore — will retry next interval
+    }
+  }, 60000); // Check every 60 seconds
 }
 
 // ── Live Wait Times Card ──────────────────────────────────────
@@ -703,4 +731,397 @@ async function renderMemoriesDashboard(pastTrips, firstName) {
       </div>
     </section>
   `;
+}
+// ── Ride Recommendation Strip ────────────────────────────────
+// Shown during an active trip on a park day.
+// Sits between the "Later Today" E-ticket row and existing cards.
+
+async function renderRecommendationStrip() {
+  const stripEl = document.getElementById("rec-strip-section");
+  if (!stripEl) return;
+
+  // Only show during active trip + park day
+  const todayStr = new Date().toISOString().split("T")[0];
+  let allTrips = [];
+  try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { return; }
+  const activeTrip = allTrips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
+  if (!activeTrip) { stripEl.style.display = "none"; return; }
+
+  const allParkDays = await ParkDaysDB.getAll();
+  const todayPark   = allParkDays.find(pd => pd.date === todayStr);
+  if (!todayPark) { stripEl.style.display = "none"; return; }
+
+  const PARK_ID_MAP = {
+    "magic-kingdom":     "75ea578a-adc8-4116-a54d-dccb60765ef9",
+    "epcot":             "47f90d2c-e191-4239-a466-5892ef59a88b",
+    "hollywood-studios": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+    "animal-kingdom":    "1c84a229-8862-4648-9c71-378ddd2c7693",
+  };
+  const parkId = PARK_ID_MAP[todayPark.park];
+  if (!parkId) { stripEl.style.display = "none"; return; }
+
+  const PARK_LABELS = {
+    "magic-kingdom": "Magic Kingdom", "epcot": "EPCOT",
+    "hollywood-studios": "Hollywood Studios", "animal-kingdom": "Animal Kingdom",
+  };
+  const parkLabel = PARK_LABELS[todayPark.park] || todayPark.park;
+
+  // Show skeleton
+  stripEl.style.display = "";
+  stripEl.innerHTML = `
+    <div style="margin-bottom:0.65rem;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.65rem;">
+        <span style="font-family:'Nunito',sans-serif; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted);">🎢 Live Wait Times</span>
+      </div>
+      <div style="display:flex; gap:0.75rem; overflow:hidden;">
+        ${[1,2,3].map(() => `<div style="flex:0 0 140px; height:100px; background:#f1f5f9; border-radius:14px; animation:recSkeleton 1.2s ease-in-out infinite;"></div>`).join("")}
+      </div>
+    </div>
+  `;
+
+  let data;
+  try {
+    data = await apiFetch(`/wait-times/rides/${parkId}`);
+  } catch (err) {
+    console.warn("[wait-strip] fetch failed:", err);
+    stripEl.style.display = "none";
+    return;
+  }
+
+  if (!data?.available || !data.rides?.length) {
+    stripEl.style.display = "none";
+    return;
+  }
+
+  let rides = data.rides; // already sorted by wait time ASC from API
+  const updatedStr = data.sampled_at
+    ? new Date(data.sampled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : "";
+
+  // ── Time-safety filter: exclude rides that won't fit before the next activity ──
+  const WALK_TIME = 10;      // minutes to walk to/from a ride
+  const RIDE_DURATION = 10;  // average ride duration in minutes
+  const BUFFER = 5;          // extra buffer minutes
+
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+
+  // Get today's remaining scheduled activities
+  const allSorted = sortItineraryByTime(await getStoredItinerary());
+  const todayActs = allSorted
+    .filter(a => a.date === todayStr && a.time)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const upcomingActs = todayActs.filter(a => timeStringToMinutes(a.time) > nowMins);
+  const nextActTime = upcomingActs.length > 0 ? timeStringToMinutes(upcomingActs[0].time) : null;
+
+  if (nextActTime !== null) {
+    rides = rides.filter(ride => {
+      const totalTime = WALK_TIME + ride.wait_minutes + RIDE_DURATION + WALK_TIME + BUFFER;
+      return (nowMins + totalTime) <= nextActTime;
+    });
+  }
+
+  // Cap to top 5 recommendations
+  rides = rides.slice(0, 5);
+
+  if (!rides.length) {
+    stripEl.style.display = "none";
+    return;
+  }
+
+  // Build ride cards — sorted lowest wait first (left) to highest (right)
+  // Color gradient: bright/warm at rank 1 → dark/cool at the end
+  const total = rides.length;
+  const cardsHtml = rides.map((ride, idx) => {
+    const wait = ride.wait_minutes;
+    const waitColor = wait <= 20 ? "#22c55e" : wait <= 45 ? "#f59e0b" : "#ef4444";
+    const intensityEmoji = { low:"🌤️", moderate:"🎢", high:"⚡", extreme:"🔥" }[ride.intensity] || "🎠";
+
+    const llBadge = ride.lightning_lane === "individual"
+      ? `<span style="font-size:0.58rem; font-weight:800; padding:0.1rem 0.3rem; border-radius:4px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; letter-spacing:0.04em;">ILL</span>`
+      : ride.lightning_lane === "standard"
+      ? `<span style="font-size:0.58rem; font-weight:800; padding:0.1rem 0.3rem; border-radius:4px; background:#e0f2fe; color:#075985; border:1px solid #bae6fd; letter-spacing:0.04em;">LL</span>`
+      : "";
+    const indoorBadge = ride.indoor === 1 ? `<span style="font-size:0.75rem;" title="Indoors">❄️</span>` : "";
+
+    // Gradient: rank 0 (best) = bright gold/cream → rank N-1 (worst) = deep blue-grey
+    const t = total > 1 ? idx / (total - 1) : 0;
+    // Background: interpolate from warm cream to cool slate
+    const bgR = Math.round(255 - t * 50);
+    const bgG = Math.round(253 - t * 60);
+    const bgB = Math.round(244 - t * 40);
+    const bgA = (0.95 - t * 0.1).toFixed(2);
+    const cardBg = `rgba(${bgR},${bgG},${bgB},${bgA})`;
+    // Border dims with rank
+    const borderA = (0.85 - t * 0.35).toFixed(2);
+    const cardBorder = `rgba(255,255,255,${borderA})`;
+    // Left accent stripe: gold → slate
+    const accentR = Math.round(255 - t * 130);
+    const accentG = Math.round(193 - t * 110);
+    const accentB = Math.round(37 + t * 120);
+    const accent = `rgb(${accentR},${accentG},${accentB})`;
+    // Title color darkens
+    const titleA = (1 - t * 0.35).toFixed(2);
+
+    // Encode ride data for click-to-add
+    const rideData = encodeURIComponent(JSON.stringify({
+      name: ride.attraction_name,
+      wait: ride.wait_minutes,
+      type: ride.type,
+      location: parkLabel,
+    }));
+
+    return `
+      <article class="wait-card" data-ride="${rideData}" style="flex:0 0 140px; background:${cardBg}; border-radius:14px; border:1.5px solid ${cardBorder}; border-left:3px solid ${accent}; box-shadow:0 2px 10px rgba(0,0,0,${(0.07 + t * 0.06).toFixed(2)}); padding:0.7rem 0.8rem; display:flex; flex-direction:column; gap:0.25rem; cursor:pointer;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-size:1rem;">${intensityEmoji}</span>
+          <div style="display:flex; align-items:center; gap:0.2rem;">${indoorBadge}${llBadge}</div>
+        </div>
+        <h3 style="font-family:'Mouse Memoirs',sans-serif; font-size:0.88rem; color:var(--castle-blue); margin:0; line-height:1.2; letter-spacing:0.02em; flex:1; opacity:${titleA};">${escapeHtml(ride.attraction_name)}</h3>
+        <div style="display:flex; align-items:baseline; justify-content:space-between;">
+          <span style="font-family:'Mouse Memoirs',sans-serif; font-size:1.4rem; letter-spacing:0.02em; line-height:1; color:${waitColor};">${wait}m</span>
+          ${ride.height_req ? `<span style="font-family:'Nunito',sans-serif; font-size:0.62rem; font-weight:700; color:var(--muted);">↑ ${ride.height_req}"</span>` : ""}
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  stripEl.innerHTML = `
+    <style>
+      @keyframes recSkeleton { 0%,100% { opacity:0.6; } 50% { opacity:1; } }
+      .wait-marquee-wrapper {
+        overflow: hidden;
+        -webkit-mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+        mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+      }
+      .wait-marquee-track {
+        display: flex;
+        gap: 0.75rem;
+        width: max-content;
+        will-change: transform;
+        cursor: grab;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .wait-marquee-track.is-dragging { cursor: grabbing; }
+    </style>
+    <div style="margin-bottom:1.5rem;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:0.65rem; flex-wrap:wrap; gap:0.25rem;">
+        <span style="font-family:'Nunito',sans-serif; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted);">🎢 Live Wait Times · ${escapeHtml(parkLabel)}</span>
+        <span style="font-size:0.7rem; font-weight:600; color:var(--muted);">${updatedStr ? `Updated ${updatedStr}` : ""}</span>
+      </div>
+
+      <div class="wait-marquee-wrapper">
+        <div class="wait-marquee-track" id="wait-marquee-track">
+          ${cardsHtml}${cardsHtml}${cardsHtml}
+        </div>
+      </div>
+
+      <p style="font-family:'Nunito',sans-serif; font-size:0.68rem; color:var(--muted); text-align:right; margin:0.4rem 0 0;">Sorted by wait time · updates every 15 min</p>
+    </div>
+  `;
+
+  // ── JS-driven infinite marquee with drag support ──
+  const track = document.getElementById("wait-marquee-track");
+  if (!track) return;
+
+  const cardEls = track.querySelectorAll(".wait-card");
+  const numOriginal = rides.length;
+  // Measure exact loop width: offset of the first card in the second set
+  const loopWidth = cardEls[numOriginal] ? cardEls[numOriginal].offsetLeft - cardEls[0].offsetLeft
+                                         : track.scrollWidth / 2;
+  const wrapperWidth = track.parentElement.offsetWidth;
+  const firstCardWidth = cardEls[0] ? cardEls[0].offsetWidth : 140;
+
+  // Start offset so only the first card is visible at the right edge
+  let offset = -(wrapperWidth - firstCardWidth);
+  let speed = 0.5; // px per frame (~30px/s at 60fps)
+  let paused = false;
+  let dragActive = false;
+  let dragStartX = 0;
+  let dragStartOffset = 0;
+  let lastDragX = 0;
+  let dragVelocity = 0;
+
+  function applyOffset() {
+    // Seamless wrap: when scrolled past one full set, jump back
+    while (offset <= -loopWidth) offset += loopWidth;
+    while (offset > 0) offset -= loopWidth;
+    track.style.transform = `translateX(${offset}px)`;
+  }
+
+  applyOffset();
+
+  let rafId;
+  function tick() {
+    if (!dragActive) {
+      if (!paused) {
+        offset -= speed;
+      }
+      // Apply momentum from drag release
+      if (paused && Math.abs(dragVelocity) > 0.2) {
+        offset += dragVelocity;
+        dragVelocity *= 0.95;
+        if (Math.abs(dragVelocity) <= 0.2) dragVelocity = 0;
+      }
+    }
+    applyOffset();
+    rafId = requestAnimationFrame(tick);
+  }
+  rafId = requestAnimationFrame(tick);
+
+  // Pause on hover (desktop)
+  track.addEventListener("mouseenter", () => { if (!dragActive) paused = true; });
+  track.addEventListener("mouseleave", () => { if (!dragActive) { paused = false; dragVelocity = 0; } });
+
+  // ── Drag to scrub (mouse + touch) ──
+  function startDrag(x) {
+    dragActive = true;
+    paused = true;
+    dragStartX = x;
+    dragStartOffset = offset;
+    lastDragX = x;
+    dragVelocity = 0;
+    track.classList.add("is-dragging");
+  }
+  function moveDrag(x) {
+    if (!dragActive) return;
+    const delta = x - dragStartX;
+    offset = dragStartOffset + delta;
+    dragVelocity = x - lastDragX;
+    lastDragX = x;
+  }
+  function endDrag() {
+    if (!dragActive) return;
+    dragActive = false;
+    track.classList.remove("is-dragging");
+    // Let momentum coast, then resume auto-scroll
+    setTimeout(() => { if (!dragActive) { paused = false; dragVelocity = 0; } }, 3000);
+  }
+
+  // Mouse events
+  track.addEventListener("mousedown", (e) => { e.preventDefault(); startDrag(e.clientX); });
+  window.addEventListener("mousemove", (e) => moveDrag(e.clientX));
+  window.addEventListener("mouseup", endDrag);
+
+  // Touch events
+  track.addEventListener("touchstart", (e) => startDrag(e.touches[0].clientX), { passive: true });
+  window.addEventListener("touchmove", (e) => { if (dragActive) moveDrag(e.touches[0].clientX); }, { passive: true });
+  window.addEventListener("touchend", endDrag);
+
+  // ── Click-to-add: detect taps (not drags) on ride cards ──
+  let dragDistance = 0;
+  const origStartDrag = startDrag;
+  startDrag = function(x) { dragDistance = 0; origStartDrag(x); };
+  const origMoveDrag = moveDrag;
+  moveDrag = function(x) { if (dragActive) dragDistance += Math.abs(x - lastDragX); origMoveDrag(x); };
+
+  track.addEventListener("click", (e) => {
+    // Ignore if this was a drag gesture (moved more than 5px)
+    if (dragDistance > 5) return;
+    const card = e.target.closest(".wait-card[data-ride]");
+    if (!card) return;
+    try {
+      const ride = JSON.parse(decodeURIComponent(card.dataset.ride));
+      openAddRideModal(ride, todayStr);
+    } catch (err) { console.warn("[rec] click parse error:", err); }
+  });
+
+  // Cleanup on page unload
+  window.addEventListener("beforeunload", () => cancelAnimationFrame(rafId));
+}
+
+// ── "Add to Itinerary?" modal for ride recommendations ──
+function openAddRideModal(ride, dateStr) {
+  document.getElementById("rec-add-modal")?.remove();
+
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  // Suggest a start time: now + 10min walk, rounded to next 5 min
+  const suggestMins = nowMins + 10;
+  const rounded = Math.ceil(suggestMins / 5) * 5;
+  const suggestH = String(Math.floor(rounded / 60) % 24).padStart(2, "0");
+  const suggestM = String(rounded % 60).padStart(2, "0");
+  const suggestTime = `${suggestH}:${suggestM}`;
+
+  const waitColor = ride.wait <= 20 ? "#22c55e" : ride.wait <= 45 ? "#f59e0b" : "#ef4444";
+
+  const overlay = document.createElement("div");
+  overlay.id = "rec-add-modal";
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.innerHTML = `
+    <div class="modal-card" style="max-width:400px; width:92vw;">
+      <button class="modal-close-btn" id="rec-add-close" aria-label="Close">✕</button>
+      <div class="modal-header" style="padding-bottom:0.5rem;">
+        <p class="card-label">🎢 Ride Recommendation</p>
+        <h2 style="font-size:1.4rem;">${escapeHtml(ride.name)}</h2>
+        <p class="modal-meta">${escapeHtml(ride.location)}</p>
+      </div>
+
+      <div style="padding:0 1.75rem; margin-bottom:1rem;">
+        <div style="display:flex; gap:1rem; justify-content:center;">
+          <div style="text-align:center; padding:0.6rem 1rem; background:rgba(0,0,0,0.03); border-radius:10px;">
+            <div style="font-family:'Mouse Memoirs',sans-serif; font-size:1.6rem; color:${waitColor};">${ride.wait}m</div>
+            <div style="font-size:0.7rem; font-weight:700; color:var(--muted); text-transform:uppercase;">Current Wait</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:0 1.75rem 1.25rem;">
+        <p style="font-size:0.85rem; font-weight:700; color:var(--ink); margin:0 0 0.75rem; text-align:center;">Add to today's itinerary?</p>
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+          <div style="flex:1;">
+            <label style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Time</label>
+            <input type="time" id="rec-add-time" value="${suggestTime}" style="width:100%; padding:0.5rem 0.6rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.88rem;" />
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Type</label>
+            <select id="rec-add-type" style="width:100%; padding:0.5rem 0.6rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.88rem;">
+              <option value="Ride" selected>Ride</option>
+              <option value="Lightning Lane">Lightning Lane</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+          <button type="button" id="rec-add-cancel" class="secondary-button" style="flex:1; font-size:0.88rem;">Not Now</button>
+          <button type="button" id="rec-add-confirm" class="primary-button" style="flex:1; font-size:0.88rem;">Add to Itinerary</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeModal = () => overlay.remove();
+
+  document.getElementById("rec-add-close").addEventListener("click", closeModal);
+  document.getElementById("rec-add-cancel").addEventListener("click", closeModal);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+
+  document.getElementById("rec-add-confirm").addEventListener("click", async () => {
+    const time = document.getElementById("rec-add-time").value;
+    const type = document.getElementById("rec-add-type").value;
+    if (!time) return;
+
+    const activity = {
+      id: "act-" + Date.now(),
+      date: dateStr,
+      time: time,
+      type: type,
+      title: ride.name,
+      location: ride.location,
+      notes: `Added from recommendation — ${ride.wait}m wait at time of booking`,
+      image: "",
+      url: "",
+    };
+
+    await ItineraryDB.add(activity);
+    closeModal();
+    showToast(`Added ${ride.name} to your itinerary!`);
+
+    // Refresh the dashboard itinerary section
+    if (typeof renderDashboardItinerary === "function") renderDashboardItinerary();
+  });
 }

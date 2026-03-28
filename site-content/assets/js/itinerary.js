@@ -589,9 +589,10 @@ async function openEditTripModal() {
   if (!overlay || !body) return;
 
   const allSorted = sortItineraryByTime(await getStoredItinerary());
-  const fullTrip = await filterToCurrentTrip(allSorted);
+  const tripBudgets = await loadTripBudgets();
+  const tripGroups = buildTripsFromBudgets(allSorted, tripBudgets);
 
-  if (fullTrip.length === 0) {
+  if (tripGroups.length === 0) {
     body.innerHTML = `
       <p style="text-align:center; color:var(--muted); padding:2rem 0;">
         No trip found. <a href="planner.html" style="color:var(--castle-blue); font-weight:700;">Plan a new trip</a> first.
@@ -602,15 +603,18 @@ async function openEditTripModal() {
     return;
   }
 
-  const tripStartDate = new Date(fullTrip[0].date + "T12:00:00");
-  const tripEndDate = new Date(fullTrip[fullTrip.length - 1].date + "T12:00:00");
+  // Use the selected trip group (from trip_budgets) for authoritative dates & ID
+  const idx = selectedTripIndex >= 0 ? Math.min(selectedTripIndex, tripGroups.length - 1) : detectCurrentTripGroupIndex(tripGroups);
+  const tripGroup = tripGroups[idx];
+  const fullTrip = tripGroup.activities;
 
-  const allDates = [];
-  const cursor = new Date(tripStartDate);
-  while (cursor <= tripEndDate) {
-    allDates.push(cursor.toISOString().split("T")[0]);
-    cursor.setDate(cursor.getDate() + 1);
-  }
+  const tripStartDate = tripGroup.start;
+  const tripEndDate = tripGroup.end;
+  const tripId = tripGroup.trip_id;
+
+  // Store original dates for resize detection
+  const originalStart = tripStartDate;
+  const originalEnd = tripEndDate;
 
   const parkDays = await ParkDaysDB.getAll();
   const parkDayMap = {};
@@ -622,38 +626,126 @@ async function openEditTripModal() {
     activityCounts[d] = (activityCounts[d] || 0) + 1;
   });
 
-  let html = `<div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">`;
+  // Helper: compute dates array from start to end (inclusive)
+  function dateRange(start, end) {
+    const dates = [];
+    const cursor = new Date(start + "T12:00:00");
+    const endDt = new Date(end + "T12:00:00");
+    while (cursor <= endDt) {
+      dates.push(cursor.toISOString().split("T")[0]);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return dates;
+  }
 
-  allDates.forEach((date, i) => {
-    const [y, m, d] = date.split("-").map(Number);
-    const dayLabel = new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    const dayNum = i + 1;
-    const currentPark = parkDayMap[date] || "";
-    const actCount = activityCounts[date] || 0;
+  // Helper: render the park day rows HTML
+  function renderParkDayRows(dates) {
+    let rowsHtml = "";
+    dates.forEach((date, i) => {
+      const [y, m, d] = date.split("-").map(Number);
+      const dayLabel = new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      const dayNum = i + 1;
+      const currentPark = parkDayMap[date] || "";
+      const actCount = activityCounts[date] || 0;
 
-    const options = EDIT_TRIP_PARK_OPTIONS.map(o =>
-      `<option value="${o.value}" ${currentPark === o.value ? "selected" : ""}>${o.label}</option>`
-    ).join("");
+      const options = EDIT_TRIP_PARK_OPTIONS.map(o =>
+        `<option value="${o.value}" ${currentPark === o.value ? "selected" : ""}>${o.label}</option>`
+      ).join("");
 
-    html += `
-      <div class="edit-trip-day-row" style="display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.75rem; border-radius:12px; background:rgba(0,0,0,0.02); border:1px solid rgba(0,0,0,0.05);">
-        <div style="flex:1; min-width:0;">
-          <strong style="font-size:0.9rem; color:var(--ink);">${dayLabel}</strong>
-          <span style="font-size:0.75rem; color:var(--muted); margin-left:0.5rem;">Day ${dayNum}</span>
-          ${actCount > 0 ? `<span style="font-size:0.7rem; color:var(--slate); margin-left:0.25rem;">(${actCount} activities)</span>` : ""}
+      rowsHtml += `
+        <div class="edit-trip-day-row" style="display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.75rem; border-radius:12px; background:rgba(0,0,0,0.02); border:1px solid rgba(0,0,0,0.05);">
+          <div style="flex:1; min-width:0;">
+            <strong style="font-size:0.9rem; color:var(--ink);">${dayLabel}</strong>
+            <span style="font-size:0.75rem; color:var(--muted); margin-left:0.5rem;">Day ${dayNum}</span>
+            ${actCount > 0 ? `<span style="font-size:0.7rem; color:var(--slate); margin-left:0.25rem;">(${actCount} activities)</span>` : ""}
+          </div>
+          <select class="edit-trip-park-select" data-date="${date}" data-original="${currentPark}" data-activities="${actCount}"
+            style="padding:0.4rem 0.5rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.85rem; font-weight:600; min-width:0; max-width:180px;">
+            ${options}
+          </select>
         </div>
-        <select class="edit-trip-park-select" data-date="${date}" data-original="${currentPark}" data-activities="${actCount}"
-          style="padding:0.4rem 0.5rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.85rem; font-weight:600; min-width:0; max-width:180px;">
-          ${options}
-        </select>
-      </div>
-    `;
-  });
+      `;
+    });
+    return rowsHtml;
+  }
 
-  html += `</div>`;
+  // Helper: count activities that would be lost if dates shrink
+  function countLostActivities(newStart, newEnd) {
+    let lost = 0;
+    for (const [date, count] of Object.entries(activityCounts)) {
+      if (date < newStart || date > newEnd) lost += count;
+    }
+    return lost;
+  }
+
+  // Helper: refresh the park days container and warning
+  function refreshParkDays() {
+    const startVal = document.getElementById("edit-trip-start").value;
+    const endVal = document.getElementById("edit-trip-end").value;
+    if (!startVal || !endVal || startVal > endVal) return;
+
+    const dates = dateRange(startVal, endVal);
+    const container = document.getElementById("edit-trip-park-rows");
+    if (container) {
+      container.innerHTML = renderParkDayRows(dates);
+      // Re-wire park change confirmation on new selects
+      container.querySelectorAll(".edit-trip-park-select").forEach(select => {
+        select.addEventListener("change", () => {
+          const original = select.dataset.original;
+          const actCount = parseInt(select.dataset.activities) || 0;
+          const newVal = select.value;
+          if (newVal !== original && actCount > 0 && newVal) showParkChangeConfirm(select);
+        });
+      });
+    }
+
+    // Update day count
+    const countEl = document.getElementById("edit-trip-day-count");
+    if (countEl) countEl.textContent = `${dates.length} day${dates.length !== 1 ? "s" : ""}`;
+
+    // Show/hide warning about lost activities
+    const lost = countLostActivities(startVal, endVal);
+    const warnEl = document.getElementById("edit-trip-date-warning");
+    if (warnEl) {
+      if (lost > 0) {
+        warnEl.textContent = `${lost} activit${lost === 1 ? "y" : "ies"} will be removed from dates outside this range.`;
+        warnEl.style.display = "";
+      } else {
+        warnEl.style.display = "none";
+      }
+    }
+  }
+
+  const allDates = dateRange(tripStartDate, tripEndDate);
+
+  // ── Trip Dates Section ──
+  let html = `
+    <div style="margin-bottom:1rem;">
+      <p style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:var(--castle-blue); margin:0 0 0.6rem;">📅 Trip Dates</p>
+      <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+        <input type="date" id="edit-trip-start" value="${tripStartDate}"
+          style="flex:1; min-width:130px; padding:0.5rem 0.65rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.9rem; font-weight:600; color:var(--ink); background:#fff;" />
+        <span style="font-size:0.85rem; color:var(--muted); font-weight:600;">to</span>
+        <input type="date" id="edit-trip-end" value="${tripEndDate}"
+          style="flex:1; min-width:130px; padding:0.5rem 0.65rem; border:1.5px solid #d1d5db; border-radius:10px; font-family:'Nunito',sans-serif; font-size:0.9rem; font-weight:600; color:var(--ink); background:#fff;" />
+        <span id="edit-trip-day-count" style="font-size:0.78rem; font-weight:700; color:var(--muted); white-space:nowrap;">${allDates.length} day${allDates.length !== 1 ? "s" : ""}</span>
+      </div>
+      <p id="edit-trip-date-warning" style="display:none; font-size:0.78rem; color:#dc2626; font-weight:600; margin:0.4rem 0 0; padding:0.4rem 0.6rem; background:#fef2f2; border-radius:8px; border:1px solid #fecaca;">
+      </p>
+    </div>
+  `;
+
+  // ── Park Days Section ──
+  html += `
+    <div style="padding-top:0.75rem; border-top:1.5px solid rgba(0,0,0,0.06);">
+      <p style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:var(--castle-blue); margin:0 0 0.6rem;">🎢 Park Day Schedule</p>
+      <div id="edit-trip-park-rows" style="display:flex; flex-direction:column; gap:0.5rem;">
+        ${renderParkDayRows(allDates)}
+      </div>
+    </div>
+  `;
 
   // ── Trip Members Section ──
-  const tripId = buildTripId(allDates[0], allDates[allDates.length - 1]);
   let currentMembers = [];
   let allUsers = [];
   try { currentMembers = await apiFetch(`/trips/${tripId}/members`); } catch (e) { }
@@ -695,6 +787,10 @@ async function openEditTripModal() {
 
   body.innerHTML = html;
 
+  // Wire date input changes to refresh park day rows
+  document.getElementById("edit-trip-start").addEventListener("change", refreshParkDays);
+  document.getElementById("edit-trip-end").addEventListener("change", refreshParkDays);
+
   // Wire member checkbox styling
   body.querySelectorAll(".edit-member-cb").forEach(cb => {
     cb.addEventListener("change", () => {
@@ -706,21 +802,58 @@ async function openEditTripModal() {
 
   // Wire save button
   document.getElementById("edit-trip-save-btn").addEventListener("click", async () => {
-    const checkedIds = new Set(Array.from(body.querySelectorAll(".edit-member-cb:checked")).map(cb => cb.value));
-    const uncheckedIds = new Set(Array.from(body.querySelectorAll(".edit-member-cb:not(:checked)")).map(cb => cb.value));
+    const newStart = document.getElementById("edit-trip-start").value;
+    const newEnd = document.getElementById("edit-trip-end").value;
 
-    for (const uid of checkedIds) {
-      if (!memberIds.has(uid)) {
-        try { await apiFetch(`/trips/${tripId}/members`, { method: "POST", body: JSON.stringify({ user_id: uid }) }); } catch (e) { }
-      }
-    }
-    for (const uid of uncheckedIds) {
-      if (memberIds.has(uid)) {
-        try { await apiFetch(`/trips/${tripId}/members/${uid}`, { method: "DELETE" }); } catch (e) { }
-      }
+    if (!newStart || !newEnd || newStart > newEnd) {
+      showToast("❌ Check your trip dates — start must be before end.");
+      return;
     }
 
-    await handleEditTripSave();
+    const saveBtn = document.getElementById("edit-trip-save-btn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+
+    try {
+      // 1. Resize trip dates if they changed
+      const datesChanged = newStart !== originalStart || newEnd !== originalEnd;
+      let activeTripId = tripId;
+
+      if (datesChanged) {
+        const resizeRes = await apiFetch(`/trips/${tripId}/resize`, {
+          method: "PUT",
+          body: JSON.stringify({ start_date: newStart, end_date: newEnd }),
+        });
+        if (resizeRes.changed) {
+          activeTripId = resizeRes.trip_id;
+        }
+        // Invalidate cached trip budgets so re-renders pick up the new dates/ID
+        invalidateTripBudgetsCache();
+      }
+
+      // 2. Save member changes (use the potentially-new trip ID)
+      const checkedIds = new Set(Array.from(body.querySelectorAll(".edit-member-cb:checked")).map(cb => cb.value));
+      const uncheckedIds = new Set(Array.from(body.querySelectorAll(".edit-member-cb:not(:checked)")).map(cb => cb.value));
+
+      for (const uid of checkedIds) {
+        if (!memberIds.has(uid)) {
+          try { await apiFetch(`/trips/${activeTripId}/members`, { method: "POST", body: JSON.stringify({ user_id: uid }) }); } catch (e) { }
+        }
+      }
+      for (const uid of uncheckedIds) {
+        if (memberIds.has(uid)) {
+          try { await apiFetch(`/trips/${activeTripId}/members/${uid}`, { method: "DELETE" }); } catch (e) { }
+        }
+      }
+
+      // 3. Save park day changes
+      await handleEditTripSave();
+    } catch (err) {
+      console.error("[EditTrip] Save failed:", err);
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save Changes ✨";
+      showToast("❌ Failed to save. Try again.");
+    }
   });
 
   // Wire individual selectors for the confirmation flow

@@ -252,7 +252,6 @@ const NAV_ITEMS = [
   { href: "itinerary.html",    label: "Itinerary",  pageClass: "page-itinerary"    },
   { href: "budget.html",       label: "Budget",     pageClass: "page-budget"       },
   { href: "wishlist.html",     label: "Wishlist",   pageClass: "page-wishlist"     },
-  { href: "photos.html",       label: "Photos",     pageClass: "page-photos"       },
   { href: "planner.html",      label: "Planner",    pageClass: "page-planner"      },
   { href: "tripcalendar.html", label: "Calendar",   pageClass: "page-tripcalendar" },
   { href: "history.html",      label: "History",    pageClass: "page-history"      },
@@ -607,14 +606,75 @@ function initNavPill() {
 
   const user = Auth.getUser();
 
-  if (user && !scroll.querySelector('.nav-tray-profile-link')) {
-    const profileRow = document.createElement("div");
-    profileRow.className = "nav-tray-profile-link";
-    profileRow.style.cssText = "text-align:center; padding:0.5rem 0 0.25rem;";
-    profileRow.innerHTML = `<a href="profile.html" style="color:rgba(255,255,255,0.7); font-family:'Nunito',sans-serif; font-size:0.8rem; font-weight:700; text-decoration:none; letter-spacing:0.04em;">👤 My Profile</a>`;
-    scroll.insertBefore(profileRow, scroll.firstChild);
+  // ── Mobile: convert nav pill to profile link, add bottom menu pill ──
+  const isMobile = window.matchMedia("(max-width: 640px)").matches;
+
+  if (isMobile && user) {
+    // Turn the top-left pill into a profile link
+    pill.classList.add("nav-pill-profile");
+    const initial = (user.name || "?")[0].toUpperCase();
+    const avatarHtml = user.avatar
+      ? `<img src="/api/users/${user.id}/avatar?t=${Date.now()}" alt="" style="width:24px; height:24px; border-radius:50%; object-fit:cover; flex-shrink:0;" />`
+      : `<div class="nav-pill-avatar">${initial}</div>`;
+    pill.innerHTML = `
+      ${avatarHtml}
+      <span class="nav-pill-label">${user.name ? user.name.split(" ")[0] : "Profile"}</span>
+    `;
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.location.href = "profile.html";
+    });
+  } else if (isMobile) {
+    // Not logged in on mobile — pill still goes to profile
+    pill.innerHTML = `
+      <span style="font-size:1rem;">👤</span>
+      <span class="nav-pill-label">Profile</span>
+    `;
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.location.href = "profile.html";
+    });
   }
 
+  // ── Bottom menu pill (mobile only) ──
+  if (isMobile) {
+    if (!document.getElementById("mobile-menu-pill")) {
+      const menuPill = document.createElement("div");
+      menuPill.id = "mobile-menu-pill";
+      menuPill.className = "mobile-menu-pill";
+      menuPill.setAttribute("role", "button");
+      menuPill.setAttribute("tabindex", "0");
+      menuPill.setAttribute("aria-label", "Open navigation menu");
+      menuPill.innerHTML = `<span class="mobile-menu-pill-icon"><span></span><span></span><span></span></span><span class="mobile-menu-pill-label">Menu</span>`;
+      document.body.appendChild(menuPill);
+
+      menuPill.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeBudgetPopover();
+        const isOpen = tray.classList.contains("open");
+        if (isOpen) {
+          closeNavTray();
+        } else {
+          tray.classList.add("open");
+          menuPill.classList.add("open");
+          const overlay = document.getElementById("nav-overlay");
+          if (overlay) overlay.classList.remove("hidden");
+        }
+      });
+    }
+  }
+
+  // Add profile link to tray for all logged-in users (visible on desktop, hidden on mobile via CSS)
+  if (user && !scroll.querySelector('[href="profile.html"]')) {
+    const isProfilePage = document.body.classList.contains("page-profile");
+    const profileLink = document.createElement("a");
+    profileLink.href = "profile.html";
+    profileLink.className = `nav-link${isProfilePage ? " active" : ""}`;
+    profileLink.innerHTML = `<span class="ticket-perf"></span><span class="ticket-label-bar">👤 Profile</span>${isProfilePage ? '<span class="ticket-hole"></span>' : ''}<svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg>`;
+    scroll.appendChild(profileLink);
+  }
+
+  // Add admin link to tray for admin users
   if (user && user.role === "admin" && !scroll.querySelector('[href="admin.html"]')) {
     const isAdminPage = document.body.classList.contains("page-admin");
     const adminLink = document.createElement("a");
@@ -624,23 +684,28 @@ function initNavPill() {
     scroll.appendChild(adminLink);
   }
 
-  pill.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const isOpen = tray.classList.contains("open");
-    closeBudgetPopover();
+  // ── Desktop: pill toggles tray as before ──
+  if (!isMobile) {
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = tray.classList.contains("open");
+      closeBudgetPopover();
 
-    if (isOpen) {
-      closeNavTray();
-    } else {
-      pill.classList.add("open");
-      tray.classList.add("open");
-      const overlay = document.getElementById("nav-overlay");
-      if (overlay) overlay.classList.remove("hidden");
-    }
-  });
+      if (isOpen) {
+        closeNavTray();
+      } else {
+        pill.classList.add("open");
+        tray.classList.add("open");
+        const overlay = document.getElementById("nav-overlay");
+        if (overlay) overlay.classList.remove("hidden");
+      }
+    });
+  }
 
   document.addEventListener("click", (e) => {
     if (tray.contains(e.target) || pill.contains(e.target)) return;
+    const menuPill = document.getElementById("mobile-menu-pill");
+    if (menuPill && menuPill.contains(e.target)) return;
     closeNavTray();
   });
 
@@ -660,9 +725,11 @@ function closeNavTray() {
   const pill = document.getElementById("nav-pill");
   const tray = document.getElementById("nav-ticket-tray");
   const overlay = document.getElementById("nav-overlay");
+  const menuPill = document.getElementById("mobile-menu-pill");
   if (pill) pill.classList.remove("open");
   if (tray) tray.classList.remove("open");
   if (overlay) overlay.classList.add("hidden");
+  if (menuPill) menuPill.classList.remove("open");
 }
 
 function closeAllPillDropdowns() {

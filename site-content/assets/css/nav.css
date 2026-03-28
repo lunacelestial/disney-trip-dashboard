@@ -477,6 +477,143 @@
 }
 .nav-overlay.hidden { display: none; }
 
+/* ============================================================
+   MOBILE: Profile pill (top-left) + Bottom menu pill
+   ============================================================ */
+
+/* Profile avatar circle in the nav pill */
+.nav-pill-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--castle-blue, #003087), var(--sky-blue, #4a90d9));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Bottom menu pill — fixed at bottom center of screen (mobile only) */
+.mobile-menu-pill {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mobile-menu-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 960;
+    background: #111;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 0.55rem 1.2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s, background 0.15s, opacity 0.2s;
+  }
+
+  .mobile-menu-pill:active {
+    transform: translateX(-50%) scale(0.96);
+  }
+
+  .mobile-menu-pill.open {
+    background: #333;
+  }
+
+  .mobile-menu-pill-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  .mobile-menu-pill-icon {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 14px;
+    flex-shrink: 0;
+  }
+  .mobile-menu-pill-icon span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: white;
+    border-radius: 2px;
+    transition: transform 0.2s ease, opacity 0.15s ease;
+    transform-origin: center;
+  }
+  .mobile-menu-pill.open .mobile-menu-pill-icon span:nth-child(1) {
+    transform: translateY(5px) rotate(45deg);
+  }
+  .mobile-menu-pill.open .mobile-menu-pill-icon span:nth-child(2) {
+    opacity: 0;
+  }
+  .mobile-menu-pill.open .mobile-menu-pill-icon span:nth-child(3) {
+    transform: translateY(-5px) rotate(-45deg);
+  }
+
+  /* The tray on mobile — translucent full-screen overlay above utility bar */
+  .nav-ticket-tray {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 100vh;
+    padding-top: 3.5rem;
+    padding-bottom: 5rem;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 950;
+    background: rgba(10, 15, 40, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: none;
+    box-shadow: none;
+  }
+
+  .nav-ticket-tray.open {
+    display: flex;
+    animation: trayFadeIn 0.2s ease both;
+  }
+
+  @keyframes trayFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .nav-ticket-tray .nav-ticket-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 1rem 1.5rem;
+    width: 100%;
+    max-width: 340px;
+    overflow-y: auto;
+    max-height: calc(100vh - 6rem);
+  }
+
+  /* Hide the profile link inside tray on mobile — it's in the top pill now */
+  .nav-ticket-tray .nav-tray-profile-link {
+    display: none;
+  }
+}
+
 /* Desktop: wrapping ticket tray with centered layout */
 @media (min-width: 641px) {
   .nav-ticket-tray {

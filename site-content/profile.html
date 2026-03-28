@@ -203,6 +203,42 @@
       transition: border-color 0.2s;
     }
     .profile-select:focus { outline: none; border-color: var(--sky-blue); }
+
+    /* ── Ride Profile section ── */
+    .ride-profile-q { margin-bottom: 0; }
+    .ride-profile-q-label { font-family:'Nunito',sans-serif; font-size:0.92rem; font-weight:700; color:var(--ink); margin:0 0 0.55rem; line-height:1.35; }
+    .ride-profile-q-sub   { font-size:0.78rem; font-weight:600; color:var(--muted); margin:-0.35rem 0 0.55rem; }
+    .rp-scale { display:flex; gap:0.5rem; flex-wrap:wrap; }
+    .rp-scale-btn {
+      width:44px; height:44px; border-radius:50%; border:2px solid #e2e8f0; background:white;
+      font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+      transition:all 0.15s;
+    }
+    .rp-scale-btn:hover { border-color:var(--sky-blue); transform:scale(1.1); }
+    .rp-scale-btn.active { border-color:var(--castle-blue); background:var(--castle-blue); box-shadow:0 3px 10px rgba(0,48,135,0.25); transform:scale(1.12); }
+    .rp-scale-label { display:flex; justify-content:space-between; font-size:0.7rem; font-weight:700; color:var(--muted); margin-top:0.35rem; padding:0 2px; }
+    .rp-toggle-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0.75rem 1rem; background:white; border:1.5px solid #e2e8f0;
+      border-radius:12px; cursor:pointer; transition:border-color 0.15s;
+    }
+    .rp-toggle-row:hover { border-color:var(--sky-blue); }
+    .rp-toggle-row.active { border-color:var(--castle-blue); background:rgba(0,48,135,0.04); }
+    .rp-toggle-label { font-weight:700; font-size:0.92rem; color:var(--ink); }
+    .rp-toggle-sub   { font-size:0.78rem; color:var(--muted); margin-top:0.1rem; }
+    .rp-toggle-icon  { font-size:1.4rem; flex-shrink:0; transition:transform 0.2s; }
+    .rp-toggle-row.active .rp-toggle-icon { transform:scale(1.15); }
+    .rp-choice-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+    .rp-choice-btn {
+      padding:0.7rem 0.5rem; border:2px solid #e2e8f0; border-radius:12px;
+      background:white; cursor:pointer; text-align:center; transition:all 0.15s;
+      font-family:'Nunito',sans-serif;
+    }
+    .rp-choice-btn:hover { border-color:var(--sky-blue); }
+    .rp-choice-btn.active { border-color:var(--castle-blue); background:var(--castle-blue); color:white; box-shadow:0 3px 10px rgba(0,48,135,0.2); }
+    .rp-choice-emoji { font-size:1.4rem; display:block; margin-bottom:0.2rem; }
+    .rp-choice-label { font-size:0.82rem; font-weight:700; }
+    .rp-choice-btn.active .rp-choice-label { color:white; }
   </style>
   <script>
     // ============================================================
@@ -350,6 +386,32 @@
       } catch(e) { alert("Could not save. Please try again."); }
     }
 
+    function _wireRpScale(groupId, savedVal) {
+      const container = document.getElementById(groupId);
+      if (!container) return;
+      container.querySelectorAll(".rp-scale-btn").forEach(btn => {
+        if (parseInt(btn.dataset.val) === savedVal) btn.classList.add("active");
+        btn.addEventListener("click", () => {
+          container.querySelectorAll(".rp-scale-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          if (typeof _updateRideProfileCount === "function") _updateRideProfileCount();
+        });
+      });
+    }
+
+    function _wireRpChoiceGroup(groupId, savedVal) {
+      const container = document.getElementById(groupId);
+      if (!container) return;
+      container.querySelectorAll(".rp-choice-btn").forEach(btn => {
+        if (btn.dataset.val === savedVal) btn.classList.add("active");
+        btn.addEventListener("click", () => {
+          container.querySelectorAll(".rp-choice-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          if (typeof _updateRideProfileCount === "function") _updateRideProfileCount();
+        });
+      });
+    }
+
     // ══════════════════════════════════════════════════════════
     // MAIN INIT
     // ══════════════════════════════════════════════════════════
@@ -407,15 +469,19 @@
         if (!venueMap[key]) venueMap[key] = { name: m.venue_name, visits: [] };
         venueMap[key].visits.push(m);
       });
-      const venues = Object.values(venueMap).sort((a, b) => b.visits.length - a.visits.length);
+      const venues = Object.values(venueMap).sort((a, b) => a.name.localeCompare(b.name));
 
       // ── Rides by park ────────────────────────────────────────
       const PARK_LABELS = {
-        "magic-kingdom":     "🏰 Magic Kingdom",
+        "animal-kingdom":    "🌿 Animal Kingdom",
         "epcot":             "🌍 EPCOT",
         "hollywood-studios": "🎬 Hollywood Studios",
-        "animal-kingdom":    "🌿 Animal Kingdom",
+        "magic-kingdom":     "🏰 Magic Kingdom",
       };
+      favoriteRides.sort((a, b) => a.ride_name.localeCompare(b.ride_name));
+      favoriteRestaurants.sort((a, b) => a.restaurant_name.localeCompare(b.restaurant_name));
+      favoriteResorts.sort((a, b) => a.resort_name.localeCompare(b.resort_name));
+
       const ridesByPark = {};
       favoriteRides.forEach(r => {
         if (!ridesByPark[r.park]) ridesByPark[r.park] = [];
@@ -481,9 +547,9 @@
       const AP_OPTIONS = [
         { value: "none",         label: "No Annual Pass" },
         { value: "incredi-pass", label: "Incredi-Pass (All Parks)" },
-        { value: "sorcerer",     label: "Sorcerer Pass" },
         { value: "pirate",       label: "Pirate Pass" },
         { value: "pixie-dust",   label: "Pixie Dust Pass" },
+        { value: "sorcerer",     label: "Sorcerer Pass" },
       ];
       const DVC_RESORTS = [
         "", "Aulani", "Bay Lake Tower", "Beach Club Villas", "Boardwalk Villas",
@@ -507,7 +573,14 @@
         <!-- ── Hero Header ── -->
         <section style="margin-bottom:2rem;">
           <div class="hero-card" style="display:flex; align-items:center; gap:1.5rem; background:linear-gradient(135deg, var(--castle-blue) 0%, #1e3a8a 100%); border-color:rgba(255,255,255,0.15);">
-            <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, var(--pixie-gold), #f59e0b); color:var(--castle-blue); display:flex; align-items:center; justify-content:center; font-family:'Mouse Memoirs',sans-serif; font-size:2.5rem; flex-shrink:0; box-shadow:0 4px 16px rgba(255,199,44,0.4);">${initial}</div>
+            <div id="profile-avatar-wrap" style="position:relative; cursor:pointer; flex-shrink:0;" title="Change avatar">
+              ${user.avatar
+                ? `<img id="profile-avatar-img" src="/api/users/${user.id}/avatar?t=${Date.now()}" alt="Avatar" style="width:80px; height:80px; border-radius:50%; object-fit:cover; box-shadow:0 4px 16px rgba(255,199,44,0.4); border:3px solid rgba(255,199,44,0.5);" />`
+                : `<div id="profile-avatar-img" style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, var(--pixie-gold), #f59e0b); color:var(--castle-blue); display:flex; align-items:center; justify-content:center; font-family:'Mouse Memoirs',sans-serif; font-size:2.5rem; box-shadow:0 4px 16px rgba(255,199,44,0.4);">${initial}</div>`
+              }
+              <div style="position:absolute; bottom:-2px; right:-2px; width:26px; height:26px; border-radius:50%; background:white; color:var(--castle-blue); display:flex; align-items:center; justify-content:center; font-size:0.75rem; box-shadow:0 2px 6px rgba(0,0,0,0.2); border:2px solid var(--castle-blue);">📷</div>
+              <input type="file" id="profile-avatar-input" accept="image/*" style="display:none;" />
+            </div>
             <div>
               <h2 style="color:white; margin:0 0 0.2rem; font-size:2rem;">${escapeHtml(user.name)}</h2>
               <p style="color:#e0f2fe; margin:0 0 0.3rem; font-size:0.95rem;">${escapeHtml(user.email)}</p>
@@ -523,113 +596,178 @@
 
         <div style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- ① Personal Info -->
+          <!-- Dining History -->
           <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-info-content">
-              <span>👤 Personal Info</span>
+            <button type="button" class="profile-pill" data-target="profile-dining-content">
+              <span>🍽️ Dining History</span>
+              <span class="profile-pill-count">${venues.length} restaurant${venues.length !== 1 ? "s" : ""}</span>
               <span class="profile-pill-arrow">▸</span>
             </button>
-            <div class="profile-pill-content hidden" id="profile-info-content">
-              <div style="padding:1.25rem; display:flex; flex-direction:column; gap:0.75rem;">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-                  <div class="wizard-field"><label>Display Name</label><input type="text" id="pi-name" value="${escapeHtml(user.name)}" /></div>
-                  <div class="wizard-field"><label>Birthday</label><input type="date" id="pi-birthdate" value="${escapeHtml(profile.birthdate || "")}" /></div>
-                </div>
-                ${renderSaveFooter("pi-save-btn", "pi-save-msg")}
-              </div>
+            <div class="profile-pill-content hidden" id="profile-dining-content">
+              ${venues.length === 0
+                ? `<div style="text-align:center; padding:1.5rem; color:var(--muted);">No dining memories yet!</div>`
+                : `<div style="display:flex; flex-direction:column; gap:0.75rem; padding:1rem;">
+                  ${venues.map(v => {
+                    const allItems = [...new Set(v.visits.flatMap(vis => JSON.parse(vis.items || "[]")))];
+                    const avgRating = Math.round(v.visits.reduce((s, vis) => s + (vis.rating||0), 0) / v.visits.length);
+                    return `<article class="info-card" style="padding:1rem;">
+                      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                          <h3 style="margin:0 0 0.15rem; font-size:1.2rem;">${escapeHtml(v.name)}</h3>
+                          <p style="color:var(--muted); font-size:0.78rem; margin:0;">${v.visits.length} visit${v.visits.length>1?"s":""} ${"⭐".repeat(Math.min(5,avgRating))}</p>
+                        </div><span style="font-size:1.8rem;">🍽️</span>
+                      </div>
+                      ${allItems.length?`<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem;">${allItems.map(i=>`<span style="font-size:0.75rem;font-weight:700;background:#fef3c7;color:#92400e;padding:0.12rem 0.45rem;border-radius:999px;">${escapeHtml(i)}</span>`).join("")}</div>`:""}
+                      ${v.visits[0].notes?`<p style="color:var(--slate);font-size:0.85rem;font-style:italic;margin:0.4rem 0 0;">"${escapeHtml(v.visits[0].notes)}"</p>`:""}
+                    </article>`;
+                  }).join("")}
+                </div>`}
             </div>
           </div>
 
-          <!-- ② Party Composition -->
+          <!-- Favorite Restaurants -->
           <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-party-content">
-              <span>👨‍👩‍👧‍👦 Party Composition</span>
+            <button type="button" class="profile-pill" data-target="profile-restaurants-content">
+              <span>🍴 Favorite Restaurants</span>
+              <span class="profile-pill-count">${favoriteRestaurants.length}</span>
               <span class="profile-pill-arrow">▸</span>
             </button>
-            <div class="profile-pill-content hidden" id="profile-party-content">
-              <div style="padding:1.25rem; display:flex; flex-direction:column; gap:0.5rem;">
-                <p style="margin:0 0 0.5rem; font-size:0.88rem; color:var(--slate);">Who's coming? This helps the AI advisor with ride eligibility and Lightning Lane suggestions.</p>
-                ${renderCounter("adults",   "Adults",   "Age 18+", counterState.adults,   1)}
-                ${renderCounter("children", "Children", "Ages 3–17", counterState.children, 0)}
-                ${renderCounter("toddlers", "Toddlers", "Under 3", counterState.toddlers, 0)}
-
-                <!-- Children's ages — highest-priority for ride eligibility -->
-                <div id="children-age-row" style="${counterState.children > 0 ? "" : "display:none;"}; margin-top:0.5rem; padding:0.75rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;">
-                  <p class="profile-sub-label" style="margin-bottom:0.5rem;">Children's Ages <span style="color:var(--sky-blue); font-size:0.65rem;">★ KEY FOR RIDE ELIGIBILITY</span></p>
-                  <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.6rem;" id="children-age-tags">
-                    ${childrenAges.map((a, i) => renderAgeTag(a, i)).join("")}
+            <div class="profile-pill-content hidden" id="profile-restaurants-content">
+              <div style="padding:1rem;">
+                <div style="background:#f8fafc;border-radius:14px;padding:1rem;margin-bottom:1rem;border:1px solid #e2e8f0;">
+                  <p style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);margin:0 0 0.6rem;">Add a Favorite Restaurant</p>
+                  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+                    <input type="text" id="fav-restaurant-name" placeholder="Restaurant name" style="flex:1;min-width:160px;padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;" />
+                    <select id="fav-restaurant-park" style="padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:600;">
+                      <option value="animal-kingdom">🌿 Animal Kingdom</option>
+                      <option value="disney-springs">🛍️ Disney Springs</option>
+                      <option value="epcot">🌍 EPCOT</option>
+                      <option value="hollywood-studios">🎬 Hollywood Studios</option>
+                      <option value="magic-kingdom">🏰 Magic Kingdom</option>
+                      <option value="resort">🏨 Resort</option>
+                    </select>
+                    <button type="button" id="fav-restaurant-add-btn" class="primary-button small-button">Add ⭐</button>
                   </div>
-                  <div style="display:flex; gap:0.5rem; align-items:center;">
-                    <input type="number" id="age-add-input" min="1" max="17" placeholder="Age" style="width:80px; padding:0.4rem 0.6rem; border:1.5px solid #d1d5db; border-radius:8px; font-family:'Nunito',sans-serif; font-size:0.9rem; font-weight:600;" />
-                    <button type="button" id="age-add-btn" class="secondary-button small-button">+ Add Age</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.3rem;" id="fav-restaurant-list">
+                  ${favoriteRestaurants.length === 0
+                    ? `<p style="color:var(--muted);text-align:center;font-style:italic;padding:0.5rem 0;">No favorites yet!</p>`
+                    : favoriteRestaurants.map(r => renderFavRow("🍴", r.restaurant_name, `data-id="${r.id}"`, "fav-restaurant-delete-btn")).join("")}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Favorite Resorts -->
+          <div class="profile-pill-section">
+            <button type="button" class="profile-pill" data-target="profile-resorts-content">
+              <span>🏰 Favorite Resorts</span>
+              <span class="profile-pill-count">${favoriteResorts.length}</span>
+              <span class="profile-pill-arrow">▸</span>
+            </button>
+            <div class="profile-pill-content hidden" id="profile-resorts-content">
+              <div style="padding:1rem;">
+                <div style="background:#f8fafc;border-radius:14px;padding:1rem;margin-bottom:1rem;border:1px solid #e2e8f0;">
+                  <p style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);margin:0 0 0.6rem;">Add a Favorite Resort or Property</p>
+                  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+                    <input type="text" id="fav-resort-name" placeholder="e.g. Polynesian Village Resort" style="flex:1;min-width:180px;padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;" />
+                    <select id="fav-resort-type" style="padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:600;">
+                      <option value="disney">🏰 Disney On-Property</option>
+                      <option value="offsite">🏨 Off-Site Hotel</option>
+                      <option value="timeshare">🏖️ Timeshare</option>
+                    </select>
+                    <button type="button" id="fav-resort-add-btn" class="primary-button small-button">Add ⭐</button>
                   </div>
                 </div>
-
-                ${renderSaveFooter("party-save-btn", "party-save-msg")}
+                <div style="display:flex;flex-direction:column;gap:0.3rem;" id="fav-resort-list">
+                  ${favoriteResorts.length === 0
+                    ? `<p style="color:var(--muted);text-align:center;font-style:italic;padding:0.5rem 0;">No favorites yet!</p>`
+                    : favoriteResorts.map(r => {
+                        const typeEmoji = r.resort_type==="disney"?"🏰":r.resort_type==="timeshare"?"🏖️":"🏨";
+                        return renderFavRow(typeEmoji, r.resort_name, `data-id="${r.id}"`, "fav-resort-delete-btn");
+                      }).join("")}
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- ③ Accessibility & Mobility -->
+          <!-- Favorite Rides -->
           <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-access-content">
-              <span>♿ Accessibility & Mobility</span>
+            <button type="button" class="profile-pill" data-target="profile-rides-content">
+              <span>🎢 Favorite Rides</span>
+              <span class="profile-pill-count">${favoriteRides.length}</span>
               <span class="profile-pill-arrow">▸</span>
             </button>
-            <div class="profile-pill-content hidden" id="profile-access-content">
-              <div style="padding:1.25rem;">
-                <p style="margin:0 0 0.75rem; font-size:0.88rem; color:var(--slate);">Select all that apply to your party. This helps tailor routing and attraction advice.</p>
-                <div class="chip-group">
-                  ${renderChips(ACCESS_CHIPS, accessSet, "access")}
+            <div class="profile-pill-content hidden" id="profile-rides-content">
+              <div style="padding:1rem;">
+                <div style="background:#f8fafc;border-radius:14px;padding:1rem;margin-bottom:1rem;border:1px solid #e2e8f0;">
+                  <p style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);margin:0 0 0.6rem;">Add a Favorite Ride</p>
+                  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+                    <select id="fav-park" style="padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:600;">
+                      <option value="animal-kingdom">🌿 Animal Kingdom</option>
+                      <option value="epcot">🌍 EPCOT</option>
+                      <option value="hollywood-studios">🎬 Hollywood Studios</option>
+                      <option value="magic-kingdom">🏰 Magic Kingdom</option>
+                    </select>
+                    <input type="text" id="fav-ride-name" placeholder="Ride name" style="flex:1;min-width:140px;padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;" />
+                    <button type="button" id="fav-add-btn" class="primary-button small-button">Add ⭐</button>
+                  </div>
                 </div>
-                ${renderSaveFooter("access-save-btn", "access-save-msg")}
+                ${Object.keys(PARK_LABELS).map(pk => {
+                  const rides = ridesByPark[pk] || [];
+                  if (!rides.length) return "";
+                  return `<div style="margin-bottom:1rem;">
+                    <p style="font-size:0.85rem;font-weight:800;color:var(--castle-blue);margin:0 0 0.4rem;">${PARK_LABELS[pk]}</p>
+                    <div style="display:flex;flex-direction:column;gap:0.3rem;">${rides.map(r => renderFavRow("🎢", r.ride_name, `data-id="${r.id}"`, "fav-delete-btn")).join("")}</div>
+                  </div>`;
+                }).join("")}
+                ${favoriteRides.length === 0 ? `<p style="color:var(--muted);text-align:center;font-style:italic;padding:0.5rem 0;">No favorites yet!</p>` : ""}
               </div>
             </div>
           </div>
 
-          <!-- ④ Dining Preferences -->
+          <!-- My Photos -->
           <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-dining-prefs-content">
-              <span>🥗 Dining Preferences</span>
+            <button type="button" class="profile-pill" data-target="profile-photos-content">
+              <span>📸 My Photos</span>
+              <span class="profile-pill-count" id="profile-photos-count">…</span>
               <span class="profile-pill-arrow">▸</span>
             </button>
-            <div class="profile-pill-content hidden" id="profile-dining-prefs-content">
-              <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1rem;">
-                <div>
-                  <p class="profile-sub-label">Dietary Restrictions</p>
-                  <div class="chip-group">${renderChips(DIET_CHIPS, dietSet, "dietary", "chip-red")}</div>
-                </div>
-                <div>
-                  <p class="profile-sub-label">Dining Style Preferences</p>
-                  <div class="chip-group">${renderChips(DINING_STYLE_CHIPS, diningStyleSet, "dining-style", "chip-gold")}</div>
-                </div>
-                ${renderSaveFooter("dining-prefs-save-btn", "dining-prefs-save-msg")}
+            <div class="profile-pill-content hidden" id="profile-photos-content">
+              <div style="padding:1rem;" id="profile-photos-body">
+                <p style="color:var(--muted);text-align:center;padding:1rem 0;">Loading photos...</p>
               </div>
             </div>
           </div>
 
-          <!-- ⑤ Ride Preferences -->
+          <!-- My Trips -->
           <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-ride-prefs-content">
-              <span>🎢 Ride Preferences</span>
+            <button type="button" class="profile-pill" data-target="profile-trips-content">
+              <span>🗺️ My Trips</span>
+              <span class="profile-pill-count">${trips.length}</span>
               <span class="profile-pill-arrow">▸</span>
             </button>
-            <div class="profile-pill-content hidden" id="profile-ride-prefs-content">
-              <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1rem;">
-                <div>
-                  <p class="profile-sub-label">Thrill Level</p>
-                  <div class="chip-group">${renderChips(THRILL_CHIPS, thrillSet, "thrill")}</div>
-                </div>
-                <div>
-                  <p class="profile-sub-label">Avoid</p>
-                  <div class="chip-group">${renderChips(RIDE_AVOID_CHIPS, rideAvoidSet, "ride-avoid", "chip-red")}</div>
-                </div>
-                ${renderSaveFooter("ride-prefs-save-btn", "ride-prefs-save-msg")}
-              </div>
+            <div class="profile-pill-content hidden" id="profile-trips-content">
+              ${trips.length === 0 ? `
+                <div style="text-align:center; padding:1.5rem; color:var(--muted);">No trips yet! <a href="planner.html" style="color:var(--castle-blue); font-weight:700;">Plan one</a>.</div>
+              ` : `
+                <div class="card-grid" style="padding:1rem;">
+                  ${trips.map(t => {
+                    const start = new Date(t.start_date + "T12:00:00");
+                    const end   = new Date(t.end_date   + "T12:00:00");
+                    const days  = Math.round((end - start) / (1000*60*60*24)) + 1;
+                    const fmt   = d => d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const status = todayStr >= t.start_date && todayStr <= t.end_date ? "active" : t.start_date > todayStr ? "upcoming" : "past";
+                    const statusEmoji = status === "active" ? "🌟" : status === "upcoming" ? "🗓️" : "✅";
+                    const total = (t.hotel||0)+(t.food||0)+(t.extras||0)+(t.souvenirs||0);
+                    return `<article class="info-card"><p class="card-label">${statusEmoji} ${status==="active"?"Current":status==="upcoming"?"Upcoming":"Past"}</p><h3>${fmt(start)} – ${fmt(end)}</h3><p style="color:var(--slate);">${days} days${total>0?` • $${total.toFixed(0)} budget`:""}</p></article>`;
+                  }).join("")}
+                </div>`}
             </div>
           </div>
 
-          <!-- ⑥ Passes & Memberships -->
+          <!-- Passes & Memberships -->
           <div class="profile-pill-section">
             <button type="button" class="profile-pill" data-target="profile-memberships-content">
               <span>🎟️ Passes & Memberships</span>
@@ -674,192 +812,202 @@
             </div>
           </div>
 
-          <!-- ⑦ Travel Profile -->
+          <!-- Personal Info -->
           <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-travel-content">
-              <span>✈️ Travel Profile</span>
+            <button type="button" class="profile-pill" data-target="profile-info-content">
+              <span>👤 Personal Info</span>
               <span class="profile-pill-arrow">▸</span>
             </button>
-            <div class="profile-pill-content hidden" id="profile-travel-content">
-              <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1rem;">
+            <div class="profile-pill-content hidden" id="profile-info-content">
+              <div style="padding:1.25rem; display:flex; flex-direction:column; gap:0.75rem;">
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-                  <div class="wizard-field">
-                    <label>Home Airport (IATA)</label>
-                    <input type="text" id="home-airport" value="${escapeHtml(profile.home_airport || "")}" placeholder="e.g. CVG, ORD, LAX" maxlength="4" style="text-transform:uppercase;" />
-                  </div>
-                  <div class="wizard-field">
-                    <label>Typical Trip Length</label>
-                    <select id="trip-length" class="profile-select">
-                      ${TRIP_LENGTHS.map(t => `<option value="${t.value}" ${(profile.trip_length || "") === t.value ? "selected" : ""}>${t.label}</option>`).join("")}
-                    </select>
-                  </div>
+                  <div class="wizard-field"><label>Display Name</label><input type="text" id="pi-name" value="${escapeHtml(user.name)}" /></div>
+                  <div class="wizard-field"><label>Birthday</label><input type="date" id="pi-birthdate" value="${escapeHtml(profile.birthdate || "")}" /></div>
                 </div>
-                <div>
-                  <p class="profile-sub-label">Preferred Hotel Tier</p>
-                  <div class="chip-group">${renderChips(HOTEL_TIER_CHIPS, hotelTierSet, "hotel-tier", "chip-gold")}</div>
-                </div>
-                <div>
-                  <p class="profile-sub-label">Pace Style</p>
-                  <div class="chip-group">${renderChips(PACE_CHIPS, paceSet, "pace-style", "chip-green")}</div>
-                </div>
-                ${renderSaveFooter("travel-save-btn", "travel-save-msg")}
+                ${renderSaveFooter("pi-save-btn", "pi-save-msg")}
               </div>
             </div>
           </div>
 
-          <!-- ⑧ My Trips -->
+          <!-- ── Preferences (grouped) ── -->
           <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-trips-content">
-              <span>🗺️ My Trips</span>
-              <span class="profile-pill-count">${trips.length}</span>
+            <button type="button" class="profile-pill" data-target="profile-prefs-group">
+              <span>⚙️ Preferences</span>
               <span class="profile-pill-arrow">▸</span>
             </button>
-            <div class="profile-pill-content hidden" id="profile-trips-content">
-              ${trips.length === 0 ? `
-                <div style="text-align:center; padding:1.5rem; color:var(--muted);">No trips yet! <a href="planner.html" style="color:var(--castle-blue); font-weight:700;">Plan one</a>.</div>
-              ` : `
-                <div class="card-grid" style="padding:1rem;">
-                  ${trips.map(t => {
-                    const start = new Date(t.start_date + "T12:00:00");
-                    const end   = new Date(t.end_date   + "T12:00:00");
-                    const days  = Math.round((end - start) / (1000*60*60*24)) + 1;
-                    const fmt   = d => d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
-                    const todayStr = new Date().toISOString().split("T")[0];
-                    const status = todayStr >= t.start_date && todayStr <= t.end_date ? "active" : t.start_date > todayStr ? "upcoming" : "past";
-                    const statusEmoji = status === "active" ? "🌟" : status === "upcoming" ? "🗓️" : "✅";
-                    const total = (t.hotel||0)+(t.food||0)+(t.extras||0)+(t.souvenirs||0);
-                    return `<article class="info-card"><p class="card-label">${statusEmoji} ${status==="active"?"Current":status==="upcoming"?"Upcoming":"Past"}</p><h3>${fmt(start)} – ${fmt(end)}</h3><p style="color:var(--slate);">${days} days${total>0?` • $${total.toFixed(0)} budget`:""}</p></article>`;
-                  }).join("")}
-                </div>`}
-            </div>
-          </div>
+            <div class="profile-pill-content hidden" id="profile-prefs-group">
+              <div style="padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem;">
 
-          <!-- ⑨ Dining History -->
-          <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-dining-content">
-              <span>🍽️ Dining History</span>
-              <span class="profile-pill-count">${venues.length} restaurant${venues.length !== 1 ? "s" : ""}</span>
-              <span class="profile-pill-arrow">▸</span>
-            </button>
-            <div class="profile-pill-content hidden" id="profile-dining-content">
-              ${venues.length === 0
-                ? `<div style="text-align:center; padding:1.5rem; color:var(--muted);">No dining memories yet!</div>`
-                : `<div style="display:flex; flex-direction:column; gap:0.75rem; padding:1rem;">
-                  ${venues.map(v => {
-                    const allItems = [...new Set(v.visits.flatMap(vis => JSON.parse(vis.items || "[]")))];
-                    const avgRating = Math.round(v.visits.reduce((s, vis) => s + (vis.rating||0), 0) / v.visits.length);
-                    return `<article class="info-card" style="padding:1rem;">
-                      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                          <h3 style="margin:0 0 0.15rem; font-size:1.2rem;">${escapeHtml(v.name)}</h3>
-                          <p style="color:var(--muted); font-size:0.78rem; margin:0;">${v.visits.length} visit${v.visits.length>1?"s":""} ${"⭐".repeat(Math.min(5,avgRating))}</p>
-                        </div><span style="font-size:1.8rem;">🍽️</span>
+                <!-- Accessibility & Mobility -->
+                <div class="profile-pill-section">
+                  <button type="button" class="profile-pill" data-target="profile-access-content" style="background:rgba(0,0,0,0.02);">
+                    <span>♿ Accessibility & Mobility</span>
+                    <span class="profile-pill-arrow">▸</span>
+                  </button>
+                  <div class="profile-pill-content hidden" id="profile-access-content">
+                    <div style="padding:1.25rem;">
+                      <p style="margin:0 0 0.75rem; font-size:0.88rem; color:var(--slate);">Select all that apply to your party.</p>
+                      <div class="chip-group">${renderChips(ACCESS_CHIPS, accessSet, "access")}</div>
+                      ${renderSaveFooter("access-save-btn", "access-save-msg")}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Dining Preferences -->
+                <div class="profile-pill-section">
+                  <button type="button" class="profile-pill" data-target="profile-dining-prefs-content" style="background:rgba(0,0,0,0.02);">
+                    <span>🥗 Dining Preferences</span>
+                    <span class="profile-pill-arrow">▸</span>
+                  </button>
+                  <div class="profile-pill-content hidden" id="profile-dining-prefs-content">
+                    <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1rem;">
+                      <div>
+                        <p class="profile-sub-label">Dietary Restrictions</p>
+                        <div class="chip-group">${renderChips(DIET_CHIPS, dietSet, "dietary", "chip-red")}</div>
                       </div>
-                      ${allItems.length?`<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem;">${allItems.map(i=>`<span style="font-size:0.75rem;font-weight:700;background:#fef3c7;color:#92400e;padding:0.12rem 0.45rem;border-radius:999px;">${escapeHtml(i)}</span>`).join("")}</div>`:""}
-                      ${v.visits[0].notes?`<p style="color:var(--slate);font-size:0.85rem;font-style:italic;margin:0.4rem 0 0;">"${escapeHtml(v.visits[0].notes)}"</p>`:""}
-                    </article>`;
-                  }).join("")}
-                </div>`}
-            </div>
-          </div>
-
-          <!-- ⑩ Favorite Restaurants -->
-          <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-restaurants-content">
-              <span>🍴 Favorite Restaurants</span>
-              <span class="profile-pill-count">${favoriteRestaurants.length}</span>
-              <span class="profile-pill-arrow">▸</span>
-            </button>
-            <div class="profile-pill-content hidden" id="profile-restaurants-content">
-              <div style="padding:1rem;">
-                <div style="background:#f8fafc;border-radius:14px;padding:1rem;margin-bottom:1rem;border:1px solid #e2e8f0;">
-                  <p style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);margin:0 0 0.6rem;">Add a Favorite Restaurant</p>
-                  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
-                    <input type="text" id="fav-restaurant-name" placeholder="Restaurant name" style="flex:1;min-width:160px;padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;" />
-                    <select id="fav-restaurant-park" style="padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:600;">
-                      <option value="magic-kingdom">🏰 Magic Kingdom</option>
-                      <option value="epcot">🌍 EPCOT</option>
-                      <option value="hollywood-studios">🎬 Hollywood Studios</option>
-                      <option value="animal-kingdom">🌿 Animal Kingdom</option>
-                      <option value="disney-springs">🛍️ Disney Springs</option>
-                      <option value="resort">🏨 Resort</option>
-                    </select>
-                    <button type="button" id="fav-restaurant-add-btn" class="primary-button small-button">Add ⭐</button>
+                      <div>
+                        <p class="profile-sub-label">Dining Style Preferences</p>
+                        <div class="chip-group">${renderChips(DINING_STYLE_CHIPS, diningStyleSet, "dining-style", "chip-gold")}</div>
+                      </div>
+                      ${renderSaveFooter("dining-prefs-save-btn", "dining-prefs-save-msg")}
+                    </div>
                   </div>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:0.3rem;" id="fav-restaurant-list">
-                  ${favoriteRestaurants.length === 0
-                    ? `<p style="color:var(--muted);text-align:center;font-style:italic;padding:0.5rem 0;">No favorites yet!</p>`
-                    : favoriteRestaurants.map(r => renderFavRow("🍴", r.restaurant_name, `data-id="${r.id}"`, "fav-restaurant-delete-btn")).join("")}
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <!-- ⑪ Favorite Rides -->
-          <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-rides-content">
-              <span>🎢 Favorite Rides</span>
-              <span class="profile-pill-count">${favoriteRides.length}</span>
-              <span class="profile-pill-arrow">▸</span>
-            </button>
-            <div class="profile-pill-content hidden" id="profile-rides-content">
-              <div style="padding:1rem;">
-                <div style="background:#f8fafc;border-radius:14px;padding:1rem;margin-bottom:1rem;border:1px solid #e2e8f0;">
-                  <p style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);margin:0 0 0.6rem;">Add a Favorite Ride</p>
-                  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
-                    <select id="fav-park" style="padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:600;">
-                      <option value="magic-kingdom">🏰 Magic Kingdom</option>
-                      <option value="epcot">🌍 EPCOT</option>
-                      <option value="hollywood-studios">🎬 Hollywood Studios</option>
-                      <option value="animal-kingdom">🌿 Animal Kingdom</option>
-                    </select>
-                    <input type="text" id="fav-ride-name" placeholder="Ride name" style="flex:1;min-width:140px;padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;" />
-                    <button type="button" id="fav-add-btn" class="primary-button small-button">Add ⭐</button>
+                <!-- Party Composition -->
+                <div class="profile-pill-section">
+                  <button type="button" class="profile-pill" data-target="profile-party-content" style="background:rgba(0,0,0,0.02);">
+                    <span>👨‍👩‍👧‍👦 Party Composition</span>
+                    <span class="profile-pill-arrow">▸</span>
+                  </button>
+                  <div class="profile-pill-content hidden" id="profile-party-content">
+                    <div style="padding:1.25rem; display:flex; flex-direction:column; gap:0.5rem;">
+                      <p style="margin:0 0 0.5rem; font-size:0.88rem; color:var(--slate);">Who's coming?</p>
+                      ${renderCounter("adults",   "Adults",   "Age 18+", counterState.adults,   1)}
+                      ${renderCounter("children", "Children", "Ages 3–17", counterState.children, 0)}
+                      ${renderCounter("toddlers", "Toddlers", "Under 3", counterState.toddlers, 0)}
+                      <div id="children-age-row" style="${counterState.children > 0 ? "" : "display:none;"}; margin-top:0.5rem; padding:0.75rem 1rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;">
+                        <p class="profile-sub-label" style="margin-bottom:0.5rem;">Children's Ages <span style="color:var(--sky-blue); font-size:0.65rem;">★ KEY FOR RIDE ELIGIBILITY</span></p>
+                        <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.6rem;" id="children-age-tags">
+                          ${childrenAges.map((a, i) => renderAgeTag(a, i)).join("")}
+                        </div>
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                          <input type="number" id="age-add-input" min="1" max="17" placeholder="Age" style="width:80px; padding:0.4rem 0.6rem; border:1.5px solid #d1d5db; border-radius:8px; font-family:'Nunito',sans-serif; font-size:0.9rem; font-weight:600;" />
+                          <button type="button" id="age-add-btn" class="secondary-button small-button">+ Add Age</button>
+                        </div>
+                      </div>
+                      ${renderSaveFooter("party-save-btn", "party-save-msg")}
+                    </div>
                   </div>
                 </div>
-                ${Object.keys(PARK_LABELS).map(pk => {
-                  const rides = ridesByPark[pk] || [];
-                  if (!rides.length) return "";
-                  return `<div style="margin-bottom:1rem;">
-                    <p style="font-size:0.85rem;font-weight:800;color:var(--castle-blue);margin:0 0 0.4rem;">${PARK_LABELS[pk]}</p>
-                    <div style="display:flex;flex-direction:column;gap:0.3rem;">${rides.map(r => renderFavRow("🎢", r.ride_name, `data-id="${r.id}"`, "fav-delete-btn")).join("")}</div>
-                  </div>`;
-                }).join("")}
-                ${favoriteRides.length === 0 ? `<p style="color:var(--muted);text-align:center;font-style:italic;padding:0.5rem 0;">No favorites yet!</p>` : ""}
-              </div>
-            </div>
-          </div>
 
-          <!-- ⑫ Favorite Resorts -->
-          <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-resorts-content">
-              <span>🏰 Favorite Resorts</span>
-              <span class="profile-pill-count">${favoriteResorts.length}</span>
-              <span class="profile-pill-arrow">▸</span>
-            </button>
-            <div class="profile-pill-content hidden" id="profile-resorts-content">
-              <div style="padding:1rem;">
-                <div style="background:#f8fafc;border-radius:14px;padding:1rem;margin-bottom:1rem;border:1px solid #e2e8f0;">
-                  <p style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);margin:0 0 0.6rem;">Add a Favorite Resort or Property</p>
-                  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
-                    <input type="text" id="fav-resort-name" placeholder="e.g. Polynesian Village Resort" style="flex:1;min-width:180px;padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;" />
-                    <select id="fav-resort-type" style="padding:0.5rem 0.75rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:600;">
-                      <option value="disney">🏰 Disney On-Property</option>
-                      <option value="timeshare">🏖️ Timeshare</option>
-                      <option value="offsite">🏨 Off-Site Hotel</option>
-                    </select>
-                    <button type="button" id="fav-resort-add-btn" class="primary-button small-button">Add ⭐</button>
+                <!-- Ride Preferences -->
+                <div class="profile-pill-section">
+                  <button type="button" class="profile-pill" data-target="profile-ride-prefs-content" style="background:rgba(0,0,0,0.02);">
+                    <span>🎢 Ride Preferences</span>
+                    <span class="profile-pill-arrow">▸</span>
+                  </button>
+                  <div class="profile-pill-content hidden" id="profile-ride-prefs-content">
+                    <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1rem;">
+                      <div>
+                        <p class="profile-sub-label">Thrill Level</p>
+                        <div class="chip-group">${renderChips(THRILL_CHIPS, thrillSet, "thrill")}</div>
+                      </div>
+                      <div>
+                        <p class="profile-sub-label">Avoid</p>
+                        <div class="chip-group">${renderChips(RIDE_AVOID_CHIPS, rideAvoidSet, "ride-avoid", "chip-red")}</div>
+                      </div>
+                      ${renderSaveFooter("ride-prefs-save-btn", "ride-prefs-save-msg")}
+                    </div>
                   </div>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:0.3rem;" id="fav-resort-list">
-                  ${favoriteResorts.length === 0
-                    ? `<p style="color:var(--muted);text-align:center;font-style:italic;padding:0.5rem 0;">No favorites yet!</p>`
-                    : favoriteResorts.map(r => {
-                        const typeEmoji = r.resort_type==="disney"?"🏰":r.resort_type==="timeshare"?"🏖️":"🏨";
-                        return renderFavRow(typeEmoji, r.resort_name, `data-id="${r.id}"`, "fav-resort-delete-btn");
-                      }).join("")}
+
+                <!-- Ride Style -->
+                <div class="profile-pill-section" id="ride-profile-section">
+                  <button type="button" class="profile-pill" id="ride-profile-pill" style="background:rgba(0,0,0,0.02);">
+                    <span>🎯 Ride Style</span>
+                    <span class="profile-pill-count" id="ride-profile-count">…</span>
+                    <span class="profile-pill-arrow" id="ride-profile-arrow">▼</span>
+                  </button>
+                  <div class="profile-pill-content hidden" id="ride-profile-content">
+                    <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1.1rem;">
+                      <div class="ride-profile-q">
+                        <p class="ride-profile-q-label">How do you feel about big drops?</p>
+                        <p class="ride-profile-q-sub">1 = hard no · 5 = the bigger the better</p>
+                        <div class="rp-scale" id="rp-drops-scale">
+                          <button type="button" class="rp-scale-btn" data-val="1">😰</button>
+                          <button type="button" class="rp-scale-btn" data-val="2">😬</button>
+                          <button type="button" class="rp-scale-btn" data-val="3">😊</button>
+                          <button type="button" class="rp-scale-btn" data-val="4">😄</button>
+                          <button type="button" class="rp-scale-btn" data-val="5">🤩</button>
+                        </div>
+                        <div class="rp-scale-label"><span>Not for me</span><span>Bring it on!</span></div>
+                      </div>
+                      <div class="ride-profile-q">
+                        <div class="rp-toggle-row" id="rp-young-kids-row">
+                          <div>
+                            <div class="rp-toggle-label">Does your crew include little ones under 48"?</div>
+                            <div class="rp-toggle-sub">Helps filter rides they can actually board</div>
+                          </div>
+                          <span class="rp-toggle-icon">👶</span>
+                        </div>
+                      </div>
+                      <div class="ride-profile-q">
+                        <div class="rp-toggle-row" id="rp-indoor-row">
+                          <div>
+                            <div class="rp-toggle-label">Do you prefer staying cool indoors?</div>
+                            <div class="rp-toggle-sub">We'll bump up air-conditioned rides on hot days</div>
+                          </div>
+                          <span class="rp-toggle-icon">❄️</span>
+                        </div>
+                      </div>
+                      <div class="ride-profile-q">
+                        <p class="ride-profile-q-label">Are you more of a show person or a ride person?</p>
+                        <div class="rp-choice-grid" id="rp-ride-or-show-group">
+                          <button type="button" class="rp-choice-btn" data-val="rides"><span class="rp-choice-emoji">🎢</span><span class="rp-choice-label">Rides all day</span></button>
+                          <button type="button" class="rp-choice-btn" data-val="shows"><span class="rp-choice-emoji">🎭</span><span class="rp-choice-label">Love a good show</span></button>
+                          <button type="button" class="rp-choice-btn" data-val="both"><span class="rp-choice-emoji">⚖️</span><span class="rp-choice-label">Mix it up</span></button>
+                          <button type="button" class="rp-choice-btn" data-val="skip-shows"><span class="rp-choice-emoji">🏃</span><span class="rp-choice-label">Skip the shows</span></button>
+                        </div>
+                      </div>
+                      ${renderSaveFooter("ride-profile-save-btn", "ride-profile-save-msg")}
+                    </div>
+                  </div>
                 </div>
+
+                <!-- Travel Profile -->
+                <div class="profile-pill-section">
+                  <button type="button" class="profile-pill" data-target="profile-travel-content" style="background:rgba(0,0,0,0.02);">
+                    <span>✈️ Travel Profile</span>
+                    <span class="profile-pill-arrow">▸</span>
+                  </button>
+                  <div class="profile-pill-content hidden" id="profile-travel-content">
+                    <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1rem;">
+                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                        <div class="wizard-field">
+                          <label>Home Airport (IATA)</label>
+                          <input type="text" id="home-airport" value="${escapeHtml(profile.home_airport || "")}" placeholder="e.g. CVG, ORD, LAX" maxlength="4" style="text-transform:uppercase;" />
+                        </div>
+                        <div class="wizard-field">
+                          <label>Typical Trip Length</label>
+                          <select id="trip-length" class="profile-select">
+                            ${TRIP_LENGTHS.map(t => `<option value="${t.value}" ${(profile.trip_length || "") === t.value ? "selected" : ""}>${t.label}</option>`).join("")}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="profile-sub-label">Preferred Hotel Tier</p>
+                        <div class="chip-group">${renderChips(HOTEL_TIER_CHIPS, hotelTierSet, "hotel-tier", "chip-gold")}</div>
+                      </div>
+                      <div>
+                        <p class="profile-sub-label">Pace Style</p>
+                        <div class="chip-group">${renderChips(PACE_CHIPS, paceSet, "pace-style", "chip-green")}</div>
+                      </div>
+                      ${renderSaveFooter("travel-save-btn", "travel-save-msg")}
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
@@ -870,6 +1018,33 @@
       // ══════════════════════════════════════════════════════════
       // WIRE ALL INTERACTIONS
       // ══════════════════════════════════════════════════════════
+
+      // Avatar upload
+      const avatarWrap = document.getElementById("profile-avatar-wrap");
+      const avatarInput = document.getElementById("profile-avatar-input");
+      if (avatarWrap && avatarInput) {
+        avatarWrap.addEventListener("click", () => avatarInput.click());
+        avatarInput.addEventListener("change", async () => {
+          const file = avatarInput.files[0];
+          if (!file) return;
+          const form = new FormData();
+          form.append("avatar", file);
+          try {
+            const token = Auth.getToken();
+            const res = await fetch(`/api/users/${user.id}/avatar`, {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${token}` },
+              body: form,
+            });
+            if (!res.ok) throw new Error("Upload failed");
+            // Refresh user session to pick up new avatar
+            await Auth.verify();
+            initProfilePage();
+          } catch (e) {
+            showToast("Failed to upload avatar");
+          }
+        });
+      }
 
       // Collapsible pills
       app.querySelectorAll(".profile-pill").forEach(pill => {
@@ -934,6 +1109,68 @@
           thrill_level: activeChips("thrill").join(","),
           ride_avoid:   activeChips("ride-avoid").join(","),
         }, "ride-prefs-save-msg");
+      });
+
+      // ── ⑤b Ride Style Profile ────────────────────────────────
+      // Load saved ride profile data
+      let rideProfileData = { drops: 3, has_young_kids: 0, prefer_indoor: 0, ride_or_show: "both" };
+      try { rideProfileData = await apiFetch("/my/ride-profile"); } catch(e) {}
+
+      // Accordion toggle (this pill uses its own handler, not data-target)
+      document.getElementById("ride-profile-pill")?.addEventListener("click", () => {
+        const content = document.getElementById("ride-profile-content");
+        const arrow   = document.getElementById("ride-profile-arrow");
+        const pill    = document.getElementById("ride-profile-pill");
+        if (!content) return;
+        const isOpen = !content.classList.contains("hidden");
+        content.classList.toggle("hidden", isOpen);
+        if (arrow) arrow.style.transform = isOpen ? "" : "rotate(180deg)";
+        pill.classList.toggle("profile-pill-open", !isOpen);
+      });
+
+      // Populate saved values
+      _wireRpScale("rp-drops-scale", rideProfileData.drops ?? 3);
+      if (rideProfileData.has_young_kids) document.getElementById("rp-young-kids-row")?.classList.add("active");
+      if (rideProfileData.prefer_indoor)  document.getElementById("rp-indoor-row")?.classList.add("active");
+      _wireRpChoiceGroup("rp-ride-or-show-group", rideProfileData.ride_or_show ?? "both");
+
+      // Update count badge
+      function _updateRideProfileCount() {
+        const count = document.getElementById("ride-profile-count");
+        if (!count) return;
+        let filled = 0;
+        if (document.querySelector("#rp-drops-scale .rp-scale-btn.active"))     filled++;
+        if (document.getElementById("rp-young-kids-row")?.classList.contains("active")) filled++;
+        if (document.getElementById("rp-indoor-row")?.classList.contains("active"))     filled++;
+        if (document.querySelector("#rp-ride-or-show-group .rp-choice-btn.active"))     filled++;
+        count.textContent = `${filled}/4`;
+      }
+      _updateRideProfileCount();
+
+      // Toggle rows
+      document.getElementById("rp-young-kids-row")?.addEventListener("click", (e) => {
+        e.currentTarget.classList.toggle("active");
+        _updateRideProfileCount();
+      });
+      document.getElementById("rp-indoor-row")?.addEventListener("click", (e) => {
+        e.currentTarget.classList.toggle("active");
+        _updateRideProfileCount();
+      });
+
+      // Save
+      document.getElementById("ride-profile-save-btn")?.addEventListener("click", async () => {
+        const dropsBtn = document.querySelector("#rp-drops-scale .rp-scale-btn.active");
+        const payload = {
+          drops:          dropsBtn ? parseInt(dropsBtn.dataset.val) : 3,
+          has_young_kids: document.getElementById("rp-young-kids-row")?.classList.contains("active") ? 1 : 0,
+          prefer_indoor:  document.getElementById("rp-indoor-row")?.classList.contains("active")     ? 1 : 0,
+          ride_or_show:   document.querySelector("#rp-ride-or-show-group .rp-choice-btn.active")?.dataset.val ?? "both",
+        };
+        try {
+          await apiFetch("/my/ride-profile", { method: "PUT", body: JSON.stringify(payload) });
+          flashSave("ride-profile-save-msg");
+          _updateRideProfileCount();
+        } catch(e) { alert("Could not save ride profile."); }
       });
 
       // ── ⑥ Passes & Memberships ───────────────────────────────
@@ -1008,6 +1245,101 @@
       });
       app.querySelectorAll(".fav-resort-delete-btn").forEach(btn => {
         btn.addEventListener("click", async () => { await apiFetch(`/favorite-resorts/${btn.dataset.id}`, { method: "DELETE" }); initProfilePage(); });
+      });
+
+      // ── ⑬ My Photos ─────────────────────────────────────────
+      loadProfilePhotos();
+    }
+
+    async function loadProfilePhotos() {
+      const body = document.getElementById("profile-photos-body");
+      const countEl = document.getElementById("profile-photos-count");
+      if (!body) return;
+
+      let data;
+      try {
+        data = await apiFetch("/my/photos");
+      } catch (e) {
+        body.innerHTML = `<p style="color:var(--muted);text-align:center;padding:1rem 0;">Could not load photos.</p>`;
+        if (countEl) countEl.textContent = "0";
+        return;
+      }
+
+      if (countEl) countEl.textContent = String(data.total);
+
+      if (data.total === 0) {
+        body.innerHTML = `
+          <div style="text-align:center;padding:1.5rem 0;">
+            <div style="font-size:2.5rem;margin-bottom:0.5rem;">📸</div>
+            <p style="color:var(--muted);font-style:italic;margin:0 0 0.75rem;">No photos yet!</p>
+            <a href="photos.html" class="primary-button small-button" style="text-decoration:none;display:inline-block;">Upload Photos</a>
+          </div>
+        `;
+        return;
+      }
+
+      // Trip filter dropdown
+      const tripOptions = data.trips.map(t =>
+        `<option value="${t.trip_id}">${escapeHtml(t.trip_label)}</option>`
+      ).join("");
+
+      let html = `
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <label style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);">Filter by Trip</label>
+            <select id="profile-photos-trip-filter" style="padding:0.4rem 0.6rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.82rem;font-weight:600;">
+              <option value="all">All Trips (${data.total})</option>
+              ${tripOptions}
+            </select>
+          </div>
+          <a href="photos.html" style="font-size:0.78rem;font-weight:700;color:var(--castle-blue);text-decoration:none;">Upload More</a>
+        </div>
+      `;
+
+      // Render trip sections
+      for (const trip of data.trips) {
+        const dateRange = trip.start_date && trip.end_date
+          ? (() => {
+              const fmt = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              return `${fmt(trip.start_date)} – ${fmt(trip.end_date)}`;
+            })()
+          : "";
+
+        html += `
+          <div class="profile-photos-trip-group" data-trip="${trip.trip_id}">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;padding-bottom:0.35rem;border-bottom:1.5px solid rgba(0,0,0,0.06);">
+              <span style="font-size:0.82rem;font-weight:800;color:var(--ink);">${escapeHtml(trip.trip_label)}</span>
+              ${dateRange ? `<span style="font-size:0.72rem;color:var(--muted);font-weight:600;">${dateRange}</span>` : ""}
+              <span style="font-size:0.68rem;color:var(--muted);font-weight:700;margin-left:auto;">${trip.photos.length} photo${trip.photos.length !== 1 ? "s" : ""}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0.4rem;margin-bottom:1rem;">
+              ${trip.photos.map(p => `
+                <div class="profile-photo-thumb" data-photo-id="${p.id}" data-trip-id="${p.trip_id}" style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;position:relative;background:#f1f5f9;">
+                  <img src="/api/photos/${p.id}/file" alt="${escapeHtml(p.caption || "Photo")}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+                  ${p.caption ? `<div style="position:absolute;bottom:0;left:0;right:0;padding:0.2rem 0.3rem;background:rgba(0,0,0,0.5);color:white;font-size:0.55rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.caption)}</div>` : ""}
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      body.innerHTML = html;
+
+      // Trip filter
+      document.getElementById("profile-photos-trip-filter")?.addEventListener("change", (e) => {
+        const val = e.target.value;
+        body.querySelectorAll(".profile-photos-trip-group").forEach(group => {
+          group.style.display = (val === "all" || group.dataset.trip === val) ? "" : "none";
+        });
+      });
+
+      // Photo click → open in lightbox or navigate to photos page for that trip
+      body.querySelectorAll(".profile-photo-thumb").forEach(thumb => {
+        thumb.addEventListener("click", () => {
+          const tripId = thumb.dataset.tripId;
+          window.location.href = `photos.html?trip=${encodeURIComponent(tripId)}`;
+        });
       });
     }
 
