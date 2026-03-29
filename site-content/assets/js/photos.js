@@ -108,7 +108,7 @@ async function loadTripPhotos(tripId) {
 
   grid.innerHTML = photosData.map((photo, i) => `
     <div class="photo-card" data-index="${i}" tabindex="0" role="button" aria-label="View photo">
-      <img src="/api/photos/${photo.id}/file" alt="${escapeHtml(photo.caption || "")}" loading="lazy" />
+      <img src="/api/photos/${photo.id}/thumbnail" alt="${escapeHtml(photo.caption || "")}" loading="lazy" />
       <div class="photo-card-overlay">
         <span class="photo-card-uploader">${escapeHtml(photo.uploaded_by_name || "")}</span>
       </div>

@@ -96,15 +96,40 @@
 
     @keyframes tvTipFade { 0%{opacity:0;transform:translateY(1vh)} 10%{opacity:1;transform:translateY(0)} 90%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-1vh)} }
 
+    /* Floating photo thumbnails */
+    .tv-photo-bg { position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:0; overflow:hidden; }
+    .tv-photo-float {
+      position:absolute; border-radius:1.2vh; overflow:hidden;
+      box-shadow:0 4px 24px rgba(0,0,0,0.5); opacity:0;
+      transition:opacity 2s ease;
+      object-fit:cover;
+    }
+    .tv-photo-float.visible { opacity:0.18; }
+    .tv > * { position:relative; z-index:1; }
+
+    /* Park hours bar */
+    .tv-park-hours { display:flex; gap:1.5vw; padding:1vh 3vw; flex-shrink:0; overflow:hidden; }
+    .tv-park-hour-card {
+      flex:1; display:flex; align-items:center; gap:0.8vw;
+      background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
+      border-radius:1.2vh; padding:1vh 1.2vw;
+    }
+    .tv-park-hour-logo { height:3.5vh; width:auto; object-fit:contain; filter:brightness(1.2); }
+    .tv-park-hour-info { min-width:0; }
+    .tv-park-hour-name { font-family:'Mouse Memoirs',sans-serif; font-size:1.6vh; color:rgba(255,255,255,0.8); white-space:nowrap; }
+    .tv-park-hour-time { font-size:1.3vh; color:var(--pixie-gold); font-weight:700; white-space:nowrap; }
+
     @media (max-width:768px) { .tv-track .eticket { width:55vw !important; min-width:55vw !important; max-width:55vw !important; } }
   </style>
 </head>
 <body>
+<div class="tv-photo-bg" id="tv-photo-bg"></div>
 <div class="tv">
   <div class="tv-top">
     <div><div class="tv-clock" id="tv-clock"></div><div class="tv-date" id="tv-date"></div></div>
     <div class="tv-weather"><span class="tv-weather-icon" id="tv-w-icon">🌤️</span><div><div class="tv-weather-temp" id="tv-w-temp">--°F</div><div class="tv-weather-desc" id="tv-w-desc"></div></div></div>
   </div>
+  <div id="tv-park-hours" class="tv-park-hours" style="display:none;"></div>
   <div id="tv-park" class="tv-park" style="display:none;"></div>
   <div id="tv-next-wrap" style="display:none;"></div>
   <div id="tv-main" class="tv-carousel"></div>
@@ -385,7 +410,155 @@ async function showAmbient(title, subtitle) {
   }, 12000);
 }
 
-async function initTV(){await Auth.verify();await loadTV();setInterval(loadTV,5*60*1000);}
+// ── Floating photo thumbnails ──────────────────────────────
+const FLOAT_COUNT = 8;          // number of floating thumbnails visible at once
+const FLOAT_SWAP_MS = 10000;    // swap a thumbnail every 10 seconds
+const FLOAT_SIZES = [12, 14, 16, 18]; // vw widths for variety
+
+let _floatPhotos = [];  // full photo list
+let _floatEls = [];     // DOM img elements
+let _floatUsed = new Set();
+
+function randBetween(a, b) { return a + Math.random() * (b - a); }
+
+function placeFloat(img, usedPositions) {
+  const sz = FLOAT_SIZES[Math.floor(Math.random() * FLOAT_SIZES.length)];
+  const aspect = 0.75; // approximate aspect ratio
+  const wPx = (sz / 100) * window.innerWidth;
+  const hPx = wPx * aspect;
+
+  let x, y, attempts = 0, overlap;
+  do {
+    x = randBetween(0, window.innerWidth - wPx);
+    y = randBetween(0, window.innerHeight - hPx);
+    overlap = false;
+    for (const pos of usedPositions) {
+      if (Math.abs(x - pos.x) < pos.w * 0.6 && Math.abs(y - pos.y) < pos.h * 0.6) {
+        overlap = true; break;
+      }
+    }
+    attempts++;
+  } while (overlap && attempts < 20);
+
+  img.style.width = sz + "vw";
+  img.style.height = (sz * aspect) + "vw";
+  img.style.left = x + "px";
+  img.style.top = y + "px";
+  return { x, y, w: wPx, h: hPx };
+}
+
+function pickUnusedPhoto() {
+  const available = _floatPhotos.filter((_, i) => !_floatUsed.has(i));
+  if (available.length === 0) { _floatUsed.clear(); return _floatPhotos[Math.floor(Math.random() * _floatPhotos.length)]; }
+  const pick = available[Math.floor(Math.random() * available.length)];
+  _floatUsed.add(_floatPhotos.indexOf(pick));
+  return pick;
+}
+
+async function initFloatingPhotos() {
+  try {
+    // Find active trip
+    const todayStr = getTodayString();
+    const trips = await apiFetch("/trip-budgets");
+    const activeTrip = trips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
+    if (!activeTrip) return;
+
+    const photos = await apiFetch(`/trips/${activeTrip.trip_id}/photos`);
+    if (!photos || photos.length === 0) return;
+
+    _floatPhotos = photos;
+    const container = document.getElementById("tv-photo-bg");
+    const positions = [];
+
+    // Create initial floating thumbnails
+    const count = Math.min(FLOAT_COUNT, photos.length);
+    for (let i = 0; i < count; i++) {
+      const photo = pickUnusedPhoto();
+      const img = document.createElement("img");
+      img.className = "tv-photo-float";
+      img.src = `/api/photos/${photo.id}/thumbnail`;
+      img.alt = "";
+      img.loading = "lazy";
+      container.appendChild(img);
+      const pos = placeFloat(img, positions);
+      positions.push(pos);
+      _floatEls.push({ img, pos });
+      // Stagger fade-in
+      setTimeout(() => img.classList.add("visible"), 500 + i * 400);
+    }
+
+    // Periodically swap one thumbnail
+    setInterval(() => {
+      if (_floatPhotos.length <= 1) return;
+      const idx = Math.floor(Math.random() * _floatEls.length);
+      const el = _floatEls[idx];
+      const photo = pickUnusedPhoto();
+
+      // Fade out, swap, reposition, fade in
+      el.img.classList.remove("visible");
+      setTimeout(() => {
+        el.img.src = `/api/photos/${photo.id}/thumbnail`;
+        const otherPositions = _floatEls.filter((_, i) => i !== idx).map(e => e.pos);
+        el.pos = placeFloat(el.img, otherPositions);
+        setTimeout(() => el.img.classList.add("visible"), 100);
+      }, 2000); // wait for fade-out transition
+    }, FLOAT_SWAP_MS);
+  } catch (e) {
+    console.warn("Floating photos init failed:", e);
+  }
+}
+
+// ── Park hours display ─────────────────────────────────────
+const TV_PARK_IDS = {
+  "Magic Kingdom": { id: "75ea578a-adc8-4116-a54d-dccb60765ef9", logo: "assets/images/park-hours/magic-kingdom.png" },
+  "EPCOT":         { id: "47f90d2c-e191-4239-a466-5892ef59a88b", logo: "assets/images/park-hours/epcot.png" },
+  "Hollywood Studios": { id: "288747d1-8b4f-4a64-867e-ea7c9b27bad8", logo: "assets/images/park-hours/disney-hollywood-studios.webp" },
+  "Animal Kingdom": { id: "1c84a229-8862-4648-9c71-378ddd2c7693", logo: "assets/images/park-hours/animal-kingdom.png" },
+};
+
+async function loadParkHours() {
+  const container = document.getElementById("tv-park-hours");
+  const todayStr = getTodayString();
+  const results = [];
+
+  await Promise.all(Object.entries(TV_PARK_IDS).map(async ([name, info]) => {
+    try {
+      const res = await fetch(`https://api.themeparks.wiki/v1/entity/${info.id}/schedule`);
+      const data = await res.json();
+      const day = data.schedule.find(s => s.date === todayStr && s.type === "OPERATING");
+      let hours = "Closed today";
+      if (day) {
+        const open  = new Date(day.openingTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const close = new Date(day.closingTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        hours = `${open} – ${close}`;
+      }
+      results.push({ name, logo: info.logo, hours, order: Object.keys(TV_PARK_IDS).indexOf(name) });
+    } catch (e) {
+      results.push({ name, logo: info.logo, hours: "Unavailable", order: Object.keys(TV_PARK_IDS).indexOf(name) });
+    }
+  }));
+
+  results.sort((a, b) => a.order - b.order);
+  container.innerHTML = results.map(r => `
+    <div class="tv-park-hour-card">
+      <img class="tv-park-hour-logo" src="${r.logo}" alt="${r.name}">
+      <div class="tv-park-hour-info">
+        <div class="tv-park-hour-name">${r.name}</div>
+        <div class="tv-park-hour-time">${r.hours}</div>
+      </div>
+    </div>
+  `).join("");
+  container.style.display = "";
+}
+
+async function initTV(){
+  await Auth.verify();
+  await loadTV();
+  initFloatingPhotos();
+  loadParkHours();
+  setInterval(loadTV, 5 * 60 * 1000);
+  setInterval(loadParkHours, 30 * 60 * 1000); // refresh park hours every 30 min
+}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initTV);else initTV();
 </script>
 </body>

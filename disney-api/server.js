@@ -12,6 +12,7 @@ const Database = require("better-sqlite3");
 const path = require("path");
 const cors = require("cors");
 const multer = require("multer");
+const sharp = require("sharp");
 const { scoreRides } = require("./ride-scorer");
 
 const app = express();
@@ -1770,7 +1771,7 @@ app.get("/api/my/photos", (req, res) => {
   res.json({ total: photos.length, trips });
 });
 
-app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), (req, res) => {
+app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), async (req, res) => {
   try {
     const results = [];
     for (const file of (req.files || [])) {
@@ -1784,6 +1785,18 @@ app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), (req, res
       };
       stmts.insertPhoto.run(photo);
       results.push(photo);
+
+      // Generate thumbnail (400px wide max, same aspect ratio)
+      const thumbDir = path.join(PHOTOS_DIR, req.params.tripId, "thumbnails");
+      fs.mkdirSync(thumbDir, { recursive: true });
+      try {
+        await sharp(file.path)
+          .resize(400, null, { withoutEnlargement: true })
+          .jpeg({ quality: 80 })
+          .toFile(path.join(thumbDir, file.filename));
+      } catch (thumbErr) {
+        console.warn("Thumbnail generation failed for", file.filename, thumbErr.message);
+      }
     }
     res.json(results);
   } catch (err) {
@@ -1801,12 +1814,29 @@ app.get("/api/photos/:id/file", (req, res) => {
   res.sendFile(filePath);
 });
 
+app.get("/api/photos/:id/thumbnail", (req, res) => {
+  const photo = stmts.getPhoto.get(req.params.id);
+  if (!photo) return res.status(404).json({ error: "Photo not found" });
+
+  const thumbPath = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", photo.filename);
+  if (fs.existsSync(thumbPath)) return res.sendFile(thumbPath);
+
+  // Fall back to full image if thumbnail doesn't exist yet
+  const filePath = path.join(PHOTOS_DIR, photo.trip_id, photo.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
+  res.sendFile(filePath);
+});
+
 app.delete("/api/photos/:id", (req, res) => {
   const photo = stmts.getPhoto.get(req.params.id);
   if (!photo) return res.status(404).json({ error: "Not found" });
 
   const filePath = path.join(PHOTOS_DIR, photo.trip_id, photo.filename);
   try { fs.unlinkSync(filePath); } catch (e) { /* file may already be gone */ }
+
+  // Also delete thumbnail
+  const thumbPath = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", photo.filename);
+  try { fs.unlinkSync(thumbPath); } catch (e) { /* thumbnail may not exist */ }
 
   stmts.deletePhoto.run(req.params.id);
   res.json({ ok: true });

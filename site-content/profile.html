@@ -1272,7 +1272,7 @@
           <div style="text-align:center;padding:1.5rem 0;">
             <div style="font-size:2.5rem;margin-bottom:0.5rem;">📸</div>
             <p style="color:var(--muted);font-style:italic;margin:0 0 0.75rem;">No photos yet!</p>
-            <a href="photos.html" class="primary-button small-button" style="text-decoration:none;display:inline-block;">Upload Photos</a>
+            <button type="button" class="primary-button small-button" onclick="openProfilePhotoModal()">Upload Photos</button>
           </div>
         `;
         return;
@@ -1292,7 +1292,7 @@
               ${tripOptions}
             </select>
           </div>
-          <a href="photos.html" style="font-size:0.78rem;font-weight:700;color:var(--castle-blue);text-decoration:none;">Upload More</a>
+          <a href="#" id="profile-photos-upload-link" style="font-size:0.78rem;font-weight:700;color:var(--castle-blue);text-decoration:none;">Upload More</a>
         </div>
       `;
 
@@ -1315,7 +1315,7 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0.4rem;margin-bottom:1rem;">
               ${trip.photos.map(p => `
                 <div class="profile-photo-thumb" data-photo-id="${p.id}" data-trip-id="${p.trip_id}" style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;position:relative;background:#f1f5f9;">
-                  <img src="/api/photos/${p.id}/file" alt="${escapeHtml(p.caption || "Photo")}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+                  <img src="/api/photos/${p.id}/thumbnail" alt="${escapeHtml(p.caption || "Photo")}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
                   ${p.caption ? `<div style="position:absolute;bottom:0;left:0;right:0;padding:0.2rem 0.3rem;background:rgba(0,0,0,0.5);color:white;font-size:0.55rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.caption)}</div>` : ""}
                 </div>
               `).join("")}
@@ -1334,19 +1334,220 @@
         });
       });
 
-      // Photo click → open in lightbox or navigate to photos page for that trip
+      // Photo click → open lightbox-style view (navigate to photos page for that trip)
       body.querySelectorAll(".profile-photo-thumb").forEach(thumb => {
         thumb.addEventListener("click", () => {
           const tripId = thumb.dataset.tripId;
           window.location.href = `photos.html?trip=${encodeURIComponent(tripId)}`;
         });
       });
+
+      // "Upload More" link → open modal
+      document.getElementById("profile-photos-upload-link")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        openProfilePhotoModal();
+      });
+    }
+
+    // ── Profile Photo Upload Modal ─────────────────────────────
+    let _profilePhotoTrips = [];
+    let _profilePhotoPending = [];
+
+    function openProfilePhotoModal() {
+      const overlay = document.getElementById("profile-photo-modal-overlay");
+      if (!overlay) return;
+      overlay.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      loadProfilePhotoModalTrips();
+    }
+
+    function closeProfilePhotoModal() {
+      const overlay = document.getElementById("profile-photo-modal-overlay");
+      if (!overlay) return;
+      overlay.classList.add("hidden");
+      document.body.style.overflow = "";
+      resetProfilePhotoModal();
+    }
+
+    async function loadProfilePhotoModalTrips() {
+      const select = document.getElementById("profile-photo-modal-trip");
+      if (!select) return;
+      try {
+        _profilePhotoTrips = await apiFetch("/trip-budgets");
+      } catch (e) { _profilePhotoTrips = []; }
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      _profilePhotoTrips.sort((a, b) => {
+        const score = t => (todayStr >= t.start_date && todayStr <= t.end_date) ? 0 : t.start_date > todayStr ? 1 : 2;
+        return score(a) - score(b) || a.start_date.localeCompare(b.start_date);
+      });
+
+      select.innerHTML = _profilePhotoTrips.map(t => {
+        const fmt = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const active = todayStr >= t.start_date && todayStr <= t.end_date ? " (Active)" : "";
+        return `<option value="${t.trip_id}">${escapeHtml(t.label || "Trip")} — ${fmt(t.start_date)} – ${fmt(t.end_date)}${active}</option>`;
+      }).join("");
+    }
+
+    function resetProfilePhotoModal() {
+      _profilePhotoPending = [];
+      const preview = document.getElementById("profile-photo-modal-preview");
+      const actions = document.getElementById("profile-photo-modal-actions");
+      const progress = document.getElementById("profile-photo-modal-progress");
+      const zone = document.getElementById("profile-photo-modal-zone");
+      const caption = document.getElementById("profile-photo-modal-caption");
+      const fill = document.getElementById("profile-photo-modal-progress-fill");
+
+      if (preview) { preview.innerHTML = ""; preview.classList.add("hidden"); }
+      if (actions) actions.classList.add("hidden");
+      if (progress) progress.classList.add("hidden");
+      if (zone) zone.style.display = "";
+      if (caption) caption.value = "";
+      if (fill) fill.style.width = "0%";
+    }
+
+    function initProfilePhotoModal() {
+      const overlay = document.getElementById("profile-photo-modal-overlay");
+      const closeBtn = document.getElementById("profile-photo-modal-close");
+      const zone = document.getElementById("profile-photo-modal-zone");
+      const fileInput = document.getElementById("profile-photo-modal-input");
+      const preview = document.getElementById("profile-photo-modal-preview");
+      const actions = document.getElementById("profile-photo-modal-actions");
+      const uploadBtn = document.getElementById("profile-photo-modal-upload");
+      const cancelBtn = document.getElementById("profile-photo-modal-cancel");
+      const progressEl = document.getElementById("profile-photo-modal-progress");
+      const progressFill = document.getElementById("profile-photo-modal-progress-fill");
+      const progressText = document.getElementById("profile-photo-modal-progress-text");
+
+      if (!overlay) return;
+
+      closeBtn?.addEventListener("click", closeProfilePhotoModal);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) closeProfilePhotoModal(); });
+
+      zone?.addEventListener("click", () => fileInput?.click());
+      zone?.addEventListener("dragover", (e) => { e.preventDefault(); zone.style.borderColor = "var(--sky-blue)"; zone.style.background = "#f0f9ff"; });
+      zone?.addEventListener("dragleave", () => { zone.style.borderColor = "#cbd5e1"; zone.style.background = "#f8fafc"; });
+      zone?.addEventListener("drop", (e) => {
+        e.preventDefault();
+        zone.style.borderColor = "#cbd5e1"; zone.style.background = "#f8fafc";
+        handleModalFiles(e.dataTransfer.files);
+      });
+
+      fileInput?.addEventListener("change", () => {
+        handleModalFiles(fileInput.files);
+        fileInput.value = "";
+      });
+
+      function handleModalFiles(fileList) {
+        _profilePhotoPending = Array.from(fileList).filter(f => f.type.startsWith("image/")).slice(0, 20);
+        if (_profilePhotoPending.length === 0) return;
+
+        preview.innerHTML = _profilePhotoPending.map(f => {
+          const url = URL.createObjectURL(f);
+          return `<img src="${url}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.1);" />`;
+        }).join("");
+        preview.classList.remove("hidden");
+        preview.style.display = "flex";
+        actions.classList.remove("hidden");
+        actions.style.display = "flex";
+        zone.style.display = "none";
+      }
+
+      cancelBtn?.addEventListener("click", resetProfilePhotoModal);
+
+      uploadBtn?.addEventListener("click", async () => {
+        const tripId = document.getElementById("profile-photo-modal-trip")?.value;
+        if (!tripId || _profilePhotoPending.length === 0) return;
+
+        const caption = document.getElementById("profile-photo-modal-caption")?.value || "";
+        const user = Auth.getUser();
+
+        actions.classList.add("hidden");
+        progressEl.classList.remove("hidden");
+        progressEl.style.display = "flex";
+
+        let uploaded = 0;
+        for (const file of _profilePhotoPending) {
+          const formData = new FormData();
+          formData.append("photos", file);
+          formData.append("caption", caption);
+          formData.append("uploaded_by", user ? user.id : "");
+          formData.append("uploaded_by_name", user ? user.name : "Guest");
+
+          try {
+            const token = localStorage.getItem("session_token");
+            await fetch(`/api/trips/${tripId}/photos`, {
+              method: "POST",
+              headers: token ? { "Authorization": `Bearer ${token}` } : {},
+              body: formData,
+            });
+          } catch (e) {
+            console.error("Photo upload failed:", e);
+          }
+
+          uploaded++;
+          const pct = Math.round((uploaded / _profilePhotoPending.length) * 100);
+          if (progressFill) progressFill.style.width = pct + "%";
+          if (progressText) progressText.textContent = `${uploaded} of ${_profilePhotoPending.length} uploaded`;
+        }
+
+        resetProfilePhotoModal();
+        // Refresh the photos section
+        loadProfilePhotos();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !overlay.classList.contains("hidden")) closeProfilePhotoModal();
+      });
     }
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initProfilePage, 500);
+      initProfilePhotoModal();
     });
   </script>
+
+  <!-- Photo Upload Modal -->
+  <div id="profile-photo-modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card" style="width:min(520px,95%);max-height:90vh;overflow-y:auto;">
+      <button class="modal-close-btn" id="profile-photo-modal-close" aria-label="Close">✕</button>
+      <div style="padding:1.5rem;">
+        <h3 style="font-family:'Mouse Memoirs',sans-serif;font-size:1.6rem;color:var(--castle-blue);margin:0 0 0.25rem;">Upload Photos</h3>
+        <p style="font-size:0.8rem;color:var(--muted);margin:0 0 1rem;">Add photos to your trip memories</p>
+
+        <div style="margin-bottom:1rem;">
+          <label style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);display:block;margin-bottom:0.4rem;">Trip</label>
+          <select id="profile-photo-modal-trip" style="width:100%;padding:0.5rem 0.7rem;border-radius:10px;border:1.5px solid #d1d5db;font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:600;"></select>
+        </div>
+
+        <div id="profile-photo-modal-zone" style="border:2.5px dashed #cbd5e1;border-radius:16px;padding:2rem 1rem;text-align:center;cursor:pointer;background:#f8fafc;transition:border-color 0.2s,background 0.2s;">
+          <input type="file" id="profile-photo-modal-input" accept="image/*" multiple class="hidden" />
+          <div style="font-size:2.5rem;">📸</div>
+          <div style="font-family:'Mouse Memoirs',sans-serif;font-size:1.2rem;color:var(--castle-blue);">Tap to add photos</div>
+          <div style="font-size:0.72rem;color:var(--muted);font-weight:600;">or drag & drop — up to 20 at a time</div>
+        </div>
+
+        <div id="profile-photo-modal-preview" class="hidden" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.75rem;padding:0.6rem;background:#f1f5f9;border-radius:12px;"></div>
+
+        <div id="profile-photo-modal-actions" class="hidden" style="margin-top:0.75rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="profile-photo-modal-caption" placeholder="Caption (optional)" style="flex:1;min-width:140px;padding:0.5rem 0.8rem;border:1.5px solid #d1d5db;border-radius:10px;font-family:'Nunito',sans-serif;font-size:0.85rem;" />
+          <button type="button" id="profile-photo-modal-upload" class="primary-button small-button">Upload</button>
+          <button type="button" id="profile-photo-modal-cancel" class="secondary-button small-button">Cancel</button>
+        </div>
+
+        <div id="profile-photo-modal-progress" class="hidden" style="margin-top:0.75rem;display:flex;align-items:center;gap:0.6rem;">
+          <div style="flex:1;height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+            <div id="profile-photo-modal-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--castle-blue),var(--sky-blue));border-radius:999px;transition:width 0.3s;"></div>
+          </div>
+          <span id="profile-photo-modal-progress-text" style="font-size:0.78rem;font-weight:700;color:var(--muted);white-space:nowrap;">Uploading...</span>
+        </div>
+
+        <div style="margin-top:1.25rem;padding-top:1rem;border-top:1.5px solid rgba(0,0,0,0.06);text-align:center;">
+          <a href="photos.html" class="primary-button small-button" style="text-decoration:none;display:inline-block;">View All Photos</a>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="weather-modal-overlay" class="hidden" role="dialog" aria-modal="true">
     <div class="weather-modal-card">
