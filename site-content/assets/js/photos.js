@@ -107,8 +107,9 @@ async function loadTripPhotos(tripId) {
   }
 
   grid.innerHTML = photosData.map((photo, i) => `
-    <div class="photo-card" data-index="${i}" tabindex="0" role="button" aria-label="View photo">
+    <div class="photo-card" data-index="${i}" tabindex="0" role="button" aria-label="View ${photo.media_type === 'video' ? 'video' : 'photo'}">
       <img src="/api/photos/${photo.id}/thumbnail" alt="${escapeHtml(photo.caption || "")}" loading="lazy" />
+      ${photo.media_type === "video" ? `<div class="photo-card-play-badge">▶</div>` : ""}
       <div class="photo-card-overlay">
         <span class="photo-card-uploader">${escapeHtml(photo.uploaded_by_name || "")}</span>
       </div>
@@ -153,11 +154,17 @@ function initPhotosUpload() {
   });
 
   function handleFiles(fileList) {
-    pendingFiles = Array.from(fileList).filter(f => f.type.startsWith("image/")).slice(0, 20);
+    pendingFiles = Array.from(fileList).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/")).slice(0, 20);
     if (pendingFiles.length === 0) return;
 
     previewEl.innerHTML = pendingFiles.map(f => {
       const url = URL.createObjectURL(f);
+      if (f.type.startsWith("video/")) {
+        return `<div class="photos-preview-thumb" style="position:relative;display:flex;align-items:center;justify-content:center;background:#1a1a2e;">
+          <video src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" muted></video>
+          <span style="position:absolute;font-size:1.5rem;color:white;text-shadow:0 2px 6px rgba(0,0,0,0.5);">▶</span>
+        </div>`;
+      }
       return `<img src="${url}" class="photos-preview-thumb" />`;
     }).join("");
     previewEl.classList.remove("hidden");
@@ -237,18 +244,44 @@ function initPhotosLightbox() {
 
   if (!lightbox) return;
 
+  // Video element (created once, reused)
+  let videoEl = null;
+  function getVideoEl() {
+    if (!videoEl) {
+      videoEl = document.createElement("video");
+      videoEl.className = "photo-lightbox-video";
+      videoEl.controls = true;
+      videoEl.playsInline = true;
+      videoEl.preload = "metadata";
+      img.parentNode.insertBefore(videoEl, img.nextSibling);
+    }
+    return videoEl;
+  }
+
   function show(index) {
     if (!photosData[index]) return;
     photosLightboxIndex = index;
     const photo = photosData[index];
     const src = `/api/photos/${photo.id}/file`;
+    const isVideo = photo.media_type === "video";
 
-    img.src = src;
+    if (isVideo) {
+      const vid = getVideoEl();
+      vid.src = src;
+      vid.style.display = "";
+      img.style.display = "none";
+      vid.load();
+    } else {
+      img.src = src;
+      img.style.display = "";
+      if (videoEl) { videoEl.pause(); videoEl.src = ""; videoEl.style.display = "none"; }
+    }
+
     caption.textContent = photo.caption || "";
     const d = new Date(photo.created);
     meta.textContent = `${photo.uploaded_by_name || "Unknown"} • ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
     downloadLink.href = src;
-    downloadLink.download = photo.filename || "photo.jpg";
+    downloadLink.download = photo.filename || (isVideo ? "video.mp4" : "photo.jpg");
 
     lightbox.classList.remove("hidden");
     document.body.style.overflow = "hidden";
@@ -258,6 +291,7 @@ function initPhotosLightbox() {
     lightbox.classList.add("hidden");
     document.body.style.overflow = "";
     img.src = "";
+    if (videoEl) { videoEl.pause(); videoEl.src = ""; }
   }
 
   function prev() {

@@ -793,6 +793,16 @@ async function renderRecommendationStrip() {
     return;
   }
 
+  // Hide when the data is stale (park likely closed) — 90 min threshold
+  const STALE_THRESHOLD_MS = 90 * 60 * 1000;
+  if (data.sampled_at) {
+    const sampleAge = Date.now() - new Date(data.sampled_at).getTime();
+    if (sampleAge > STALE_THRESHOLD_MS) {
+      stripEl.style.display = "none";
+      return;
+    }
+  }
+
   let rides = data.rides; // already sorted by wait time ASC from API
   const updatedStr = data.sampled_at
     ? new Date(data.sampled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })

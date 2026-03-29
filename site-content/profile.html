@@ -239,6 +239,26 @@
     .rp-choice-emoji { font-size:1.4rem; display:block; margin-bottom:0.2rem; }
     .rp-choice-label { font-size:0.82rem; font-weight:700; }
     .rp-choice-btn.active .rp-choice-label { color:white; }
+
+    /* ── Autocomplete dropdown ── */
+    .ac-wrap { position: relative; flex: 1; min-width: 140px; }
+    .ac-wrap input { width: 100%; box-sizing: border-box; }
+    .ac-list {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+      max-height: 220px; overflow-y: auto;
+      background: white; border: 1.5px solid #d1d5db; border-top: none;
+      border-radius: 0 0 10px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      display: none;
+    }
+    .ac-list.open { display: block; }
+    .ac-item {
+      padding: 0.5rem 0.75rem; cursor: pointer;
+      font-family: 'Nunito', sans-serif; font-size: 0.85rem; font-weight: 600;
+      color: var(--ink); border-bottom: 1px solid #f1f5f9;
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.ac-active { background: #f0f9ff; color: var(--castle-blue); }
+    .ac-item-sub { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
   </style>
   <script>
     // ============================================================
@@ -257,6 +277,61 @@
           <span style="font-weight:700; font-size:0.9rem; color:var(--ink);">${icon} ${escapeHtml(label)}</span>
           <button type="button" class="${deleteBtnClass}" ${deleteDataAttr} style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.85rem; padding:2px 6px; border-radius:6px;">✕</button>
         </div>`;
+    }
+
+    // ── Reusable autocomplete ──────────────────────────────
+    // Usage: setupAutocomplete(inputEl, { fetchFn, renderItem, onSelect })
+    // - fetchFn(query): returns Promise<array>
+    // - renderItem(item): returns HTML string for the dropdown row
+    // - onSelect(item): called when user picks an item
+    function setupAutocomplete(inputEl, { fetchFn, renderItem, onSelect }) {
+      const wrap = document.createElement("div");
+      wrap.className = "ac-wrap";
+      inputEl.parentNode.insertBefore(wrap, inputEl);
+      wrap.appendChild(inputEl);
+
+      const list = document.createElement("div");
+      list.className = "ac-list";
+      wrap.appendChild(list);
+
+      let items = [], activeIdx = -1, debounceTimer = null;
+
+      function render() {
+        list.innerHTML = items.map((item, i) =>
+          `<div class="ac-item${i === activeIdx ? " ac-active" : ""}" data-idx="${i}">${renderItem(item)}</div>`
+        ).join("");
+        list.classList.toggle("open", items.length > 0);
+      }
+
+      function close() { items = []; activeIdx = -1; render(); }
+
+      inputEl.addEventListener("input", () => {
+        const q = inputEl.value.trim();
+        clearTimeout(debounceTimer);
+        if (q.length < 2) { close(); return; }
+        debounceTimer = setTimeout(async () => {
+          try { items = await fetchFn(q); } catch (e) { items = []; }
+          activeIdx = -1;
+          render();
+        }, 200);
+      });
+
+      inputEl.addEventListener("keydown", (e) => {
+        if (!list.classList.contains("open")) return;
+        if (e.key === "ArrowDown") { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); render(); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); render(); }
+        else if (e.key === "Enter" && activeIdx >= 0) { e.preventDefault(); onSelect(items[activeIdx]); close(); }
+        else if (e.key === "Escape") { close(); }
+      });
+
+      list.addEventListener("click", (e) => {
+        const row = e.target.closest(".ac-item");
+        if (!row) return;
+        onSelect(items[parseInt(row.dataset.idx, 10)]);
+        close();
+      });
+
+      document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) close(); });
     }
 
     // Generic chip group renderer
@@ -596,35 +671,6 @@
 
         <div style="display:flex; flex-direction:column; gap:0.75rem;">
 
-          <!-- Dining History -->
-          <div class="profile-pill-section">
-            <button type="button" class="profile-pill" data-target="profile-dining-content">
-              <span>🍽️ Dining History</span>
-              <span class="profile-pill-count">${venues.length} restaurant${venues.length !== 1 ? "s" : ""}</span>
-              <span class="profile-pill-arrow">▸</span>
-            </button>
-            <div class="profile-pill-content hidden" id="profile-dining-content">
-              ${venues.length === 0
-                ? `<div style="text-align:center; padding:1.5rem; color:var(--muted);">No dining memories yet!</div>`
-                : `<div style="display:flex; flex-direction:column; gap:0.75rem; padding:1rem;">
-                  ${venues.map(v => {
-                    const allItems = [...new Set(v.visits.flatMap(vis => JSON.parse(vis.items || "[]")))];
-                    const avgRating = Math.round(v.visits.reduce((s, vis) => s + (vis.rating||0), 0) / v.visits.length);
-                    return `<article class="info-card" style="padding:1rem;">
-                      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                          <h3 style="margin:0 0 0.15rem; font-size:1.2rem;">${escapeHtml(v.name)}</h3>
-                          <p style="color:var(--muted); font-size:0.78rem; margin:0;">${v.visits.length} visit${v.visits.length>1?"s":""} ${"⭐".repeat(Math.min(5,avgRating))}</p>
-                        </div><span style="font-size:1.8rem;">🍽️</span>
-                      </div>
-                      ${allItems.length?`<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem;">${allItems.map(i=>`<span style="font-size:0.75rem;font-weight:700;background:#fef3c7;color:#92400e;padding:0.12rem 0.45rem;border-radius:999px;">${escapeHtml(i)}</span>`).join("")}</div>`:""}
-                      ${v.visits[0].notes?`<p style="color:var(--slate);font-size:0.85rem;font-style:italic;margin:0.4rem 0 0;">"${escapeHtml(v.visits[0].notes)}"</p>`:""}
-                    </article>`;
-                  }).join("")}
-                </div>`}
-            </div>
-          </div>
-
           <!-- Favorite Restaurants -->
           <div class="profile-pill-section">
             <button type="button" class="profile-pill" data-target="profile-restaurants-content">
@@ -764,6 +810,29 @@
                     return `<article class="info-card"><p class="card-label">${statusEmoji} ${status==="active"?"Current":status==="upcoming"?"Upcoming":"Past"}</p><h3>${fmt(start)} – ${fmt(end)}</h3><p style="color:var(--slate);">${days} days${total>0?` • $${total.toFixed(0)} budget`:""}</p></article>`;
                   }).join("")}
                 </div>`}
+
+              <!-- Dining History nested inside My Trips -->
+              <div style="padding:0 1rem 1rem;">
+                <p style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--castle-blue);margin:0.75rem 0 0.6rem;padding-top:0.75rem;border-top:1.5px solid rgba(0,0,0,0.06);">🍽️ Dining History</p>
+                ${venues.length > 0 ? `
+                  <div style="display:flex; flex-direction:column; gap:0.6rem;">
+                    ${venues.map(v => {
+                      const allItems = [...new Set(v.visits.flatMap(vis => JSON.parse(vis.items || "[]")))];
+                      const avgRating = Math.round(v.visits.reduce((s, vis) => s + (vis.rating||0), 0) / v.visits.length);
+                      return `<article class="info-card" style="padding:0.85rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                          <div>
+                            <h3 style="margin:0 0 0.15rem; font-size:1.1rem;">${escapeHtml(v.name)}</h3>
+                            <p style="color:var(--muted); font-size:0.75rem; margin:0;">${v.visits.length} visit${v.visits.length>1?"s":""} ${"⭐".repeat(Math.min(5,avgRating))}</p>
+                          </div><span style="font-size:1.5rem;">🍽️</span>
+                        </div>
+                        ${allItems.length?`<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.4rem;">${allItems.map(i=>`<span style="font-size:0.72rem;font-weight:700;background:#fef3c7;color:#92400e;padding:0.1rem 0.4rem;border-radius:999px;">${escapeHtml(i)}</span>`).join("")}</div>`:""}
+                        ${v.visits[0].notes?`<p style="color:var(--slate);font-size:0.82rem;font-style:italic;margin:0.35rem 0 0;">"${escapeHtml(v.visits[0].notes)}"</p>`:""}
+                      </article>`;
+                    }).join("")}
+                  </div>
+                ` : `<p style="color:var(--muted);font-style:italic;font-size:0.85rem;text-align:center;padding:0.5rem 0;">No dining memories yet</p>`}
+              </div>
             </div>
           </div>
 
@@ -1247,6 +1316,71 @@
         btn.addEventListener("click", async () => { await apiFetch(`/favorite-resorts/${btn.dataset.id}`, { method: "DELETE" }); initProfilePage(); });
       });
 
+      // ── Autocomplete: Restaurants ────────────────────────────
+      const restInput = document.getElementById("fav-restaurant-name");
+      if (restInput) {
+        setupAutocomplete(restInput, {
+          fetchFn: async (q) => {
+            const rows = await apiFetch(`/autocomplete/restaurants?q=${encodeURIComponent(q)}`);
+            return rows || [];
+          },
+          renderItem: (item) => `${escapeHtml(item.name)}${item.location ? `<div class="ac-item-sub">${escapeHtml(item.location)}</div>` : ""}`,
+          onSelect: (item) => {
+            restInput.value = item.name;
+            // Auto-set park if the venue has one
+            if (item.park) {
+              const parkSel = document.getElementById("fav-restaurant-park");
+              if (parkSel) parkSel.value = item.park;
+            }
+          },
+        });
+      }
+
+      // ── Autocomplete: Rides ──────────────────────────────────
+      const rideInput = document.getElementById("fav-ride-name");
+      if (rideInput) {
+        const PARK_UUID_TO_SLUG = {
+          "75ea578a-adc8-4116-a54d-dccb60765ef9": "magic-kingdom",
+          "47f90d2c-e191-4239-a466-5892ef59a88b": "epcot",
+          "288747d1-8b4f-4a64-867e-ea7c9b27bad8": "hollywood-studios",
+          "1c84a229-8862-4648-9c71-378ddd2c7693": "animal-kingdom",
+        };
+        setupAutocomplete(rideInput, {
+          fetchFn: async (q) => {
+            const park = document.getElementById("fav-park")?.value || "";
+            const url = `/autocomplete/rides?q=${encodeURIComponent(q)}${park ? `&park=${park}` : ""}`;
+            return (await apiFetch(url)) || [];
+          },
+          renderItem: (item) => escapeHtml(item.attraction_name),
+          onSelect: (item) => {
+            rideInput.value = item.attraction_name;
+            // Auto-set park selector to match
+            const slug = PARK_UUID_TO_SLUG[item.park_id];
+            if (slug) {
+              const parkSel = document.getElementById("fav-park");
+              if (parkSel) parkSel.value = slug;
+            }
+          },
+        });
+      }
+
+      // ── Autocomplete: Resorts ────────────────────────────────
+      const resortInput = document.getElementById("fav-resort-name");
+      if (resortInput) {
+        setupAutocomplete(resortInput, {
+          fetchFn: async (q) => {
+            return (await apiFetch(`/autocomplete/resorts?q=${encodeURIComponent(q)}`)) || [];
+          },
+          renderItem: (item) => escapeHtml(item.name),
+          onSelect: (item) => {
+            resortInput.value = item.name;
+            // Auto-set type to disney for Disney resorts
+            const typeSel = document.getElementById("fav-resort-type");
+            if (typeSel && item.name.toLowerCase().includes("disney")) typeSel.value = "disney";
+          },
+        });
+      }
+
       // ── ⑬ My Photos ─────────────────────────────────────────
       loadProfilePhotos();
     }
@@ -1316,6 +1450,7 @@
               ${trip.photos.map(p => `
                 <div class="profile-photo-thumb" data-photo-id="${p.id}" data-trip-id="${p.trip_id}" style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;position:relative;background:#f1f5f9;">
                   <img src="/api/photos/${p.id}/thumbnail" alt="${escapeHtml(p.caption || "Photo")}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+                  ${p.media_type === "video" ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.55);color:white;display:flex;align-items:center;justify-content:center;font-size:0.8rem;padding-left:2px;">▶</div>` : ""}
                   ${p.caption ? `<div style="position:absolute;bottom:0;left:0;right:0;padding:0.2rem 0.3rem;background:rgba(0,0,0,0.5);color:white;font-size:0.55rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.caption)}</div>` : ""}
                 </div>
               `).join("")}
@@ -1439,11 +1574,17 @@
       });
 
       function handleModalFiles(fileList) {
-        _profilePhotoPending = Array.from(fileList).filter(f => f.type.startsWith("image/")).slice(0, 20);
+        _profilePhotoPending = Array.from(fileList).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/")).slice(0, 20);
         if (_profilePhotoPending.length === 0) return;
 
         preview.innerHTML = _profilePhotoPending.map(f => {
           const url = URL.createObjectURL(f);
+          if (f.type.startsWith("video/")) {
+            return `<div style="width:64px;height:64px;border-radius:8px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;background:#1a1a2e;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+              <video src="${url}" style="width:100%;height:100%;object-fit:cover;" muted></video>
+              <span style="position:absolute;font-size:1.2rem;color:white;text-shadow:0 2px 4px rgba(0,0,0,0.5);">▶</span>
+            </div>`;
+          }
           return `<img src="${url}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.1);" />`;
         }).join("");
         preview.classList.remove("hidden");
@@ -1521,9 +1662,9 @@
         </div>
 
         <div id="profile-photo-modal-zone" style="border:2.5px dashed #cbd5e1;border-radius:16px;padding:2rem 1rem;text-align:center;cursor:pointer;background:#f8fafc;transition:border-color 0.2s,background 0.2s;">
-          <input type="file" id="profile-photo-modal-input" accept="image/*" multiple class="hidden" />
+          <input type="file" id="profile-photo-modal-input" accept="image/*,video/*" multiple class="hidden" />
           <div style="font-size:2.5rem;">📸</div>
-          <div style="font-family:'Mouse Memoirs',sans-serif;font-size:1.2rem;color:var(--castle-blue);">Tap to add photos</div>
+          <div style="font-family:'Mouse Memoirs',sans-serif;font-size:1.2rem;color:var(--castle-blue);">Tap to add photos or videos</div>
           <div style="font-size:0.72rem;color:var(--muted);font-weight:600;">or drag & drop — up to 20 at a time</div>
         </div>
 

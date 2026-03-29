@@ -215,6 +215,29 @@
   text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 
+/* ---- Video play badge on grid cards ---- */
+.photo-card-play-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  padding-left: 3px; /* optically center the play triangle */
+}
+
 /* ---- Empty State ---- */
 .photos-empty-state {
   text-align: center;
@@ -280,15 +303,18 @@
   flex-direction: column;
   align-items: center;
   z-index: 1;
+  overflow: visible;
 }
 
 .photo-lightbox-img {
   max-width: 90vw;
-  max-height: 70vh;
+  max-height: calc(90vh - 7rem);
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 16px 60px rgba(0,0,0,0.5);
   animation: modalCardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  flex-shrink: 1;
+  min-height: 0;
 }
 
 .photo-lightbox-close {
@@ -359,10 +385,26 @@
   font-weight: 600;
 }
 
+.photo-lightbox-video {
+  max-width: 90vw;
+  max-height: calc(90vh - 7rem);
+  border-radius: 8px;
+  box-shadow: 0 16px 60px rgba(0,0,0,0.5);
+  animation: modalCardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  background: #000;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.photo-lightbox-info {
+  flex-shrink: 0;
+}
+
 .photo-lightbox-actions {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.75rem;
+  flex-shrink: 0;
 }
 
 /* ---- Responsive ---- */
@@ -384,9 +426,10 @@
     right: 0.5rem;
   }
 
-  .photo-lightbox-img {
+  .photo-lightbox-img,
+  .photo-lightbox-video {
     max-width: 95vw;
-    max-height: 65vh;
+    max-height: calc(90vh - 8rem);
   }
 
   .photos-upload-actions {

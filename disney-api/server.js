@@ -13,6 +13,9 @@ const path = require("path");
 const cors = require("cors");
 const multer = require("multer");
 const sharp = require("sharp");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const execFileAsync = promisify(execFile);
 const { scoreRides } = require("./ride-scorer");
 
 const app = express();
@@ -157,6 +160,13 @@ for (const col of venueColumns) {
     // Column already exists — ignore
   }
 }
+
+// Migrate: add media_type column to photos (safe to run multiple times)
+try {
+  db.exec(`ALTER TABLE photos ADD COLUMN media_type TEXT DEFAULT 'image'`);
+  console.log("[DB] Added column photos.media_type");
+} catch (e) { /* Column already exists */ }
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS trip_budgets (
     trip_id     TEXT PRIMARY KEY,
@@ -549,8 +559,8 @@ const stmts = {
   getPhotosByTrip:  db.prepare("SELECT * FROM photos WHERE trip_id = ? ORDER BY created DESC"),
   getPhoto:         db.prepare("SELECT * FROM photos WHERE id = ?"),
   insertPhoto:      db.prepare(`
-    INSERT INTO photos (id, trip_id, filename, caption, uploaded_by, uploaded_by_name)
-    VALUES (@id, @trip_id, @filename, @caption, @uploaded_by, @uploaded_by_name)
+    INSERT INTO photos (id, trip_id, filename, caption, uploaded_by, uploaded_by_name, media_type)
+    VALUES (@id, @trip_id, @filename, @caption, @uploaded_by, @uploaded_by_name, @media_type)
   `),
   deletePhoto:      db.prepare("DELETE FROM photos WHERE id = ?"),
 
@@ -1118,8 +1128,13 @@ app.delete("/api/trips/:tripId/cancel", (req, res) => {
       for (const photo of photos) {
         const filePath = path.join(PHOTOS_DIR, tid, photo.filename);
         try { fs.unlinkSync(filePath); } catch (e) { /* file may be gone */ }
+        // Clean up thumbnails
+        const thumbJpg = path.join(PHOTOS_DIR, tid, "thumbnails", path.parse(photo.filename).name + ".jpg");
+        try { fs.unlinkSync(thumbJpg); } catch (e) {}
       }
       db.prepare("DELETE FROM photos WHERE trip_id = ?").run(tid);
+      const thumbDir = path.join(PHOTOS_DIR, tid, "thumbnails");
+      try { fs.rmdirSync(thumbDir); } catch (e) {}
       const tripPhotoDir = path.join(PHOTOS_DIR, tid);
       try { fs.rmdirSync(tripPhotoDir); } catch (e) { /* may not be empty or exist */ }
     }
@@ -1202,6 +1217,58 @@ app.get("/api/venues", (req, res) => {
   } else {
     res.json(stmts.getAllVenues.all());
   }
+});
+
+// GET /api/autocomplete/rides?q=space&park=magic-kingdom (optional park filter)
+app.get("/api/autocomplete/rides", (req, res) => {
+  const q = (req.query.q || "").trim();
+  if (!q) return res.json([]);
+  const PARK_ID_MAP = {
+    "magic-kingdom":     "75ea578a-adc8-4116-a54d-dccb60765ef9",
+    "epcot":             "47f90d2c-e191-4239-a466-5892ef59a88b",
+    "hollywood-studios": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+    "animal-kingdom":    "1c84a229-8862-4648-9c71-378ddd2c7693",
+  };
+  let sql = "SELECT attraction_name, park_id FROM attraction_metadata WHERE attraction_name LIKE ?";
+  const params = [`%${q}%`];
+  if (req.query.park && PARK_ID_MAP[req.query.park]) {
+    sql += " AND park_id = ?";
+    params.push(PARK_ID_MAP[req.query.park]);
+  }
+  sql += " ORDER BY attraction_name LIMIT 10";
+  res.json(db.prepare(sql).all(...params));
+});
+
+// GET /api/autocomplete/restaurants?q=ohana
+app.get("/api/autocomplete/restaurants", (req, res) => {
+  const q = (req.query.q || "").trim();
+  if (!q) return res.json([]);
+  const rows = db.prepare(
+    "SELECT name, location, park FROM venues WHERE name LIKE ? ORDER BY use_count DESC, name LIMIT 10"
+  ).all(`%${q}%`);
+  res.json(rows);
+});
+
+// GET /api/autocomplete/resorts?q=poly
+app.get("/api/autocomplete/resorts", (req, res) => {
+  const q = (req.query.q || "").toLowerCase().trim();
+  if (!q) return res.json([]);
+  const RESORTS = [
+    "Disney's All-Star Movies Resort", "Disney's All-Star Music Resort", "Disney's All-Star Sports Resort",
+    "Disney's Animal Kingdom Lodge", "Disney's Art of Animation Resort", "Disney's Beach Club Resort",
+    "Disney's BoardWalk Inn", "Disney's Caribbean Beach Resort", "Disney's Contemporary Resort",
+    "Disney's Coronado Springs Resort", "Disney's Fort Wilderness Resort & Campground",
+    "Disney's Grand Floridian Resort & Spa", "Disney's Old Key West Resort",
+    "Disney's Polynesian Village Resort", "Disney's Pop Century Resort",
+    "Disney's Port Orleans Resort - French Quarter", "Disney's Port Orleans Resort - Riverside",
+    "Disney's Riviera Resort", "Disney's Saratoga Springs Resort & Spa",
+    "Disney's Wilderness Lodge", "Disney's Yacht Club Resort",
+    "Four Seasons Resort Orlando", "Shades of Green",
+    "Swan Reserve", "Walt Disney World Swan", "Walt Disney World Dolphin",
+    "Star Wars: Galactic Starcruiser",
+  ];
+  const results = RESORTS.filter(r => r.toLowerCase().includes(q)).slice(0, 10);
+  res.json(results.map(name => ({ name })));
 });
 
 app.post("/api/venues", (req, res) => {
@@ -1699,6 +1766,11 @@ app.post("/api/trips/:tripId/confirm-budget", (req, res) => {
 
 // ── PHOTO ROUTES ──────────────────────────────────────────
 
+const MEDIA_VIDEO_EXTS = new Set([".mp4", ".mov", ".webm", ".avi", ".mkv", ".m4v"]);
+function isVideoFile(file) {
+  return /^video\//i.test(file.mimetype) || MEDIA_VIDEO_EXTS.has(path.extname(file.originalname).toLowerCase());
+}
+
 const photoUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1708,13 +1780,14 @@ const photoUpload = multer({
     },
     filename: (req, file, cb) => {
       const ext = path.extname(file.originalname) || ".jpg";
-      const name = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+      const prefix = isVideoFile(file) ? "video" : "photo";
+      const name = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
       cb(null, name);
     },
   }),
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB max (videos can be large)
   fileFilter: (req, file, cb) => {
-    const allowed = /^image\//i;
+    const allowed = /^(image|video)\//i;
     cb(null, allowed.test(file.mimetype) || file.mimetype === "application/octet-stream");
   },
 });
@@ -1775,6 +1848,7 @@ app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), async (re
   try {
     const results = [];
     for (const file of (req.files || [])) {
+      const mediaType = isVideoFile(file) ? "video" : "image";
       const photo = {
         id: `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         trip_id: req.params.tripId,
@@ -1782,18 +1856,34 @@ app.post("/api/trips/:tripId/photos", photoUpload.array("photos", 20), async (re
         caption: req.body.caption || "",
         uploaded_by: req.body.uploaded_by || "",
         uploaded_by_name: req.body.uploaded_by_name || "",
+        media_type: mediaType,
       };
       stmts.insertPhoto.run(photo);
       results.push(photo);
 
-      // Generate thumbnail (400px wide max, same aspect ratio)
+      // Generate thumbnail
       const thumbDir = path.join(PHOTOS_DIR, req.params.tripId, "thumbnails");
       fs.mkdirSync(thumbDir, { recursive: true });
+      const thumbFilename = path.parse(file.filename).name + ".jpg";
+      const thumbPath = path.join(thumbDir, thumbFilename);
+
       try {
-        await sharp(file.path)
-          .resize(400, null, { withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toFile(path.join(thumbDir, file.filename));
+        if (mediaType === "video") {
+          // Extract a frame at 1 second with ffmpeg, scale to 400px wide
+          await execFileAsync("ffmpeg", [
+            "-i", file.path,
+            "-ss", "1",
+            "-vframes", "1",
+            "-vf", "scale=400:-1",
+            "-q:v", "4",
+            thumbPath,
+          ], { timeout: 30000 });
+        } else {
+          await sharp(file.path)
+            .resize(400, null, { withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toFile(thumbPath);
+        }
       } catch (thumbErr) {
         console.warn("Thumbnail generation failed for", file.filename, thumbErr.message);
       }
@@ -1818,13 +1908,22 @@ app.get("/api/photos/:id/thumbnail", (req, res) => {
   const photo = stmts.getPhoto.get(req.params.id);
   if (!photo) return res.status(404).json({ error: "Photo not found" });
 
-  const thumbPath = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", photo.filename);
+  // Thumbnails are always .jpg (videos get a .jpg frame extract)
+  const thumbFilename = path.parse(photo.filename).name + ".jpg";
+  const thumbPath = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", thumbFilename);
   if (fs.existsSync(thumbPath)) return res.sendFile(thumbPath);
 
-  // Fall back to full image if thumbnail doesn't exist yet
-  const filePath = path.join(PHOTOS_DIR, photo.trip_id, photo.filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
-  res.sendFile(filePath);
+  // Also check with original extension (legacy thumbnails)
+  const legacyThumbPath = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", photo.filename);
+  if (fs.existsSync(legacyThumbPath)) return res.sendFile(legacyThumbPath);
+
+  // Fall back to full file for images (not useful for video)
+  if (photo.media_type !== "video") {
+    const filePath = path.join(PHOTOS_DIR, photo.trip_id, photo.filename);
+    if (fs.existsSync(filePath)) return res.sendFile(filePath);
+  }
+
+  return res.status(404).json({ error: "Thumbnail not found" });
 });
 
 app.delete("/api/photos/:id", (req, res) => {
@@ -1834,9 +1933,11 @@ app.delete("/api/photos/:id", (req, res) => {
   const filePath = path.join(PHOTOS_DIR, photo.trip_id, photo.filename);
   try { fs.unlinkSync(filePath); } catch (e) { /* file may already be gone */ }
 
-  // Also delete thumbnail
-  const thumbPath = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", photo.filename);
-  try { fs.unlinkSync(thumbPath); } catch (e) { /* thumbnail may not exist */ }
+  // Delete thumbnail (.jpg version and legacy same-extension version)
+  const thumbJpg = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", path.parse(photo.filename).name + ".jpg");
+  try { fs.unlinkSync(thumbJpg); } catch (e) { /* may not exist */ }
+  const thumbLegacy = path.join(PHOTOS_DIR, photo.trip_id, "thumbnails", photo.filename);
+  try { fs.unlinkSync(thumbLegacy); } catch (e) { /* may not exist */ }
 
   stmts.deletePhoto.run(req.params.id);
   res.json({ ok: true });

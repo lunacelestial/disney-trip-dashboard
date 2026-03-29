@@ -463,8 +463,10 @@ async function initFloatingPhotos() {
     const activeTrip = trips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
     if (!activeTrip) return;
 
-    const photos = await apiFetch(`/trips/${activeTrip.trip_id}/photos`);
-    if (!photos || photos.length === 0) return;
+    const allMedia = await apiFetch(`/trips/${activeTrip.trip_id}/photos`);
+    // Only use images for floating thumbnails (not videos)
+    const photos = (allMedia || []).filter(p => p.media_type !== "video");
+    if (photos.length === 0) return;
 
     _floatPhotos = photos;
     const container = document.getElementById("tv-photo-bg");
