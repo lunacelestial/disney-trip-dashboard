@@ -576,9 +576,8 @@
   }
 
   // ── Boot ────────────────────────────────────────────────
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  // Expose so script.js's initApp() can call us after the auth gate passes.
+  // This avoids racing Auth.verify() and hitting /my/pins/stats with a
+  // token that hasn't been validated yet.
+  window.initializePinsPage = init;
 })();

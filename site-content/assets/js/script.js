@@ -835,7 +835,14 @@ const Auth = {
       const res = await fetch("/api/auth/me", {
         headers: { "Authorization": `Bearer ${token}` },
       });
-      if (!res.ok) { this.clearSession(); return null; }
+      // Only clear the session on real auth failures. Transient 5xx / network
+      // errors / Cloudflare blips must NOT log the user out — fall back to
+      // the cached user instead.
+      if (res.status === 401 || res.status === 403) {
+        this.clearSession();
+        return null;
+      }
+      if (!res.ok) return this.getUser();
       const user = await res.json();
       localStorage.setItem("disney-user", JSON.stringify(user));
       return user;
@@ -1060,6 +1067,7 @@ function initApp() {
     try { if (typeof initializeWishlistPage === "function") initializeWishlistPage(); } catch(e) { console.error("[initApp] error:", e); }
     try { if (typeof initializeBudgetPage === "function") initializeBudgetPage(); } catch(e) { console.error("[initApp] error:", e); }
     try { if (typeof initializePhotosPage === "function") initializePhotosPage(); } catch(e) { console.error("[initApp] error:", e); }
+    try { if (typeof initializePinsPage === "function") initializePinsPage(); } catch(e) { console.error("[initApp] error:", e); }
     try { if (typeof initializeActivityModal === "function") initializeActivityModal(); } catch(e) { console.error("[initApp] error:", e); }
     try { if (typeof initializeWeather === "function") initializeWeather(); } catch(e) { console.error("[initApp] error:", e); }
     initializeDisneyMagic();
