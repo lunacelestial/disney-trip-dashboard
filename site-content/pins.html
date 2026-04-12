@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pin Collector — Disney Trip Dashboard</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=16" />
+  <link rel="stylesheet" href="assets/css/header.css?v=16" />
+  <link rel="stylesheet" href="assets/css/nav.css?v=16" />
+  <link rel="stylesheet" href="assets/css/cards.css?v=16" />
+  <link rel="stylesheet" href="assets/css/eticket.css?v=16" />
+  <link rel="stylesheet" href="assets/css/modals.css?v=16" />
+  <link rel="stylesheet" href="assets/css/budget.css?v=16" />
+  <link rel="stylesheet" href="assets/css/wizard.css?v=16" />
+  <link rel="stylesheet" href="assets/css/pins.css?v=21" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="page-pins">
+
+<!-- Top Utility Bar -->
+<div class="utility-bar">
+  <div class="utility-bar-inner">
+    <div id="utility-user-slot"></div>
+    <div id="weather-badge" class="utility-weather" aria-label="Weather" role="button" tabindex="0">
+      <span class="weather-badge-icon" id="weather-badge-icon"></span>
+      <div class="weather-badge-text">
+        <span class="weather-badge-temp" id="weather-badge-temp">--</span>
+        <span class="weather-badge-desc" id="weather-badge-desc">Loading...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<header class="site-header">
+  <div class="container">
+    <div class="park-entrance">
+      <img src="assets/images/mickey-mouse-pose1.png" class="character-img mickey" alt="Mickey Mouse" />
+      <div class="entrance-sign">
+        <div class="entrance-arch">
+          <span class="entrance-eyebrow">Walt Disney World</span>
+          <h1 class="entrance-title">Trip Companion</h1>
+          <span class="entrance-subtitle">Pin Collector</span>
+        </div>
+      </div>
+      <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
+    </div>
+
+    <!-- Nav -->
+    <nav class="nav-pill" id="nav-pill">
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+      <div class="nav-ticket-tray" id="nav-ticket-tray"></div>
+    </nav>
+  </div>
+</header>
+
+<main class="container page-content">
+  <!-- Collection Stats -->
+  <div class="pin-stats-bar" id="pin-stats-bar">
+    <div class="pin-stat">
+      <span class="pin-stat-number" id="stat-total">0</span>
+      <span class="pin-stat-label">Total Pins</span>
+    </div>
+    <div class="pin-stat">
+      <span class="pin-stat-number" id="stat-collected">0</span>
+      <span class="pin-stat-label">Collected</span>
+    </div>
+    <div class="pin-stat">
+      <span class="pin-stat-number" id="stat-remaining">0</span>
+      <span class="pin-stat-label">Remaining</span>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="pin-filters" id="pin-filters">
+    <div class="pin-filter-group">
+      <label for="filter-year">Year</label>
+      <select id="filter-year">
+        <option value="">All Years</option>
+      </select>
+    </div>
+    <div class="pin-filter-group">
+      <label for="filter-series">Series</label>
+      <select id="filter-series">
+        <option value="">All Series</option>
+      </select>
+    </div>
+    <div class="pin-filter-group">
+      <label for="filter-search">Search</label>
+      <input type="text" id="filter-search" placeholder="Search pins..." />
+    </div>
+    <div class="pin-filter-group">
+      <label for="filter-collected">Status</label>
+      <select id="filter-collected">
+        <option value="">All Pins</option>
+        <option value="collected">Collected</option>
+        <option value="uncollected">Not Collected</option>
+      </select>
+    </div>
+    <div class="pin-filter-group">
+      <label for="filter-chaser">Priority</label>
+      <select id="filter-chaser">
+        <option value="">All</option>
+        <option value="1">Chasers & Super Chasers</option>
+        <option value="2">Super Chasers Only</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Pin Grid -->
+  <div class="pin-grid" id="pin-grid">
+    <p style="text-align:center; color:var(--muted); grid-column:1/-1;">Loading pins...</p>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pin-pagination" id="pin-pagination"></div>
+</main>
+
+<!-- Pin Detail Modal -->
+<div class="modal-overlay hidden" id="pin-modal-overlay">
+  <div class="modal-card pin-detail-modal">
+    <button class="modal-close-btn" id="pin-modal-close">&#x2715;</button>
+    <div id="pin-modal-content"></div>
+  </div>
+</div>
+
+<script src="assets/js/script.js?v=16"></script>
+<script src="assets/js/header.js?v=16"></script>
+<script src="assets/js/pins.js?v=19"></script>
+</body>
+</html>

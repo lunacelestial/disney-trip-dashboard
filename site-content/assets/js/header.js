@@ -256,6 +256,7 @@ const NAV_ITEMS = [
   { href: "tripcalendar.html", label: "Calendar",   pageClass: "page-tripcalendar" },
   { href: "history.html",      label: "History",    pageClass: "page-history"      },
   { href: "packing.html",      label: "Packing",    pageClass: "page-packing"      },
+  { href: "pins.html",         label: "Pins",       pageClass: "page-pins"         },
 ];
 
 const CASTLE_SVG = `<svg class="ticket-castle" viewBox="0 0 40 36" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="20" width="36" height="16" fill="currentColor"/><rect x="0" y="14" width="8" height="10" fill="currentColor"/><rect x="16" y="10" width="8" height="14" fill="currentColor"/><rect x="32" y="14" width="8" height="10" fill="currentColor"/><rect x="1" y="10" width="3" height="5" fill="currentColor"/><rect x="5" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="6" width="3" height="5" fill="currentColor"/><rect x="21" y="6" width="3" height="5" fill="currentColor"/><rect x="33" y="10" width="3" height="5" fill="currentColor"/><rect x="37" y="10" width="3" height="5" fill="currentColor"/><rect x="17" y="0" width="2" height="7" fill="currentColor"/><rect x="21" y="0" width="2" height="7" fill="currentColor"/><rect x="16" y="24" width="8" height="12" fill="white"/></svg>`;
@@ -549,10 +550,16 @@ async function renderParkDayBanner() {
   
   if (hoursEl) {
     hoursEl.textContent = "Checking live hours...";
-    
+
     fetchLiveParkHours(park.label, displayDate).then(liveHours => {
       hoursEl.textContent = liveHours || park.defaultHours;
     });
+  }
+
+  // Park Hopper button — only on dashboard
+  if (typeof renderParkHopperButton === "function") {
+    renderParkHopperButton();
+    initParkHopper();
   }
 
   const images = park.images;

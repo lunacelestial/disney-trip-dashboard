@@ -383,3 +383,373 @@
   .forecast-low { font-size: 0.65rem; }
   .weather-temp-big { font-size: 2.8rem; }
 }
+
+/* ============================================================
+   PARK HOPPER — Button + Modal
+   ============================================================ */
+
+/* ---- Park Hopper Button (in park-day-bar) ---- */
+.park-hopper-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 199, 44, 0.2);
+  border: 1.5px solid rgba(255, 199, 44, 0.5);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  position: absolute;
+  right: 0;
+  bottom: 0.3rem;
+  z-index: 1;
+}
+
+.park-hopper-btn:hover {
+  background: rgba(255, 199, 44, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255, 199, 44, 0.3);
+}
+
+.park-hopper-btn:active {
+  transform: translateY(0);
+}
+
+.park-hopper-btn-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+@media (max-width: 600px) {
+  .park-hopper-btn {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.7rem;
+  }
+  .park-hopper-btn-icon { font-size: 0.85rem; }
+}
+
+/* ---- Park Hopper Modal Card ---- */
+.park-hopper-card {
+  background: linear-gradient(160deg, #0f1930 0%, #1a2e5a 60%, #0d3a6e 100%);
+  border-radius: 24px;
+  width: min(440px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.12);
+  position: relative;
+  animation: modalCardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  color: white;
+  padding-bottom: 1rem;
+}
+
+/* ---- Step Header ---- */
+.hopper-step-header {
+  padding: 2rem 1.75rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.hopper-title {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.8rem;
+  color: white;
+  margin: 0 0 0.5rem;
+  line-height: 1.2;
+}
+
+.hopper-subtitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.5);
+  margin: 0 0 0.4rem;
+  font-family: 'Nunito', sans-serif;
+}
+
+.hopper-current-park {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 199, 44, 0.15);
+  border: 1px solid rgba(255, 199, 44, 0.3);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+}
+
+.hopper-current-icon {
+  font-size: 1.3rem;
+}
+
+.hopper-current-name {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--pixie-gold);
+}
+
+/* ---- Park Selection Grid ---- */
+.hopper-park-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.hopper-park-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, border-color 0.2s;
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  text-align: left;
+}
+
+.hopper-park-card:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255, 199, 44, 0.4);
+  transform: translateY(-2px);
+}
+
+.hopper-park-card:active {
+  transform: translateY(0);
+}
+
+.hopper-park-card-icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.hopper-park-card-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+/* ---- Back Button ---- */
+.hopper-back-btn {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: rgba(255,255,255,0.7);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.hopper-back-btn:hover {
+  background: rgba(255,255,255,0.18);
+  color: white;
+}
+
+/* ---- Route Label ---- */
+.hopper-route {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  margin: 0.5rem 0 0;
+}
+
+.hopper-route-dest {
+  color: var(--pixie-gold);
+}
+
+/* ---- Transport Selection Grid ---- */
+.hopper-transport-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.hopper-transport-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 1rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, border-color 0.2s;
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  text-align: center;
+}
+
+.hopper-transport-card:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(0, 155, 222, 0.5);
+  transform: translateY(-2px);
+}
+
+.hopper-transport-card:active {
+  transform: translateY(0);
+}
+
+.hopper-transport-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.hopper-transport-mode {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.hopper-transport-time {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+}
+
+/* ---- Directions Step ---- */
+.hopper-directions-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 155, 222, 0.15);
+  border: 1px solid rgba(0, 155, 222, 0.3);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.hopper-directions-badge-icon {
+  font-size: 1.3rem;
+}
+
+.hopper-directions-badge-mode {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: white;
+}
+
+.hopper-directions-badge-time {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+}
+
+.hopper-directions-list {
+  padding: 0 1.5rem;
+}
+
+.hopper-steps {
+  margin: 1rem 0;
+  padding-left: 1.25rem;
+  list-style: none;
+  counter-reset: hopper-step;
+}
+
+.hopper-steps li {
+  counter-increment: hopper-step;
+  position: relative;
+  padding: 0.6rem 0 0.6rem 0.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.5;
+  border-left: 2px solid rgba(255,255,255,0.1);
+  margin-left: 0.5rem;
+}
+
+.hopper-steps li::before {
+  content: counter(hopper-step);
+  position: absolute;
+  left: -1.15rem;
+  top: 0.55rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: rgba(0, 155, 222, 0.3);
+  border: 1.5px solid rgba(0, 155, 222, 0.5);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hopper-steps li:last-child {
+  border-left-color: transparent;
+}
+
+/* ---- Action Buttons ---- */
+.hopper-actions {
+  padding: 0 1.5rem 0.5rem;
+  display: flex;
+  gap: 0.65rem;
+}
+
+.hopper-maps-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.hopper-maps-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(26, 115, 232, 0.4);
+}
+
+.hopper-done-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hopper-done-btn:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+@media (max-width: 480px) {
+  .park-hopper-card { border-radius: 20px; }
+  .hopper-title { font-size: 1.5rem; }
+  .hopper-transport-grid { grid-template-columns: repeat(2, 1fr); }
+  .hopper-steps li { font-size: 0.85rem; }
+}

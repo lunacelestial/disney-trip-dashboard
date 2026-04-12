@@ -1,0 +1,1172 @@
+/* ============================================================
+   PIN COLLECTOR — Grid, Filters, Pagination, Collection Toggle
+   ============================================================ */
+
+/* ---- Stats Bar ---- */
+.pin-stats-bar {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 1.5rem 0;
+  padding: 1.25rem 2rem;
+  background: white;
+  border-radius: 18px;
+  box-shadow: var(--card-shadow);
+  border: 1.5px solid rgba(0, 48, 135, 0.08);
+}
+
+.pin-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.pin-stat-number {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 2.2rem;
+  color: var(--castle-blue);
+  line-height: 1;
+}
+
+.pin-stat-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* ---- Filters ---- */
+.pin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border: 1.5px solid rgba(0, 48, 135, 0.08);
+  align-items: flex-end;
+}
+
+.pin-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 140px;
+}
+
+.pin-filter-group label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--castle-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: 'Nunito', sans-serif;
+}
+
+.pin-filter-group select,
+.pin-filter-group input {
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pin-filter-group select:focus,
+.pin-filter-group input:focus {
+  outline: none;
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 0 3px rgba(0, 155, 222, 0.2);
+}
+
+/* ---- Pin Grid ---- */
+.pin-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.pin-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.pin-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 28px rgba(0, 48, 135, 0.18);
+}
+
+/* Chaser / Priority pin */
+.pin-card.chaser {
+  border-color: var(--pixie-gold);
+  box-shadow: 0 4px 16px rgba(255, 199, 44, 0.25);
+}
+
+.pin-card.chaser:hover {
+  box-shadow: 0 8px 28px rgba(255, 199, 44, 0.35);
+}
+
+/* Super Chaser */
+.pin-card.super-chaser {
+  border-color: var(--magic-red);
+  box-shadow: 0 4px 16px rgba(196, 30, 58, 0.25);
+}
+
+.pin-card.super-chaser:hover {
+  box-shadow: 0 8px 28px rgba(196, 30, 58, 0.35);
+}
+
+.pin-chaser-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  z-index: 1;
+}
+
+.pin-chaser-badge.chaser {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #78350f;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+}
+
+.pin-chaser-badge.super-chaser {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.4);
+}
+
+.pin-card.collected {
+  border-color: #22c55e;
+}
+
+/* Favorite pin (outranks chaser border tint visually with a gold glow) */
+.pin-card.favorite {
+  border-color: var(--pixie-gold, #ffc72c);
+  box-shadow: 0 4px 18px rgba(255, 199, 44, 0.35);
+}
+
+.pin-card.favorite:hover {
+  box-shadow: 0 8px 28px rgba(255, 199, 44, 0.5);
+}
+
+/* ---- Favorite Star Button ---- */
+.pin-favorite-btn {
+  position: absolute;
+  bottom: 0.4rem;
+  right: 0.4rem;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 1.05rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s, color 0.15s, background 0.15s;
+}
+
+.pin-favorite-btn:hover {
+  transform: scale(1.12);
+  color: #f59e0b;
+  background: #fff;
+}
+
+.pin-card.favorite .pin-favorite-btn {
+  color: #f59e0b;
+  background: #fffbeb;
+}
+
+
+.pin-card.collected::after {
+  content: "";
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 28px;
+  height: 28px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px;
+}
+
+.pin-card-image-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #f8fafc;
+  position: relative;
+}
+
+.pin-card-image-inner {
+  width: 80%;
+  height: 80%;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  inset: 0;
+}
+
+.pin-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.pin-card-image-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe, #fef3c7);
+  font-size: 2.5rem;
+  color: var(--muted);
+}
+
+.pin-card-info {
+  padding: 0.6rem 0.75rem;
+}
+
+.pin-card-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pin-card-meta {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Collect Button ---- */
+.pin-collect-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  border-top: 1px solid #f1f5f9;
+  background: #fafbfc;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pin-collect-btn:hover {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.pin-card.collected .pin-collect-btn {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.pin-card.collected .pin-collect-btn:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ---- Pagination ---- */
+.pin-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.pin-page-btn {
+  min-width: 40px;
+  height: 40px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  background: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--slate);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+
+.pin-page-btn:hover {
+  border-color: var(--sky-blue);
+  color: var(--castle-blue);
+  transform: translateY(-1px);
+}
+
+.pin-page-btn.active {
+  background: linear-gradient(135deg, var(--castle-blue), #1e40af);
+  color: white;
+  border-color: var(--castle-blue);
+  box-shadow: 0 4px 12px rgba(0, 48, 135, 0.3);
+}
+
+.pin-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pin-page-ellipsis {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* ---- Empty State ---- */
+.pin-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.pin-empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.pin-empty h3 {
+  color: var(--castle-blue);
+  margin: 0 0 0.5rem;
+}
+
+.pin-empty p {
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ---- Pin Detail Modal ---- */
+.pin-detail-modal {
+  width: min(480px, 100%);
+}
+
+.pin-detail-image {
+  width: 100%;
+  max-height: 350px;
+  object-fit: contain;
+  display: block;
+  background: #f8fafc;
+  border-radius: 24px 24px 0 0;
+}
+
+.pin-detail-body {
+  padding: 1.5rem 1.75rem;
+}
+
+.pin-detail-name {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.8rem;
+  color: var(--castle-blue);
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+
+.pin-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.pin-detail-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: 'Nunito', sans-serif;
+}
+
+.pin-detail-tag.year {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.pin-detail-tag.series {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pin-detail-tag.custom {
+  background: #f1f5f9;
+  color: var(--slate);
+}
+
+.pin-detail-tag.chaser {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  font-weight: 800;
+}
+
+.pin-detail-tag.super-chaser {
+  background: linear-gradient(135deg, #ffe4e6, #fda4af);
+  color: #9f1239;
+  font-weight: 800;
+}
+
+.pin-detail-collect-btn {
+  width: 100%;
+  padding: 0.85rem;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.pin-detail-collect-btn.uncollected {
+  background: linear-gradient(135deg, var(--castle-blue), #1e40af);
+  color: white;
+  box-shadow: 0 4px 14px rgba(0, 48, 135, 0.35);
+}
+
+.pin-detail-collect-btn.uncollected:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 48, 135, 0.45);
+}
+
+.pin-detail-collect-btn.is-collected {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 2px solid #22c55e;
+}
+
+.pin-detail-collect-btn.is-collected:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.pin-obtain-section {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.pin-obtain-title {
+  margin: 0 0 0.6rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--castle-blue);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pin-obtain-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pin-obtain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1.5px solid #dbeafe;
+  color: var(--castle-blue);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pin-obtain-badge i {
+  font-size: 0.95rem;
+}
+
+.pin-obtain-notes {
+  margin: 0.65rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: var(--slate);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.pin-detail-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.pin-detail-actions .pin-detail-collect-btn {
+  flex: 1;
+}
+
+.pin-detail-favorite-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pin-detail-favorite-btn i {
+  font-size: 1.2rem;
+}
+
+.pin-detail-favorite-btn:hover {
+  color: #f59e0b;
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.pin-detail-favorite-btn.is-favorite {
+  color: #f59e0b;
+  border-color: #fbbf24;
+  background: #fffbeb;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+}
+
+/* ---- Chaser Spotlight (Dashboard) ---- */
+.chaser-spotlight-card {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: var(--card-shadow);
+  border: 1.5px solid rgba(0, 48, 135, 0.08);
+}
+
+.chaser-spotlight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+}
+
+.chaser-spotlight-header .section-title {
+  margin: 0;
+}
+
+.chaser-carousel-wrap {
+  position: relative;
+}
+
+/* ============================================================
+   PIN MARQUEE — Dashboard horizontal scroller
+   ============================================================ */
+.pin-marquee {
+  position: relative;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-x;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+          mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+}
+
+.pin-marquee::-webkit-scrollbar {
+  display: none;
+}
+
+.pin-marquee.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.pin-marquee-track {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+}
+
+.pin-marquee.is-dragging .pin-marquee-tile {
+  pointer-events: none;
+}
+
+.pin-marquee-tile {
+  flex: 0 0 auto;
+  width: 140px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid rgba(0, 48, 135, 0.08);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pin-marquee-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 48, 135, 0.15);
+}
+
+.pin-marquee-tile.collected {
+  border-color: #22c55e;
+}
+
+.pin-marquee-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-marquee-img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+  display: block;
+}
+
+.pin-marquee-placeholder {
+  font-size: 2.25rem;
+}
+
+.pin-marquee-badge {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 6px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #78350f;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
+}
+
+.pin-marquee-badge.super {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  color: #fff;
+}
+
+.pin-marquee-badge.favorite {
+  background: linear-gradient(135deg, #fde68a, #fbbf24);
+  color: #78350f;
+  padding: 0.22rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.pin-marquee-check {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.4);
+}
+
+.pin-marquee-name {
+  margin: 0;
+  padding: 0.5rem 0.6rem 0.65rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .pin-marquee-tile {
+    width: 110px;
+  }
+  .pin-marquee-name {
+    font-size: 0.72rem;
+  }
+}
+
+.chaser-carousel {
+  position: relative;
+  min-height: 200px;
+}
+
+.chaser-slide {
+  display: none;
+  animation: chaserFadeIn 0.5s ease both;
+}
+
+.chaser-slide.active {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+@keyframes chaserFadeIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.chaser-slide-image-wrap {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.chaser-slide-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.chaser-slide-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  background: linear-gradient(135deg, #e0f2fe, #fef3c7);
+}
+
+.chaser-slide-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #78350f;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+}
+
+.chaser-slide-badge.super {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.4);
+}
+
+.chaser-slide-badge.favorite {
+  background: linear-gradient(135deg, #fde68a, #fbbf24);
+  color: #78350f;
+  box-shadow: 0 2px 6px rgba(251, 191, 36, 0.45);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.chaser-slide-collected {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: #22c55e;
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.4);
+}
+
+.chaser-slide-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chaser-slide-name {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.8rem;
+  color: var(--castle-blue);
+  margin: 0 0 0.35rem;
+  line-height: 1.2;
+}
+
+.chaser-slide-meta {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Carousel dots */
+.chaser-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.chaser-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: #d1d5db;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.chaser-dot:hover {
+  background: #94a3b8;
+}
+
+.chaser-dot.active {
+  background: var(--castle-blue);
+  transform: scale(1.3);
+}
+
+@media (max-width: 600px) {
+  .chaser-slide.active {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .chaser-slide-image-wrap {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+  }
+
+  .chaser-slide-name {
+    font-size: 1.5rem;
+  }
+
+  .chaser-spotlight-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .pin-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .pin-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .pin-stats-bar {
+    gap: 1.25rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .pin-stat-number {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 500px) {
+  .pin-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+
+  .pin-card-info {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .pin-card-name {
+    font-size: 0.72rem;
+  }
+}
+
+/* ============================================================
+   MOBILE FILTER BAR — shown only on small screens
+   ============================================================ */
+.pin-filters-mobile {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /* Hide desktop filters on mobile */
+  .pin-filters {
+    display: none !important;
+  }
+
+  .pin-filters-mobile {
+    display: block;
+    margin-bottom: 1rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    border: 1.5px solid rgba(0, 48, 135, 0.08);
+    overflow: hidden;
+  }
+
+  .pin-filters-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .pin-filters-mobile-search {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+  }
+
+  .pin-filters-mobile-search i {
+    position: absolute;
+    left: 0.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 1rem;
+    pointer-events: none;
+  }
+
+  .pin-filters-mobile-search input {
+    width: 100%;
+    border: 1.5px solid #d1d5db;
+    border-radius: 10px;
+    padding: 0.55rem 0.75rem 0.55rem 2.1rem;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: #fff;
+    -webkit-appearance: none;
+  }
+
+  .pin-filters-mobile-search input:focus {
+    outline: none;
+    border-color: var(--sky-blue);
+    box-shadow: 0 0 0 3px rgba(0, 155, 222, 0.2);
+  }
+
+  .pin-filters-mobile-toggle {
+    flex-shrink: 0;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 0.85rem;
+    border: 1.5px solid #d1d5db;
+    border-radius: 10px;
+    background: #fafbfc;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--castle-blue);
+    cursor: pointer;
+  }
+
+  .pin-filters-mobile-toggle i {
+    font-size: 1rem;
+  }
+
+  .pin-filters-mobile-toggle.has-active {
+    border-color: var(--castle-blue);
+    background: #eef4ff;
+  }
+
+  .pin-filters-mobile-count {
+    display: none;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--magic-red, #c41e3a);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .pin-filters-mobile-toggle.has-active .pin-filters-mobile-count {
+    display: inline-flex;
+  }
+
+  .pin-filters-mobile-panel {
+    display: none;
+    padding: 0.25rem 0.75rem 0.85rem;
+    border-top: 1px solid #f1f5f9;
+    background: #fafbfc;
+  }
+
+  .pin-filters-mobile-panel.open {
+    display: block;
+  }
+
+  .pin-filters-mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+  }
+
+  .pin-filters-mobile-grid .pin-filter-group {
+    min-width: 0;
+    flex: unset;
+  }
+
+  .pin-filters-mobile-grid select {
+    width: 100%;
+    border: 1.5px solid #d1d5db;
+    border-radius: 10px;
+    padding: 0.55rem 0.6rem;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    color: var(--ink);
+    background: #fff;
+  }
+
+  .pin-filters-mobile-grid select:focus {
+    outline: none;
+    border-color: var(--sky-blue);
+    box-shadow: 0 0 0 3px rgba(0, 155, 222, 0.2);
+  }
+
+  .pin-filters-mobile-grid label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--castle-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+
+  .pin-filters-mobile-clear {
+    margin-top: 0.75rem;
+    width: 100%;
+    padding: 0.55rem;
+    border: 1.5px solid #d1d5db;
+    border-radius: 10px;
+    background: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .pin-filters-mobile-clear:hover {
+    color: var(--magic-red, #c41e3a);
+    border-color: var(--magic-red, #c41e3a);
+  }
+}

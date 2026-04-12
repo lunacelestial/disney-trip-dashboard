@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="assets/css/budget.css?v=16" />
   <link rel="stylesheet" href="assets/css/wizard.css?v=16" />
   <link rel="stylesheet" href="assets/css/venues.css?v=16" />
+  <link rel="stylesheet" href="assets/css/pins.css?v=21" />
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body class="page-dashboard">
@@ -116,6 +117,9 @@
     <!-- Live Wait Times — shown during active trip on a park day -->
     <section id="wait-times-section" style="display:none; margin-bottom:2rem;"></section>
 
+    <!-- Chaser Pin Spotlight -->
+    <section id="chaser-spotlight-section" style="display:none; margin-bottom:2rem;"></section>
+
     <section class="card-grid">
       <a href="wishlist.html" style="text-decoration:none; color:inherit; display:block;">
         <article class="info-card" id="dashboard-wishlist-card" style="cursor:pointer; position:relative; overflow:hidden; min-height:140px;">
@@ -190,9 +194,18 @@
     </div>
   </div>
 
+  <!-- Park Hopper Modal -->
+  <div id="park-hopper-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="park-hopper-card">
+      <button class="modal-close-btn" id="park-hopper-close" aria-label="Close">✕</button>
+      <div id="park-hopper-content"></div>
+    </div>
+  </div>
+
   <script src="assets/js/script.js?v=16"></script>
-  <script src="assets/js/dashboard.js?v=16"></script>
+  <script src="assets/js/dashboard.js?v=19"></script>
   <script src="assets/js/modals.js?v=16"></script>
+  <script src="assets/js/parkhopper.js?v=16"></script>
   <script src="assets/js/header.js?v=16"></script>
   <script src="assets/js/budget.js?v=16"></script>
   <!-- Weather Forecast Modal -->

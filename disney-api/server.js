@@ -33,12 +33,14 @@ const PHOTOS_DIR = path.join(STORAGE_ROOT, "photos");
 const WISHLIST_DIR = path.join(STORAGE_ROOT, "wishlist");
 const VENUES_DIR = path.join(STORAGE_ROOT, "venues");
 const AVATARS_DIR = path.join(STORAGE_ROOT, "avatars");
+const PINS_DIR = path.join(STORAGE_ROOT, "pins");
 
 // Ensure directories exist
 fs.mkdirSync(PHOTOS_DIR, { recursive: true });
 fs.mkdirSync(WISHLIST_DIR, { recursive: true });
 fs.mkdirSync(VENUES_DIR, { recursive: true });
 fs.mkdirSync(AVATARS_DIR, { recursive: true });
+fs.mkdirSync(PINS_DIR, { recursive: true });
 
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors());
@@ -325,7 +327,42 @@ db.exec(`
   );
 `);
 
+// ── Pin Collector tables ──────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pins (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    image       TEXT DEFAULT '',
+    year        TEXT DEFAULT '',
+    series      TEXT DEFAULT '',
+    tags        TEXT DEFAULT '',
+    chaser      INTEGER DEFAULT 0,
+    created     TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS user_pin_collection (
+    user_id     TEXT NOT NULL,
+    pin_id      TEXT NOT NULL,
+    collected_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, pin_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (pin_id) REFERENCES pins(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS user_pin_favorites (
+    user_id      TEXT NOT NULL,
+    pin_id       TEXT NOT NULL,
+    favorited_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, pin_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (pin_id) REFERENCES pins(id) ON DELETE CASCADE
+  );
+`);
+
 // Migrations
+try { db.exec("ALTER TABLE pins ADD COLUMN chaser INTEGER DEFAULT 0"); } catch (e) { }
+try { db.exec("ALTER TABLE pins ADD COLUMN obtain_source TEXT DEFAULT ''"); } catch (e) { }
+try { db.exec("ALTER TABLE pins ADD COLUMN obtain_notes TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE activities ADD COLUMN url TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE transactions ADD COLUMN trip_id TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE transactions ADD COLUMN user_id TEXT DEFAULT ''"); } catch (e) { }
@@ -3000,6 +3037,359 @@ app.get("/api/recommendations/:parkId", (req, res) => {
     console.error("[recommendations] score error:", err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── PIN COLLECTOR ROUTES ──────────────────────────────────
+
+const pinUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      fs.mkdirSync(PINS_DIR, { recursive: true });
+      cb(null, PINS_DIR);
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      const name = `pin-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+      cb(null, name);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per pin image
+  fileFilter: (req, file, cb) => {
+    cb(null, /^image\//i.test(file.mimetype) || file.mimetype === "application/octet-stream");
+  },
+});
+
+// GET /api/pins — paginated, filterable list of all pins
+app.get("/api/pins", (req, res) => {
+  const user = getUserFromToken(req);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 25));
+  const offset = (page - 1) * limit;
+
+  let where = [];
+  let params = [];
+
+  if (req.query.year) {
+    where.push("p.year = ?");
+    params.push(req.query.year);
+  }
+  if (req.query.series) {
+    where.push("p.series = ?");
+    params.push(req.query.series);
+  }
+  if (req.query.search) {
+    where.push("(p.name LIKE ? OR p.tags LIKE ?)");
+    params.push(`%${req.query.search}%`, `%${req.query.search}%`);
+  }
+
+  if (req.query.chaser === "1") {
+    where.push("p.chaser >= 1");
+  } else if (req.query.chaser === "2") {
+    where.push("p.chaser = 2");
+  }
+
+  const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const total = db.prepare(`SELECT COUNT(*) as cnt FROM pins p ${whereClause}`).get(...params).cnt;
+  const totalPages = Math.ceil(total / limit);
+
+  // If logged in, order favorites first, then chasers, then created
+  let pins;
+  if (user) {
+    pins = db.prepare(`
+      SELECT p.*,
+        CASE WHEN f.pin_id IS NOT NULL THEN 1 ELSE 0 END AS is_favorite
+      FROM pins p
+      LEFT JOIN user_pin_favorites f ON f.pin_id = p.id AND f.user_id = ?
+      ${whereClause}
+      ORDER BY is_favorite DESC, p.chaser DESC, p.created DESC
+      LIMIT ? OFFSET ?
+    `).all(user.id, ...params, limit, offset);
+
+    const collected = db.prepare(
+      `SELECT pin_id FROM user_pin_collection WHERE user_id = ?`
+    ).all(user.id).reduce((set, r) => { set[r.pin_id] = true; return set; }, {});
+
+    for (const pin of pins) {
+      pin.collected = !!collected[pin.id];
+      pin.favorite = !!pin.is_favorite;
+      delete pin.is_favorite;
+    }
+  } else {
+    pins = db.prepare(`
+      SELECT p.* FROM pins p ${whereClause} ORDER BY p.chaser DESC, p.created DESC LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
+  }
+
+  res.json({ pins, page, totalPages, total });
+});
+
+// GET /api/pins/chasers — current year's chaser and super chaser pins
+app.get("/api/pins/chasers", (req, res) => {
+  const user = getUserFromToken(req);
+  const year = req.query.year || new Date().getFullYear().toString();
+
+  const pins = db.prepare(
+    "SELECT * FROM pins WHERE chaser >= 1 AND year = ? ORDER BY chaser DESC, created DESC"
+  ).all(year);
+
+  if (user) {
+    const collected = db.prepare(
+      "SELECT pin_id FROM user_pin_collection WHERE user_id = ?"
+    ).all(user.id).reduce((set, r) => { set[r.pin_id] = true; return set; }, {});
+    const favorites = db.prepare(
+      "SELECT pin_id FROM user_pin_favorites WHERE user_id = ?"
+    ).all(user.id).reduce((set, r) => { set[r.pin_id] = true; return set; }, {});
+    for (const pin of pins) {
+      pin.collected = !!collected[pin.id];
+      pin.favorite = !!favorites[pin.id];
+    }
+  }
+
+  res.json(pins);
+});
+
+// GET /api/pins/filters — available filter options
+app.get("/api/pins/filters", (req, res) => {
+  const years = db.prepare("SELECT DISTINCT year FROM pins WHERE year != '' ORDER BY year DESC").all().map(r => r.year);
+  const series = db.prepare("SELECT DISTINCT series FROM pins WHERE series != '' ORDER BY series").all().map(r => r.series);
+  res.json({ years, series });
+});
+
+// GET /api/pins/image/:filename — serve pin image
+app.get("/api/pins/image/:filename", (req, res) => {
+  const filePath = path.join(PINS_DIR, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
+  res.sendFile(filePath);
+});
+
+// GET /api/pins/thumbnail/:filename — serve pin thumbnail (200px)
+app.get("/api/pins/thumbnail/:filename", async (req, res) => {
+  const thumbDir = path.join(PINS_DIR, "thumbnails");
+  const thumbName = path.parse(req.params.filename).name + ".jpg";
+  const thumbPath = path.join(thumbDir, thumbName);
+
+  if (fs.existsSync(thumbPath)) return res.sendFile(thumbPath);
+
+  // Generate on the fly if missing
+  const srcPath = path.join(PINS_DIR, req.params.filename);
+  if (!fs.existsSync(srcPath)) return res.status(404).json({ error: "Not found" });
+
+  try {
+    fs.mkdirSync(thumbDir, { recursive: true });
+    await sharp(srcPath).resize(200, 200, { fit: "inside" }).jpeg({ quality: 80 }).toFile(thumbPath);
+    res.sendFile(thumbPath);
+  } catch (err) {
+    res.sendFile(srcPath); // fallback to full image
+  }
+});
+
+// POST /api/pins/:id/collect — mark a pin as collected
+app.post("/api/pins/:id/collect", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const pin = db.prepare("SELECT id FROM pins WHERE id = ?").get(req.params.id);
+  if (!pin) return res.status(404).json({ error: "Pin not found" });
+
+  db.prepare("INSERT OR IGNORE INTO user_pin_collection (user_id, pin_id) VALUES (?, ?)").run(user.id, req.params.id);
+  res.json({ ok: true, collected: true });
+});
+
+// DELETE /api/pins/:id/collect — un-collect a pin
+app.delete("/api/pins/:id/collect", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  db.prepare("DELETE FROM user_pin_collection WHERE user_id = ? AND pin_id = ?").run(user.id, req.params.id);
+  res.json({ ok: true, collected: false });
+});
+
+// GET /api/my/pins/stats — user's collection stats
+app.get("/api/my/pins/stats", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const totalPins = db.prepare("SELECT COUNT(*) as cnt FROM pins").get().cnt;
+  const collected = db.prepare("SELECT COUNT(*) as cnt FROM user_pin_collection WHERE user_id = ?").get(user.id).cnt;
+  res.json({ totalPins, collected, remaining: totalPins - collected });
+});
+
+// POST /api/pins/:id/favorite — mark a pin as favorite
+app.post("/api/pins/:id/favorite", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const pin = db.prepare("SELECT id FROM pins WHERE id = ?").get(req.params.id);
+  if (!pin) return res.status(404).json({ error: "Pin not found" });
+
+  db.prepare("INSERT OR IGNORE INTO user_pin_favorites (user_id, pin_id) VALUES (?, ?)").run(user.id, req.params.id);
+  res.json({ ok: true, favorite: true });
+});
+
+// DELETE /api/pins/:id/favorite — un-favorite a pin
+app.delete("/api/pins/:id/favorite", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  db.prepare("DELETE FROM user_pin_favorites WHERE user_id = ? AND pin_id = ?").run(user.id, req.params.id);
+  res.json({ ok: true, favorite: false });
+});
+
+// GET /api/my/pins/favorites — user's favorited pins
+app.get("/api/my/pins/favorites", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const pins = db.prepare(`
+    SELECT p.* FROM pins p
+    INNER JOIN user_pin_favorites f ON f.pin_id = p.id
+    WHERE f.user_id = ?
+    ORDER BY f.favorited_at DESC
+  `).all(user.id);
+
+  const collected = db.prepare(
+    "SELECT pin_id FROM user_pin_collection WHERE user_id = ?"
+  ).all(user.id).reduce((set, r) => { set[r.pin_id] = true; return set; }, {});
+
+  for (const pin of pins) {
+    pin.collected = !!collected[pin.id];
+    pin.favorite = true;
+  }
+
+  res.json(pins);
+});
+
+// ── ADMIN PIN ROUTES ──────────────────────────────────────
+
+// POST /api/admin/pins — upload a single pin
+app.post("/api/admin/pins", requireAdmin, pinUpload.single("image"), (req, res) => {
+  const { name, year, series, tags } = req.body;
+  const chaser = parseInt(req.body.chaser) || 0;
+  const obtain_source = req.body.obtain_source || "";
+  const obtain_notes = req.body.obtain_notes || "";
+  if (!name || !name.trim()) return res.status(400).json({ error: "Pin name is required" });
+
+  const id = `pin-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const image = req.file ? req.file.filename : "";
+
+  db.prepare("INSERT INTO pins (id, name, image, year, series, tags, chaser, obtain_source, obtain_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+    id, name.trim(), image, year || "", series || "", tags || "", chaser, obtain_source, obtain_notes
+  );
+
+  // Generate thumbnail if image was uploaded
+  if (req.file) {
+    const thumbDir = path.join(PINS_DIR, "thumbnails");
+    fs.mkdirSync(thumbDir, { recursive: true });
+    const thumbName = path.parse(req.file.filename).name + ".jpg";
+    sharp(req.file.path).resize(200, 200, { fit: "inside" }).jpeg({ quality: 80 }).toFile(path.join(thumbDir, thumbName)).catch(() => {});
+  }
+
+  res.json(db.prepare("SELECT * FROM pins WHERE id = ?").get(id));
+});
+
+// POST /api/admin/pins/bulk — upload multiple pins at once
+app.post("/api/admin/pins/bulk", requireAdmin, pinUpload.array("images", 50), (req, res) => {
+  const names = req.body.names ? (Array.isArray(req.body.names) ? req.body.names : [req.body.names]) : [];
+  const year = req.body.year || "";
+  const series = req.body.series || "";
+  const tags = req.body.tags || "";
+  const chaser = parseInt(req.body.chaser) || 0;
+  const obtain_source = req.body.obtain_source || "";
+  const obtain_notes = req.body.obtain_notes || "";
+  const files = req.files || [];
+
+  const results = [];
+  const thumbDir = path.join(PINS_DIR, "thumbnails");
+  fs.mkdirSync(thumbDir, { recursive: true });
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const pinName = (names[i] || path.parse(file.originalname).name).trim();
+    const id = `pin-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${i}`;
+
+    db.prepare("INSERT INTO pins (id, name, image, year, series, tags, chaser, obtain_source, obtain_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      id, pinName, file.filename, year, series, tags, chaser, obtain_source, obtain_notes
+    );
+
+    // Generate thumbnail
+    const thumbName = path.parse(file.filename).name + ".jpg";
+    sharp(file.path).resize(200, 200, { fit: "inside" }).jpeg({ quality: 80 }).toFile(path.join(thumbDir, thumbName)).catch(() => {});
+
+    results.push({ id, name: pinName, image: file.filename });
+  }
+
+  res.json({ uploaded: results.length, pins: results });
+});
+
+// PUT /api/admin/pins/:id — update pin metadata
+app.put("/api/admin/pins/:id", requireAdmin, (req, res) => {
+  const { name, year, series, tags } = req.body;
+  const chaser = req.body.chaser !== undefined ? (parseInt(req.body.chaser) || 0) : undefined;
+  const pin = db.prepare("SELECT * FROM pins WHERE id = ?").get(req.params.id);
+  if (!pin) return res.status(404).json({ error: "Pin not found" });
+
+  const obtain_source = req.body.obtain_source !== undefined ? req.body.obtain_source : pin.obtain_source;
+  const obtain_notes = req.body.obtain_notes !== undefined ? req.body.obtain_notes : pin.obtain_notes;
+
+  db.prepare("UPDATE pins SET name=?, year=?, series=?, tags=?, chaser=?, obtain_source=?, obtain_notes=? WHERE id=?").run(
+    name || pin.name, year ?? pin.year, series ?? pin.series, tags ?? pin.tags, chaser ?? pin.chaser, obtain_source, obtain_notes, req.params.id
+  );
+  res.json(db.prepare("SELECT * FROM pins WHERE id = ?").get(req.params.id));
+});
+
+// DELETE /api/admin/pins/:id — delete a pin
+app.delete("/api/admin/pins/:id", requireAdmin, (req, res) => {
+  const pin = db.prepare("SELECT * FROM pins WHERE id = ?").get(req.params.id);
+  if (pin && pin.image) {
+    const imgPath = path.join(PINS_DIR, pin.image);
+    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    const thumbPath = path.join(PINS_DIR, "thumbnails", path.parse(pin.image).name + ".jpg");
+    if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
+  }
+  db.prepare("DELETE FROM user_pin_collection WHERE pin_id = ?").run(req.params.id);
+  db.prepare("DELETE FROM user_pin_favorites WHERE pin_id = ?").run(req.params.id);
+  db.prepare("DELETE FROM pins WHERE id = ?").run(req.params.id);
+  res.json({ ok: true });
+});
+
+// GET /api/admin/pins — list all pins for admin (no pagination)
+app.get("/api/admin/pins", requireAdmin, (req, res) => {
+  const pins = db.prepare("SELECT * FROM pins ORDER BY created DESC").all();
+  const collectionCounts = db.prepare(
+    "SELECT pin_id, COUNT(*) as cnt FROM user_pin_collection GROUP BY pin_id"
+  ).all().reduce((map, r) => { map[r.pin_id] = r.cnt; return map; }, {});
+
+  for (const pin of pins) {
+    pin.collectors = collectionCounts[pin.id] || 0;
+  }
+  res.json(pins);
+});
+
+// POST /api/admin/pins/:id/image — replace a pin's image
+app.post("/api/admin/pins/:id/image", requireAdmin, pinUpload.single("image"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+
+  const pin = db.prepare("SELECT * FROM pins WHERE id = ?").get(req.params.id);
+  if (!pin) return res.status(404).json({ error: "Pin not found" });
+
+  // Delete old image
+  if (pin.image) {
+    const oldPath = path.join(PINS_DIR, pin.image);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    const oldThumb = path.join(PINS_DIR, "thumbnails", path.parse(pin.image).name + ".jpg");
+    if (fs.existsSync(oldThumb)) fs.unlinkSync(oldThumb);
+  }
+
+  db.prepare("UPDATE pins SET image = ? WHERE id = ?").run(req.file.filename, req.params.id);
+
+  // Generate thumbnail
+  const thumbDir = path.join(PINS_DIR, "thumbnails");
+  fs.mkdirSync(thumbDir, { recursive: true });
+  const thumbName = path.parse(req.file.filename).name + ".jpg";
+  sharp(req.file.path).resize(200, 200, { fit: "inside" }).jpeg({ quality: 80 }).toFile(path.join(thumbDir, thumbName)).catch(() => {});
+
+  res.json({ ok: true, image: req.file.filename });
 });
 
 // ── Start server ───────────────────────────────────────────

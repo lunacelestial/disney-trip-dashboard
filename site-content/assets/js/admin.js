@@ -170,6 +170,11 @@ async function renderAdminDashboard(user) {
         <h3>Collector Status</h3>
         <p>Wait time data health, last sample, and coverage.</p>
       </div>
+      <div class="info-card" style="cursor:pointer;" id="admin-nav-pins">
+        <p class="card-label">📌 Pin Collector</p>
+        <h3>Manage Pins</h3>
+        <p>Upload, tag, and organize trading pins.</p>
+      </div>
     </div>
 
     <div id="admin-section-content"></div>
@@ -185,6 +190,7 @@ async function renderAdminDashboard(user) {
   document.getElementById("admin-nav-venues").addEventListener("click", renderVenueManagement);
   document.getElementById("admin-nav-pending").addEventListener("click", renderPendingChanges);
   document.getElementById("admin-nav-pulse").addEventListener("click", renderParkPulseStatus);
+  document.getElementById("admin-nav-pins").addEventListener("click", renderPinManagement);
   if (document.getElementById("pending-alert-card")) {
     document.getElementById("pending-alert-card").addEventListener("click", renderPendingChanges);
   }
@@ -1880,6 +1886,427 @@ async function loadRideHistory() {
   } catch(e) {
     pulseError(area, "Could not load ride history: " + e.message);
   }
+}
+
+// ============================================================
+// PIN MANAGEMENT — Admin Section
+// ============================================================
+
+const PIN_OBTAIN_SOURCES = [
+  { slug: "park", label: "Parks (Open Edition)" },
+  { slug: "cast_trading", label: "Cast Member Trading" },
+  { slug: "hot_topic", label: "Hot Topic" },
+  { slug: "box_lunch", label: "BoxLunch" },
+  { slug: "disney_pin_blog", label: "Disney Pin Blog" },
+  { slug: "shop_disney", label: "shopDisney" },
+  { slug: "other", label: "Other" },
+];
+
+function renderObtainFields(idPrefix, sourceCsv = "", notes = "") {
+  const selected = new Set((sourceCsv || "").split(",").map(s => s.trim()).filter(Boolean));
+  const boxes = PIN_OBTAIN_SOURCES.map(src => `
+    <label style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.65rem; border:1.5px solid #d1d5db; border-radius:999px; background:#fff; font-size:0.8rem; font-weight:700; color:var(--slate); cursor:pointer;">
+      <input type="checkbox" class="${idPrefix}-obtain-src" value="${src.slug}" ${selected.has(src.slug) ? "checked" : ""} />
+      ${src.label}
+    </label>
+  `).join("");
+  const safeNotes = (notes || "").replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return `
+    <div class="wizard-field" style="margin-top:0.85rem; grid-column: 1 / -1;">
+      <label style="display:block; margin-bottom:0.4rem;">How to Obtain</label>
+      <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">${boxes}</div>
+    </div>
+    <div class="wizard-field" style="margin-top:0.6rem; grid-column: 1 / -1;">
+      <label for="${idPrefix}-obtain-notes">Obtain Notes (optional)</label>
+      <textarea id="${idPrefix}-obtain-notes" rows="2" placeholder="e.g. Released 6/2024, check pinpics #12345" style="width:100%; padding:0.55rem 0.75rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.9rem; resize:vertical;">${safeNotes}</textarea>
+    </div>
+  `;
+}
+
+function readObtainFields(idPrefix) {
+  const checks = document.querySelectorAll(`.${idPrefix}-obtain-src:checked`);
+  const sources = Array.from(checks).map(c => c.value).join(",");
+  const notesEl = document.getElementById(`${idPrefix}-obtain-notes`);
+  return { obtain_source: sources, obtain_notes: notesEl ? notesEl.value.trim() : "" };
+}
+
+async function renderPinManagement() {
+  const section = document.getElementById("admin-section-content");
+
+  section.innerHTML = `
+    <div class="wizard-step-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:0.75rem;">
+        <h3 style="margin:0;">📌 Pin Management</h3>
+        <div style="display:flex; gap:0.5rem;">
+          <button type="button" class="primary-button small-button" id="pin-add-single-btn">+ Add Pin</button>
+          <button type="button" class="secondary-button small-button" id="pin-bulk-upload-btn">📤 Bulk Upload</button>
+        </div>
+      </div>
+
+      <!-- Add Single Pin Form (hidden by default) -->
+      <div id="pin-add-form" style="display:none; margin-bottom:1.5rem; padding:1.25rem; background:#f8fafc; border-radius:14px; border:1.5px solid #e2e8f0;">
+        <h4 style="margin:0 0 1rem; font-size:1rem; font-family:'Nunito',sans-serif; font-weight:800; color:var(--castle-blue);">Add New Pin</h4>
+        <div class="wizard-form-grid">
+          <div class="wizard-field">
+            <label for="pin-name">Pin Name *</label>
+            <input type="text" id="pin-name" placeholder="Mickey Balloon Pin" />
+          </div>
+          <div class="wizard-field">
+            <label for="pin-year">Year</label>
+            <input type="text" id="pin-year" placeholder="2024" />
+          </div>
+          <div class="wizard-field">
+            <label for="pin-series">Series Name</label>
+            <input type="text" id="pin-series" placeholder="50th Anniversary" />
+          </div>
+          <div class="wizard-field">
+            <label for="pin-tags">Tags (comma-separated)</label>
+            <input type="text" id="pin-tags" placeholder="limited edition, mickey, balloon" />
+          </div>
+        </div>
+        <div style="display:flex; gap:1rem; margin-top:0.75rem; align-items:center; flex-wrap:wrap;">
+          <div class="wizard-field" style="flex:1; min-width:200px;">
+            <label for="pin-image">Pin Image</label>
+            <input type="file" id="pin-image" accept="image/*" style="font-size:0.9rem;" />
+          </div>
+          <div class="wizard-field" style="min-width:140px;">
+            <label for="pin-chaser">Rarity</label>
+            <select id="pin-chaser" style="padding:0.55rem 0.75rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.9rem;">
+              <option value="0">Standard</option>
+              <option value="1">Chaser</option>
+              <option value="2">Super Chaser</option>
+            </select>
+          </div>
+        </div>
+        ${renderObtainFields("pin")}
+        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+          <button type="button" class="primary-button small-button" id="pin-save-btn">Save Pin</button>
+          <button type="button" class="secondary-button small-button" id="pin-cancel-btn">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Bulk Upload Form (hidden by default) -->
+      <div id="pin-bulk-form" style="display:none; margin-bottom:1.5rem; padding:1.25rem; background:#f8fafc; border-radius:14px; border:1.5px solid #e2e8f0;">
+        <h4 style="margin:0 0 1rem; font-size:1rem; font-family:'Nunito',sans-serif; font-weight:800; color:var(--castle-blue);">Bulk Upload Pins</h4>
+        <p style="font-size:0.85rem; color:var(--muted); margin:0 0 1rem;">Upload up to 50 images at once. File names will be used as pin names (you can edit them later).</p>
+        <div class="wizard-form-grid">
+          <div class="wizard-field">
+            <label for="pin-bulk-year">Year (applies to all)</label>
+            <input type="text" id="pin-bulk-year" placeholder="2024" />
+          </div>
+          <div class="wizard-field">
+            <label for="pin-bulk-series">Series Name (applies to all)</label>
+            <input type="text" id="pin-bulk-series" placeholder="50th Anniversary" />
+          </div>
+          <div class="wizard-field">
+            <label for="pin-bulk-tags">Tags (applies to all)</label>
+            <input type="text" id="pin-bulk-tags" placeholder="limited edition" />
+          </div>
+        </div>
+        <div style="display:flex; gap:1rem; margin-top:0.75rem; align-items:center; flex-wrap:wrap;">
+          <div class="wizard-field" style="flex:1; min-width:200px;">
+            <label for="pin-bulk-images">Pin Images *</label>
+            <input type="file" id="pin-bulk-images" accept="image/*" multiple style="font-size:0.9rem;" />
+          </div>
+          <div class="wizard-field" style="min-width:140px;">
+            <label for="pin-bulk-chaser">Rarity</label>
+            <select id="pin-bulk-chaser" style="padding:0.55rem 0.75rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.9rem;">
+              <option value="0">Standard</option>
+              <option value="1">Chaser</option>
+              <option value="2">Super Chaser</option>
+            </select>
+          </div>
+        </div>
+        ${renderObtainFields("pin-bulk")}
+        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+          <button type="button" class="primary-button small-button" id="pin-bulk-save-btn">Upload All</button>
+          <button type="button" class="secondary-button small-button" id="pin-bulk-cancel-btn">Cancel</button>
+        </div>
+        <div id="pin-bulk-progress" style="display:none; margin-top:0.75rem; font-size:0.85rem; color:var(--castle-blue); font-weight:700;"></div>
+      </div>
+
+      <!-- Pin List -->
+      <div id="pin-admin-list">
+        <div style="text-align:center; padding:2rem; color:var(--muted);">Loading pins...</div>
+      </div>
+    </div>
+  `;
+
+  // Toggle forms
+  document.getElementById("pin-add-single-btn").addEventListener("click", () => {
+    document.getElementById("pin-add-form").style.display = document.getElementById("pin-add-form").style.display === "none" ? "block" : "none";
+    document.getElementById("pin-bulk-form").style.display = "none";
+  });
+  document.getElementById("pin-bulk-upload-btn").addEventListener("click", () => {
+    document.getElementById("pin-bulk-form").style.display = document.getElementById("pin-bulk-form").style.display === "none" ? "block" : "none";
+    document.getElementById("pin-add-form").style.display = "none";
+  });
+  document.getElementById("pin-cancel-btn").addEventListener("click", () => {
+    document.getElementById("pin-add-form").style.display = "none";
+  });
+  document.getElementById("pin-bulk-cancel-btn").addEventListener("click", () => {
+    document.getElementById("pin-bulk-form").style.display = "none";
+  });
+
+  // Save single pin
+  document.getElementById("pin-save-btn").addEventListener("click", async () => {
+    const name = document.getElementById("pin-name").value.trim();
+    if (!name) return alert("Pin name is required");
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("year", document.getElementById("pin-year").value.trim());
+    formData.append("series", document.getElementById("pin-series").value.trim());
+    formData.append("tags", document.getElementById("pin-tags").value.trim());
+    formData.append("chaser", document.getElementById("pin-chaser").value);
+    const obtain = readObtainFields("pin");
+    formData.append("obtain_source", obtain.obtain_source);
+    formData.append("obtain_notes", obtain.obtain_notes);
+
+    const fileInput = document.getElementById("pin-image");
+    if (fileInput.files[0]) formData.append("image", fileInput.files[0]);
+
+    try {
+      const token = getAuthToken();
+      const res = await fetch("/api/admin/pins", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+
+      document.getElementById("pin-add-form").style.display = "none";
+      document.getElementById("pin-name").value = "";
+      document.getElementById("pin-year").value = "";
+      document.getElementById("pin-series").value = "";
+      document.getElementById("pin-tags").value = "";
+      fileInput.value = "";
+      await loadAdminPinList();
+    } catch (e) {
+      alert("Failed to add pin: " + e.message);
+    }
+  });
+
+  // Bulk upload
+  document.getElementById("pin-bulk-save-btn").addEventListener("click", async () => {
+    const fileInput = document.getElementById("pin-bulk-images");
+    if (!fileInput.files.length) return alert("Select at least one image");
+
+    const progress = document.getElementById("pin-bulk-progress");
+    progress.style.display = "block";
+    progress.textContent = `Uploading ${fileInput.files.length} pin(s)...`;
+
+    const formData = new FormData();
+    formData.append("year", document.getElementById("pin-bulk-year").value.trim());
+    formData.append("series", document.getElementById("pin-bulk-series").value.trim());
+    formData.append("tags", document.getElementById("pin-bulk-tags").value.trim());
+    formData.append("chaser", document.getElementById("pin-bulk-chaser").value);
+    const bulkObtain = readObtainFields("pin-bulk");
+    formData.append("obtain_source", bulkObtain.obtain_source);
+    formData.append("obtain_notes", bulkObtain.obtain_notes);
+
+    for (const file of fileInput.files) {
+      formData.append("images", file);
+    }
+
+    try {
+      const token = getAuthToken();
+      const res = await fetch("/api/admin/pins/bulk", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+
+      const result = await res.json();
+      progress.textContent = `Successfully uploaded ${result.uploaded} pin(s)!`;
+      progress.style.color = "#16a34a";
+
+      setTimeout(() => {
+        document.getElementById("pin-bulk-form").style.display = "none";
+        progress.style.display = "none";
+        progress.style.color = "var(--castle-blue)";
+      }, 2000);
+
+      fileInput.value = "";
+      await loadAdminPinList();
+    } catch (e) {
+      progress.textContent = "Upload failed: " + e.message;
+      progress.style.color = "#dc2626";
+    }
+  });
+
+  await loadAdminPinList();
+}
+
+async function loadAdminPinList() {
+  const list = document.getElementById("pin-admin-list");
+  if (!list) return;
+
+  try {
+    const pins = await adminFetch("/admin/pins");
+
+    if (pins.length === 0) {
+      list.innerHTML = `
+        <div style="text-align:center; padding:2rem; color:var(--muted);">
+          <p style="font-size:2rem;">📌</p>
+          <p>No pins yet. Click <strong>+ Add Pin</strong> or <strong>Bulk Upload</strong> to get started.</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = `
+      <p style="font-size:0.8rem; color:var(--muted); margin-bottom:0.75rem;">${pins.length} pin(s) total</p>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        ${pins.map(pin => `
+          <div class="pin-admin-row" style="display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0.85rem; border:1px solid #e2e8f0; border-radius:10px; background:white;">
+            <div style="width:48px; height:48px; border-radius:8px; overflow:hidden; flex-shrink:0; background:#f1f5f9;">
+              ${pin.image
+                ? `<img src="/api/pins/thumbnail/${pin.image}" style="width:100%; height:100%; object-fit:cover;" />`
+                : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:1.5rem;">📌</div>`
+              }
+            </div>
+            <div style="flex:1; min-width:0;">
+              <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pin.name}</strong>
+              <span style="font-size:0.75rem; color:var(--muted);">
+                ${pin.chaser === 2 ? '<span style="background:#ffe4e6; color:#9f1239; padding:0.1rem 0.4rem; border-radius:4px; font-weight:800; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.3rem;">Super Chaser</span>' : pin.chaser === 1 ? '<span style="background:#fef3c7; color:#92400e; padding:0.1rem 0.4rem; border-radius:4px; font-weight:800; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.3rem;">Chaser</span>' : ""}
+                ${[pin.year, pin.series].filter(Boolean).join(" · ") || "No tags"}
+                ${pin.collectors > 0 ? ` · ${pin.collectors} collector(s)` : ""}
+              </span>
+            </div>
+            <div style="display:flex; gap:0.3rem; flex-shrink:0;">
+              <button type="button" class="pin-edit-btn" data-id="${pin.id}" style="background:none; border:1px solid #d1d5db; cursor:pointer; font-size:0.72rem; font-weight:700; padding:0.2rem 0.55rem; border-radius:6px; font-family:'Nunito',sans-serif; color:var(--slate);">Edit</button>
+              <button type="button" class="pin-delete-btn" data-id="${pin.id}" style="background:none; border:none; cursor:pointer; color:#94a3b8; font-size:1.1rem;">✕</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+
+    // Delete handlers
+    list.querySelectorAll(".pin-delete-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Delete this pin? This cannot be undone.")) return;
+        try {
+          await adminFetch(`/admin/pins/${btn.dataset.id}`, { method: "DELETE" });
+          await loadAdminPinList();
+        } catch (e) {
+          alert("Delete failed: " + e.message);
+        }
+      });
+    });
+
+    // Edit handlers
+    list.querySelectorAll(".pin-edit-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const pin = pins.find(p => p.id === btn.dataset.id);
+        if (pin) openPinEditForm(pin);
+      });
+    });
+  } catch (e) {
+    list.innerHTML = `<p style="color:var(--magic-red); text-align:center;">Failed to load pins: ${e.message}</p>`;
+  }
+}
+
+function openPinEditForm(pin) {
+  const section = document.getElementById("admin-section-content");
+  const existing = document.getElementById("pin-edit-overlay");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "pin-edit-overlay";
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(10,15,40,0.65); backdrop-filter:blur(6px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:1rem;";
+
+  overlay.innerHTML = `
+    <div style="background:var(--cream); border-radius:24px; width:min(500px,100%); max-height:90vh; overflow-y:auto; box-shadow:0 32px 80px rgba(0,48,135,0.25); border:1.5px solid rgba(255,255,255,0.9); padding:1.75rem; position:relative; box-sizing:border-box;">
+      <button id="pin-edit-close" style="position:absolute; top:1rem; right:1rem; width:36px; height:36px; border-radius:50%; border:none; background:rgba(0,0,0,0.08); cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center;">✕</button>
+      <h3 style="margin:0 0 1.25rem; font-family:'Mouse Memoirs',sans-serif; font-size:1.6rem; color:var(--castle-blue);">Edit Pin</h3>
+      <div class="wizard-form-grid">
+        <div class="wizard-field">
+          <label>Pin Name</label>
+          <input type="text" id="pin-edit-name" value="${pin.name.replace(/"/g, '&quot;')}" />
+        </div>
+        <div class="wizard-field">
+          <label>Year</label>
+          <input type="text" id="pin-edit-year" value="${pin.year || ""}" />
+        </div>
+        <div class="wizard-field">
+          <label>Series</label>
+          <input type="text" id="pin-edit-series" value="${pin.series || ""}" />
+        </div>
+        <div class="wizard-field">
+          <label>Tags</label>
+          <input type="text" id="pin-edit-tags" value="${(pin.tags || "").replace(/"/g, '&quot;')}" />
+        </div>
+      </div>
+      <div style="display:flex; gap:1rem; margin-top:0.75rem; align-items:center; flex-wrap:wrap;">
+        <div class="wizard-field" style="flex:1; min-width:200px;">
+          <label>Replace Image</label>
+          <input type="file" id="pin-edit-image" accept="image/*" style="font-size:0.9rem;" />
+        </div>
+        <div class="wizard-field" style="min-width:140px;">
+          <label>Rarity</label>
+          <select id="pin-edit-chaser" style="padding:0.55rem 0.75rem; border-radius:10px; border:1.5px solid #d1d5db; font-family:'Nunito',sans-serif; font-size:0.9rem;">
+            <option value="0" ${pin.chaser === 0 ? "selected" : ""}>Standard</option>
+            <option value="1" ${pin.chaser === 1 ? "selected" : ""}>Chaser</option>
+            <option value="2" ${pin.chaser === 2 ? "selected" : ""}>Super Chaser</option>
+          </select>
+        </div>
+      </div>
+      <div class="wizard-form-grid" style="margin-top:0.75rem;">
+        ${renderObtainFields("pin-edit", pin.obtain_source, pin.obtain_notes)}
+      </div>
+      <div style="display:flex; gap:0.5rem; margin-top:1.25rem;">
+        <button type="button" class="primary-button" id="pin-edit-save">Save Changes</button>
+        <button type="button" class="secondary-button" id="pin-edit-cancel">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  document.getElementById("pin-edit-close").addEventListener("click", close);
+  document.getElementById("pin-edit-cancel").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+  document.getElementById("pin-edit-save").addEventListener("click", async () => {
+    try {
+      // Update metadata
+      const editObtain = readObtainFields("pin-edit");
+      await adminFetch(`/admin/pins/${pin.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: document.getElementById("pin-edit-name").value.trim(),
+          year: document.getElementById("pin-edit-year").value.trim(),
+          series: document.getElementById("pin-edit-series").value.trim(),
+          tags: document.getElementById("pin-edit-tags").value.trim(),
+          chaser: parseInt(document.getElementById("pin-edit-chaser").value) || 0,
+          obtain_source: editObtain.obtain_source,
+          obtain_notes: editObtain.obtain_notes,
+        }),
+      });
+
+      // Replace image if selected
+      const imageFile = document.getElementById("pin-edit-image").files[0];
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append("image", imageFile);
+        const token = getAuthToken();
+        await fetch(`/api/admin/pins/${pin.id}/image`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+          body: formData,
+        });
+      }
+
+      close();
+      await loadAdminPinList();
+    } catch (e) {
+      alert("Save failed: " + e.message);
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", initAdmin);

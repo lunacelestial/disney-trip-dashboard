@@ -497,6 +497,7 @@ function renderNormalDashboard() {
   renderDashboardBudgetCard();
   renderDashboardWishlistCard();
   renderWaitTimesCard();
+  renderChaserSpotlight();
   startDashboardAutoRefresh();
 
   const dashList = document.getElementById("dashboard-itinerary-list");
@@ -1134,4 +1135,184 @@ function openAddRideModal(ride, dateStr) {
     // Refresh the dashboard itinerary section
     if (typeof renderDashboardItinerary === "function") renderDashboardItinerary();
   });
+}
+
+// ── Chaser Pin Spotlight ──────────────────────────────────────
+// Rotates through current-year Chaser and Super Chaser pins.
+
+async function renderChaserSpotlight() {
+  const section = document.getElementById("chaser-spotlight-section");
+  if (!section) return;
+
+  let chasers = [];
+  let favorites = [];
+  try {
+    chasers = await apiFetch("/pins/chasers");
+  } catch (e) {
+    return; // silently hide if API unavailable
+  }
+  try {
+    favorites = await apiFetch("/my/pins/favorites");
+  } catch (e) {
+    favorites = []; // not logged in or none — fine
+  }
+
+  // Merge: favorites first, then chasers, deduped by id
+  const seen = new Set();
+  const pins = [];
+  for (const p of (favorites || [])) {
+    if (!seen.has(p.id)) { seen.add(p.id); pins.push({ ...p, favorite: true }); }
+  }
+  for (const p of (chasers || [])) {
+    if (!seen.has(p.id)) { seen.add(p.id); pins.push(p); }
+  }
+
+  if (pins.length === 0) return;
+
+  section.style.display = "";
+
+  const year = new Date().getFullYear();
+  const hasFavorites = favorites && favorites.length > 0;
+  const label = hasFavorites ? "Pin Spotlight" : "Chaser Spotlight";
+  const title = hasFavorites ? "Your Pins" : `${year} Chaser Pins`;
+
+  // Build tile markup for a pin
+  const tileHtml = (pin) => {
+    const badge = pin.favorite
+      ? `<span class="pin-marquee-badge favorite"><i class="ph-fill ph-star"></i></span>`
+      : pin.chaser === 2
+        ? `<span class="pin-marquee-badge super">Super</span>`
+        : pin.chaser === 1
+          ? `<span class="pin-marquee-badge">Chaser</span>`
+          : "";
+    const img = pin.image
+      ? `<img src="/api/pins/thumbnail/${pin.image}" alt="${escapeHtml(pin.name)}" class="pin-marquee-img" loading="lazy" />`
+      : `<div class="pin-marquee-placeholder">📌</div>`;
+    return `
+      <a class="pin-marquee-tile ${pin.collected ? "collected" : ""}" href="pins.html">
+        <div class="pin-marquee-img-wrap">
+          ${img}
+          ${badge}
+          ${pin.collected ? '<span class="pin-marquee-check"><i class="ph-bold ph-check"></i></span>' : ""}
+        </div>
+        <p class="pin-marquee-name" title="${escapeHtml(pin.name)}">${escapeHtml(pin.name)}</p>
+      </a>
+    `;
+  };
+
+  // Duplicate the list so the animation can loop seamlessly
+  const tilesHtml = pins.map(tileHtml).join("");
+
+  section.innerHTML = `
+    <div class="chaser-spotlight-card">
+      <div class="chaser-spotlight-header">
+        <div>
+          <p class="card-label"><i class="ph-bold ph-push-pin"></i> ${label}</p>
+          <h2 class="section-title">${title}</h2>
+        </div>
+        <a href="pins.html" class="secondary-button small-button" style="text-decoration:none;">View All Pins</a>
+      </div>
+      <div class="pin-marquee" id="pin-marquee" data-count="${pins.length}">
+        <div class="pin-marquee-track">
+          ${tilesHtml}
+          ${pins.length > 1 ? tilesHtml : ""}
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (pins.length > 1) initPinMarquee(section.querySelector(".pin-marquee"));
+}
+
+// Auto-scroll + drag-to-scroll for the dashboard pin marquee
+function initPinMarquee(marquee) {
+  if (!marquee) return;
+
+  const SPEED_PX_PER_SEC = 30; // gentle left-to-right drift
+  const RESUME_DELAY_MS = 1500;
+
+  let rafId = null;
+  let lastTs = 0;
+  let paused = false;
+  let resumeTimer = null;
+
+  // Half of scrollWidth is where the duplicated content starts — looping point
+  const halfWidth = () => marquee.scrollWidth / 2;
+
+  function step(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+
+    if (!paused) {
+      marquee.scrollLeft += SPEED_PX_PER_SEC * dt;
+      const hw = halfWidth();
+      if (marquee.scrollLeft >= hw) marquee.scrollLeft -= hw;
+    }
+    rafId = requestAnimationFrame(step);
+  }
+
+  function pause() {
+    paused = true;
+    if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null; }
+  }
+  function resumeSoon() {
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(() => { paused = false; lastTs = 0; }, RESUME_DELAY_MS);
+  }
+
+  marquee.addEventListener("mouseenter", pause);
+  marquee.addEventListener("mouseleave", () => { resumeSoon(); });
+
+  // Normalize scrollLeft on any manual scroll so the loop never exposes empty space
+  marquee.addEventListener("scroll", () => {
+    const hw = halfWidth();
+    if (marquee.scrollLeft >= hw) marquee.scrollLeft -= hw;
+    else if (marquee.scrollLeft < 0) marquee.scrollLeft += hw;
+  }, { passive: true });
+
+  // ── Mouse drag-to-scroll ────────────────────────────────
+  let isDown = false;
+  let startX = 0;
+  let startScroll = 0;
+  let dragMoved = false;
+
+  marquee.addEventListener("mousedown", (e) => {
+    isDown = true;
+    dragMoved = false;
+    startX = e.pageX;
+    startScroll = marquee.scrollLeft;
+    pause();
+    marquee.classList.add("is-dragging");
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isDown) return;
+    const dx = e.pageX - startX;
+    if (Math.abs(dx) > 3) dragMoved = true;
+    marquee.scrollLeft = startScroll - dx;
+  });
+  const endDrag = () => {
+    if (!isDown) return;
+    isDown = false;
+    marquee.classList.remove("is-dragging");
+    resumeSoon();
+  };
+  window.addEventListener("mouseup", endDrag);
+  window.addEventListener("mouseleave", endDrag);
+
+  // Swallow tile click right after a drag so users don't accidentally navigate
+  marquee.addEventListener("click", (e) => {
+    if (dragMoved) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragMoved = false;
+    }
+  }, true);
+
+  // ── Touch: native pan-x scroll handles the motion ───────
+  marquee.addEventListener("touchstart", () => { pause(); }, { passive: true });
+  marquee.addEventListener("touchend",   () => { resumeSoon(); }, { passive: true });
+  marquee.addEventListener("touchcancel",() => { resumeSoon(); }, { passive: true });
+
+  rafId = requestAnimationFrame(step);
 }
