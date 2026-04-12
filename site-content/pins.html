@@ -45,15 +45,17 @@
       <img src="assets/images/minnie-mouse-pose1.png" class="character-img minnie" alt="Minnie Mouse" />
     </div>
 
-    <!-- Nav -->
-    <nav class="nav-pill" id="nav-pill">
-      <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation">
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-      </button>
-      <div class="nav-ticket-tray" id="nav-ticket-tray"></div>
-    </nav>
+    <!-- Hamburger Nav Pill -->
+    <div class="nav-pill" id="nav-pill" role="button" tabindex="0" aria-label="Toggle navigation menu">
+      <div class="nav-pill-hamburger">
+        <span></span><span></span><span></span>
+      </div>
+      <span class="nav-pill-label">Pins</span>
+    </div>
+    <!-- E-Ticket Nav Tray — populated by renderNav() in header.js -->
+    <div class="nav-ticket-tray" id="nav-ticket-tray">
+      <div class="nav-ticket-scroll hide-scrollbar"></div>
+    </div>
   </div>
 </header>
 
