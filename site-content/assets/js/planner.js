@@ -1548,6 +1548,8 @@ async function handleSaveTrip() {
           food: 0,
           extras: 0,
           souvenirs: 0,
+          resort_type: plannerState.resortType || "disney",
+          resort_name: plannerState.resortName || "",
         }),
       });
       console.log(`[Planner] Created trip budget entry: ${budgetTripId}`);

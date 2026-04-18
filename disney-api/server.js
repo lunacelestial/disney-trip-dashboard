@@ -34,6 +34,7 @@ const WISHLIST_DIR = path.join(STORAGE_ROOT, "wishlist");
 const VENUES_DIR = path.join(STORAGE_ROOT, "venues");
 const AVATARS_DIR = path.join(STORAGE_ROOT, "avatars");
 const PINS_DIR = path.join(STORAGE_ROOT, "pins");
+const USER_PIN_PHOTOS_DIR = path.join(PINS_DIR, "user-photos");
 
 // Ensure directories exist
 fs.mkdirSync(PHOTOS_DIR, { recursive: true });
@@ -41,6 +42,7 @@ fs.mkdirSync(WISHLIST_DIR, { recursive: true });
 fs.mkdirSync(VENUES_DIR, { recursive: true });
 fs.mkdirSync(AVATARS_DIR, { recursive: true });
 fs.mkdirSync(PINS_DIR, { recursive: true });
+fs.mkdirSync(USER_PIN_PHOTOS_DIR, { recursive: true });
 
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors());
@@ -179,8 +181,20 @@ db.exec(`
     food        REAL NOT NULL DEFAULT 0,
     extras      REAL NOT NULL DEFAULT 0,
     souvenirs   REAL NOT NULL DEFAULT 0,
+    resort_type TEXT NOT NULL DEFAULT 'disney',
+    resort_name TEXT NOT NULL DEFAULT '',
     created     TEXT DEFAULT (datetime('now')),
     updated     TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS trip_alert_dismissals (
+    trip_id      TEXT NOT NULL,
+    user_id      TEXT NOT NULL,
+    alert_key    TEXT NOT NULL,
+    dismissed_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (trip_id, user_id, alert_key),
+    FOREIGN KEY (trip_id) REFERENCES trip_budgets(trip_id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
   CREATE TABLE IF NOT EXISTS trip_members (
@@ -260,6 +274,18 @@ db.exec(`
     category    TEXT DEFAULT 'General',
     created     TEXT DEFAULT (datetime('now')),
     updated     TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (trip_id) REFERENCES trip_budgets(trip_id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS trip_steps (
+    trip_id     TEXT NOT NULL,
+    user_id     TEXT NOT NULL,
+    date        TEXT NOT NULL,
+    steps       INTEGER NOT NULL,
+    created     TEXT DEFAULT (datetime('now')),
+    updated     TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (trip_id, user_id, date),
     FOREIGN KEY (trip_id) REFERENCES trip_budgets(trip_id),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
@@ -357,6 +383,16 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (pin_id) REFERENCES pins(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS user_pin_photos (
+    user_id     TEXT NOT NULL,
+    pin_id      TEXT NOT NULL,
+    filename    TEXT NOT NULL,
+    uploaded_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, pin_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (pin_id) REFERENCES pins(id) ON DELETE CASCADE
+  );
 `);
 
 // Migrations
@@ -374,6 +410,9 @@ try { db.exec("ALTER TABLE wishlist ADD COLUMN url TEXT DEFAULT ''"); } catch (e
 try { db.exec("ALTER TABLE wishlist ADD COLUMN image TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN added_by TEXT DEFAULT ''"); } catch (e) { }
 try { db.exec("ALTER TABLE wishlist ADD COLUMN added_by_name TEXT DEFAULT ''"); } catch (e) { }
+
+try { db.exec("ALTER TABLE trip_budgets ADD COLUMN resort_type TEXT NOT NULL DEFAULT 'disney'"); } catch (e) { }
+try { db.exec("ALTER TABLE trip_budgets ADD COLUMN resort_name TEXT NOT NULL DEFAULT ''"); } catch (e) { }
 
 // Avatar column on users table
 try { db.exec("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT ''"); } catch (e) { }
@@ -548,11 +587,13 @@ const stmts = {
   getAllTripBudgets:  db.prepare("SELECT * FROM trip_budgets ORDER BY start_date DESC"),
   getTripBudget:     db.prepare("SELECT * FROM trip_budgets WHERE trip_id = ?"),
   upsertTripBudget:  db.prepare(`
-    INSERT INTO trip_budgets (trip_id, label, start_date, end_date, hotel, food, extras, souvenirs, updated)
-    VALUES (@trip_id, @label, @start_date, @end_date, @hotel, @food, @extras, @souvenirs, datetime('now'))
+    INSERT INTO trip_budgets (trip_id, label, start_date, end_date, hotel, food, extras, souvenirs, resort_type, resort_name, updated)
+    VALUES (@trip_id, @label, @start_date, @end_date, @hotel, @food, @extras, @souvenirs, @resort_type, @resort_name, datetime('now'))
     ON CONFLICT(trip_id) DO UPDATE SET
       label=excluded.label, hotel=excluded.hotel, food=excluded.food,
-      extras=excluded.extras, souvenirs=excluded.souvenirs, updated=datetime('now')
+      extras=excluded.extras, souvenirs=excluded.souvenirs,
+      resort_type=excluded.resort_type, resort_name=excluded.resort_name,
+      updated=datetime('now')
   `),
   deleteTripBudget:  db.prepare("DELETE FROM trip_budgets WHERE trip_id = ?"),
 
@@ -649,6 +690,10 @@ const stmts = {
   `),
   acknowledgTrip:         db.prepare("INSERT OR IGNORE INTO trip_acknowledged (trip_id, user_id) VALUES (?, ?)"),
 
+  // Per-user dismissals for countdown alerts (dining @ 60d, lightning lane @ 7d, etc.)
+  getAlertDismissals:    db.prepare("SELECT alert_key FROM trip_alert_dismissals WHERE trip_id = ? AND user_id = ?"),
+  dismissAlert:          db.prepare("INSERT OR IGNORE INTO trip_alert_dismissals (trip_id, user_id, alert_key) VALUES (?, ?, ?)"),
+
   // Budget Contributions (pre-trip savings)
   getContributionsByTripAndUser: db.prepare("SELECT * FROM budget_contributions WHERE trip_id = ? AND user_id = ? ORDER BY created DESC"),
   getContributionsByTrip:        db.prepare("SELECT * FROM budget_contributions WHERE trip_id = ? ORDER BY created DESC"),
@@ -661,6 +706,19 @@ const stmts = {
 
   // Confirm user budget (flip from saving mode to spending mode)
   confirmUserBudget:             db.prepare("UPDATE user_budgets SET confirmed = 1, updated = datetime('now') WHERE trip_id = ? AND user_id = ?"),
+
+  // Step Counts (pre-trip conditioning + per-day trip logging)
+  getStepsByTrip:       db.prepare("SELECT * FROM trip_steps WHERE trip_id = ? ORDER BY date, user_id"),
+  getStepsByTripAndDate: db.prepare("SELECT * FROM trip_steps WHERE trip_id = ? AND date = ?"),
+  getStepsByUserAndTrip: db.prepare("SELECT * FROM trip_steps WHERE trip_id = ? AND user_id = ? ORDER BY date"),
+  upsertSteps:          db.prepare(`
+    INSERT INTO trip_steps (trip_id, user_id, date, steps)
+    VALUES (@trip_id, @user_id, @date, @steps)
+    ON CONFLICT(trip_id, user_id, date) DO UPDATE SET
+      steps = excluded.steps,
+      updated = datetime('now')
+  `),
+  deleteStepsByTrip:    db.prepare("DELETE FROM trip_steps WHERE trip_id = ?"),
 
   // Packing List
   getPackingItems:      db.prepare("SELECT * FROM packing_items WHERE trip_id = ? AND user_id = ? ORDER BY category, created"),
@@ -1005,10 +1063,15 @@ app.get("/api/trip-budgets/:trip_id", (req, res) => {
 
 // PUT /api/trip-budgets/:trip_id — create or update a trip budget
 app.put("/api/trip-budgets/:trip_id", (req, res) => {
-  const { label, start_date, end_date, hotel, food, extras, souvenirs } = req.body;
+  const { label, start_date, end_date, hotel, food, extras, souvenirs, resort_type, resort_name } = req.body;
   if (!label || !start_date || !end_date) {
     return res.status(400).json({ error: "label, start_date, end_date required" });
   }
+  // Preserve existing resort fields if caller didn't send them
+  const existing = stmts.getTripBudget.get(req.params.trip_id);
+  const finalResortType = resort_type !== undefined ? resort_type : (existing ? existing.resort_type : "disney");
+  const finalResortName = resort_name !== undefined ? resort_name : (existing ? existing.resort_name : "");
+
   stmts.upsertTripBudget.run({
     trip_id:    req.params.trip_id,
     label,
@@ -1018,6 +1081,8 @@ app.put("/api/trip-budgets/:trip_id", (req, res) => {
     food:       food || 0,
     extras:     extras || 0,
     souvenirs:  souvenirs || 0,
+    resort_type: finalResortType || "disney",
+    resort_name: finalResortName || "",
   });
   const tb = stmts.getTripBudget.get(req.params.trip_id);
   const transactions = stmts.getTransactionsByTrip.all(req.params.trip_id);
@@ -1755,6 +1820,24 @@ app.post("/api/trips/:tripId/acknowledge", (req, res) => {
   res.json({ ok: true });
 });
 
+// ── TRIP ALERT DISMISSAL ROUTES ───────────────────────────
+
+app.get("/api/trips/:tripId/alert-dismissals", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const rows = stmts.getAlertDismissals.all(req.params.tripId, user.id);
+  res.json({ dismissed: rows.map(r => r.alert_key) });
+});
+
+app.post("/api/trips/:tripId/alert-dismissals", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const { alert_key } = req.body;
+  if (!alert_key) return res.status(400).json({ error: "alert_key required" });
+  stmts.dismissAlert.run(req.params.tripId, user.id, alert_key);
+  res.json({ ok: true });
+});
+
 // ── BUDGET CONTRIBUTION ROUTES ────────────────────────────
 
 app.get("/api/trips/:tripId/my-contributions", (req, res) => {
@@ -1799,6 +1882,47 @@ app.post("/api/trips/:tripId/confirm-budget", (req, res) => {
 
   const ub = stmts.getUserBudget.get(req.params.tripId, user.id);
   res.json({ ok: true, confirmed: true, budget: ub });
+});
+
+// ── STEP COUNT ROUTES ─────────────────────────────────────
+
+app.get("/api/trips/:tripId/steps", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  const date = req.query.date;
+  const rows = date
+    ? stmts.getStepsByTripAndDate.all(req.params.tripId, date)
+    : stmts.getStepsByTrip.all(req.params.tripId);
+  res.json(rows);
+});
+
+app.get("/api/trips/:tripId/steps/all", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+  res.json(stmts.getStepsByTrip.all(req.params.tripId));
+});
+
+app.post("/api/trips/:tripId/steps", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const { user_id, date, steps } = req.body;
+  const targetUser = user_id || user.id;
+  const dateStr = date || new Date().toISOString().split("T")[0];
+  const stepCount = Number(steps);
+
+  if (!Number.isFinite(stepCount) || stepCount < 0) {
+    return res.status(400).json({ error: "Steps must be a non-negative number" });
+  }
+
+  stmts.upsertSteps.run({
+    trip_id: req.params.tripId,
+    user_id: targetUser,
+    date:    dateStr,
+    steps:   Math.round(stepCount),
+  });
+
+  res.json({ ok: true, trip_id: req.params.tripId, user_id: targetUser, date: dateStr, steps: Math.round(stepCount) });
 });
 
 // ── PHOTO ROUTES ──────────────────────────────────────────
@@ -3059,6 +3183,25 @@ const pinUpload = multer({
   },
 });
 
+// Per-user uploads of their own pin photos — private to the uploader.
+const userPinPhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      fs.mkdirSync(USER_PIN_PHOTOS_DIR, { recursive: true });
+      cb(null, USER_PIN_PHOTOS_DIR);
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      const name = `userpin-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+      cb(null, name);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    cb(null, /^image\//i.test(file.mimetype) || file.mimetype === "application/octet-stream");
+  },
+});
+
 // GET /api/pins — paginated, filterable list of all pins
 app.get("/api/pins", (req, res) => {
   const user = getUserFromToken(req);
@@ -3110,9 +3253,14 @@ app.get("/api/pins", (req, res) => {
       `SELECT pin_id FROM user_pin_collection WHERE user_id = ?`
     ).all(user.id).reduce((set, r) => { set[r.pin_id] = true; return set; }, {});
 
+    const userPhotos = db.prepare(
+      `SELECT pin_id, filename FROM user_pin_photos WHERE user_id = ?`
+    ).all(user.id).reduce((m, r) => { m[r.pin_id] = r.filename; return m; }, {});
+
     for (const pin of pins) {
       pin.collected = !!collected[pin.id];
       pin.favorite = !!pin.is_favorite;
+      pin.user_image = userPhotos[pin.id] || null;
       delete pin.is_favorite;
     }
   } else {
@@ -3140,9 +3288,13 @@ app.get("/api/pins/chasers", (req, res) => {
     const favorites = db.prepare(
       "SELECT pin_id FROM user_pin_favorites WHERE user_id = ?"
     ).all(user.id).reduce((set, r) => { set[r.pin_id] = true; return set; }, {});
+    const userPhotos = db.prepare(
+      "SELECT pin_id, filename FROM user_pin_photos WHERE user_id = ?"
+    ).all(user.id).reduce((m, r) => { m[r.pin_id] = r.filename; return m; }, {});
     for (const pin of pins) {
       pin.collected = !!collected[pin.id];
       pin.favorite = !!favorites[pin.id];
+      pin.user_image = userPhotos[pin.id] || null;
     }
   }
 
@@ -3258,6 +3410,90 @@ app.get("/api/my/pins/favorites", (req, res) => {
   }
 
   res.json(pins);
+});
+
+// ── USER PIN PHOTO ROUTES ─────────────────────────────────
+// Each user can upload one personal photo per pin. Only the
+// uploader sees their photo; everyone else sees the admin image.
+
+// POST /api/pins/:id/my-photo — upload or replace current user's photo
+app.post("/api/pins/:id/my-photo", userPinPhotoUpload.single("photo"), async (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) {
+    if (req.file) { try { fs.unlinkSync(req.file.path); } catch (e) {} }
+    return res.status(401).json({ error: "Not logged in" });
+  }
+  if (!req.file) return res.status(400).json({ error: "No photo uploaded" });
+
+  const pin = db.prepare("SELECT id FROM pins WHERE id = ?").get(req.params.id);
+  if (!pin) {
+    try { fs.unlinkSync(req.file.path); } catch (e) {}
+    return res.status(404).json({ error: "Pin not found" });
+  }
+
+  // Resize down to ~800px max and honour EXIF orientation so grid/modal stay cheap.
+  try {
+    const tmpPath = req.file.path + ".tmp";
+    await sharp(req.file.path)
+      .rotate()
+      .resize(800, 800, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toFile(tmpPath);
+    fs.renameSync(tmpPath, req.file.path);
+  } catch (e) {
+    console.warn("[user-pin-photo] resize failed, keeping original:", e.message);
+  }
+
+  // If replacing, delete the old file.
+  const existing = db.prepare("SELECT filename FROM user_pin_photos WHERE user_id = ? AND pin_id = ?").get(user.id, req.params.id);
+  if (existing) {
+    const oldPath = path.join(USER_PIN_PHOTOS_DIR, existing.filename);
+    if (fs.existsSync(oldPath)) { try { fs.unlinkSync(oldPath); } catch (e) {} }
+  }
+
+  db.prepare(`
+    INSERT INTO user_pin_photos (user_id, pin_id, filename, uploaded_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(user_id, pin_id) DO UPDATE SET filename = excluded.filename, uploaded_at = datetime('now')
+  `).run(user.id, req.params.id, req.file.filename);
+
+  res.json({ ok: true, filename: req.file.filename });
+});
+
+// DELETE /api/pins/:id/my-photo — remove current user's photo
+app.delete("/api/pins/:id/my-photo", (req, res) => {
+  const user = getUserFromToken(req);
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const row = db.prepare("SELECT filename FROM user_pin_photos WHERE user_id = ? AND pin_id = ?").get(user.id, req.params.id);
+  if (row) {
+    const p = path.join(USER_PIN_PHOTOS_DIR, row.filename);
+    if (fs.existsSync(p)) { try { fs.unlinkSync(p); } catch (e) {} }
+    db.prepare("DELETE FROM user_pin_photos WHERE user_id = ? AND pin_id = ?").run(user.id, req.params.id);
+  }
+  res.json({ ok: true });
+});
+
+// GET /api/pins/:id/my-photo/file — serve the current user's photo
+// Accepts the auth token via Authorization header OR ?token= query param,
+// since <img src="..."> tags cannot attach custom headers.
+app.get("/api/pins/:id/my-photo/file", (req, res) => {
+  let user = getUserFromToken(req);
+  if (!user && req.query.token) {
+    const token = String(req.query.token);
+    user = db.prepare(`
+      SELECT u.id, u.email, u.name, u.role FROM sessions s
+      JOIN users u ON s.user_id = u.id WHERE s.token = ?
+    `).get(token) || null;
+  }
+  if (!user) return res.status(401).json({ error: "Not logged in" });
+
+  const row = db.prepare("SELECT filename FROM user_pin_photos WHERE user_id = ? AND pin_id = ?").get(user.id, req.params.id);
+  if (!row) return res.status(404).json({ error: "No photo" });
+
+  const p = path.join(USER_PIN_PHOTOS_DIR, row.filename);
+  if (!fs.existsSync(p)) return res.status(404).json({ error: "File missing" });
+  res.sendFile(p);
 });
 
 // ── ADMIN PIN ROUTES ──────────────────────────────────────

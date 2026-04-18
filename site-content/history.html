@@ -176,6 +176,107 @@
       border-color: #c084fc;
     }
 
+    .history-pill-steps {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #86efac;
+    }
+
+    .steps-recap-totals {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .steps-recap-stat {
+      flex: 1 1 120px;
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+    }
+
+    .steps-recap-stat-value {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 1.6rem;
+      color: var(--castle-blue);
+      line-height: 1;
+    }
+
+    .steps-recap-stat-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.3rem;
+    }
+
+    .steps-flavor-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .steps-flavor-item {
+      font-size: 0.88rem;
+      color: #374151;
+    }
+
+    .steps-flavor-item strong {
+      color: var(--castle-blue);
+    }
+
+    .steps-day-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .steps-day-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0.6rem;
+      background: white;
+      border-radius: 0.4rem;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 0.85rem;
+    }
+
+    .steps-day-row-date {
+      font-weight: 700;
+      color: var(--castle-blue);
+    }
+
+    .steps-day-row-breakdown {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .steps-day-row-total {
+      font-family: 'Mouse Memoirs', sans-serif;
+      font-size: 1.1rem;
+      color: #166534;
+    }
+
+    .steps-top-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.7rem;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
     .history-pill-delete {
       background: #fee2e2;
       color: #b91c1c;
@@ -472,6 +573,96 @@
     });
   }
 
+  function buildStepsRecapPanel(stepsRows, members) {
+    if (!stepsRows || stepsRows.length === 0) {
+      return `<p style="color:var(--muted); font-style:italic; font-size:0.88rem;">No steps logged for this trip yet.</p>`;
+    }
+
+    const nameById = {};
+    (members || []).forEach(m => { nameById[m.user_id] = m.name || "Unknown"; });
+
+    const total = stepsRows.reduce((s, r) => s + (r.steps || 0), 0);
+    const STEPS_PER_MILE = 2000;
+    const STEPS_PER_MARATHON = 52400;
+    const STEPS_PER_MK_LAP = 3000;
+    const STEPS_PER_MAIN_ST = 400;
+
+    const miles = total / STEPS_PER_MILE;
+    const marathons = total / STEPS_PER_MARATHON;
+    const mkLaps = total / STEPS_PER_MK_LAP;
+    const mainSts = total / STEPS_PER_MAIN_ST;
+
+    // Per-user totals
+    const byUser = {};
+    stepsRows.forEach(r => { byUser[r.user_id] = (byUser[r.user_id] || 0) + (r.steps || 0); });
+    const topUserId = Object.keys(byUser).sort((a, b) => byUser[b] - byUser[a])[0];
+    const topUserName = nameById[topUserId] || "—";
+    const topUserSteps = byUser[topUserId] || 0;
+
+    // Per-day breakdown
+    const byDate = {};
+    stepsRows.forEach(r => {
+      if (!byDate[r.date]) byDate[r.date] = { total: 0, entries: [] };
+      byDate[r.date].total += r.steps || 0;
+      byDate[r.date].entries.push({ name: nameById[r.user_id] || "Unknown", steps: r.steps || 0 });
+    });
+    const sortedDates = Object.keys(byDate).sort();
+
+    const totalsHtml = `
+      <div class="steps-recap-totals">
+        <div class="steps-recap-stat">
+          <div class="steps-recap-stat-value">${total.toLocaleString()}</div>
+          <div class="steps-recap-stat-label">Total Steps</div>
+        </div>
+        <div class="steps-recap-stat">
+          <div class="steps-recap-stat-value">${miles.toFixed(1)}</div>
+          <div class="steps-recap-stat-label">Miles Walked</div>
+        </div>
+        <div class="steps-recap-stat">
+          <div class="steps-recap-stat-value">${sortedDates.length}</div>
+          <div class="steps-recap-stat-label">Days Logged</div>
+        </div>
+      </div>
+    `;
+
+    const flavorHtml = `
+      <ul class="steps-flavor-list">
+        <li class="steps-flavor-item">🏃 That's <strong>${marathons.toFixed(2)}</strong> marathon${marathons !== 1 ? "s" : ""} worth of steps.</li>
+        <li class="steps-flavor-item">🏰 Roughly <strong>${mkLaps.toFixed(1)}</strong> lap${mkLaps !== 1 ? "s" : ""} around Magic Kingdom.</li>
+        <li class="steps-flavor-item">🎠 About <strong>${mainSts.toFixed(0)}</strong> trips down Main Street U.S.A.</li>
+      </ul>
+    `;
+
+    const topBadgeHtml = topUserId
+      ? `<div class="steps-top-badge">🏆 Top Stepper: <strong>${escapeHtml(topUserName)}</strong> · ${topUserSteps.toLocaleString()} steps</div>`
+      : "";
+
+    const daysHtml = sortedDates.map(date => {
+      const d = byDate[date];
+      const dateFmt = formatDateShort(date);
+      const breakdown = d.entries
+        .sort((a, b) => b.steps - a.steps)
+        .map(e => `${escapeHtml(e.name)}: ${e.steps.toLocaleString()}`)
+        .join(" · ");
+      return `
+        <div class="steps-day-row">
+          <div>
+            <div class="steps-day-row-date">${dateFmt}</div>
+            <div class="steps-day-row-breakdown">${breakdown}</div>
+          </div>
+          <div class="steps-day-row-total">${d.total.toLocaleString()}</div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      ${totalsHtml}
+      ${flavorHtml}
+      ${topBadgeHtml}
+      <div class="steps-day-list">${daysHtml}</div>
+    `;
+  }
+
   function togglePanel(cardEl, panelClass) {
     const panel = cardEl.querySelector(`.${panelClass}`);
     if (!panel) return;
@@ -636,6 +827,14 @@
         photoCount = photos.length;
       } catch (e) { /* no photos endpoint or no photos */ }
 
+      // Steps recap data
+      let tripSteps = [], tripMembers = [];
+      try { tripSteps = await apiFetch(`/trips/${tripId}/steps/all`); } catch (e) {}
+      try { tripMembers = await apiFetch(`/trips/${tripId}/members`); } catch (e) {}
+      const stepsInRange = (tripSteps || []).filter(r => r.date >= startDate && r.date <= endDate);
+      const stepsRecapHtml = buildStepsRecapPanel(stepsInRange, tripMembers);
+      const stepsTotalForPill = stepsInRange.reduce((s, r) => s + (r.steps || 0), 0);
+
       html += `
         <div class="history-trip-card" data-trip-id="${tripId}">
           <div class="history-card-header">
@@ -658,6 +857,9 @@
             <a class="history-pill history-pill-photos" href="photos.html?trip=${encodeURIComponent(tripId)}">
               📸 Photos ${photoCount > 0 ? `<span class="history-pill-count">(${photoCount})</span>` : ""}
             </a>
+            <button class="history-pill history-pill-steps" onclick="togglePanel(this.closest('.history-trip-card'), 'history-steps-panel')">
+              👟 Steps ${stepsTotalForPill > 0 ? `<span class="history-pill-count">(${stepsTotalForPill.toLocaleString()})</span>` : ""}
+            </button>
             ${isAdmin ? `<button class="history-pill history-pill-delete" onclick="deleteTrip('${tripId}', '${escapeHtml(formatDateRange(startDate, endDate))}')">
               🗑️ Delete Trip
             </button>` : ""}
@@ -671,6 +873,11 @@
           <div class="history-panel history-parks-panel">
             <div class="history-panel-title">🎢 Park Day Schedule</div>
             ${parksPanelHtml}
+          </div>
+
+          <div class="history-panel history-steps-panel">
+            <div class="history-panel-title">👟 Step Recap</div>
+            ${stepsRecapHtml}
           </div>
         </div>
       `;

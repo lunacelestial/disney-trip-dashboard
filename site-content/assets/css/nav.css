@@ -299,7 +299,6 @@
    ============================================================ */
 
 .nav-ticket-tray {
-  display: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -311,16 +310,21 @@
   max-height: 85vh;
   overflow-y: auto;
   padding-top: 2.5rem;
+  display: block;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0.22s;
+  will-change: opacity, transform;
 }
 
 .nav-ticket-tray.open {
-  display: block;
-  animation: traySlideDown 0.25s ease both;
-}
-
-@keyframes traySlideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s linear 0s;
 }
 
 /* The scroll container — vertical on mobile, horizontal on desktop */
@@ -473,9 +477,16 @@
   background: rgba(10, 15, 40, 0.4);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-  transition: opacity 0.2s ease;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.22s ease, visibility 0s linear 0s;
 }
-.nav-overlay.hidden { display: none; }
+.nav-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+}
 
 /* ============================================================
    MOBILE: Profile pill (top-left) + Bottom menu pill
@@ -576,7 +587,10 @@
     max-height: 100vh;
     padding-top: 3.5rem;
     padding-bottom: 5rem;
-    display: none;
+    display: flex;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
     justify-content: center;
     align-items: center;
     z-index: 950;
@@ -585,16 +599,14 @@
     -webkit-backdrop-filter: blur(16px);
     border-bottom: none;
     box-shadow: none;
+    transform: none;
+    transition: opacity 0.22s ease, visibility 0s linear 0.22s;
   }
 
   .nav-ticket-tray.open {
-    display: flex;
-    animation: trayFadeIn 0.2s ease both;
-  }
-
-  @keyframes trayFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .nav-ticket-tray .nav-ticket-scroll {

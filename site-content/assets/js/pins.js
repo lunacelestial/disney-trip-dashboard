@@ -11,12 +11,386 @@
 
   // ── Init ─────────────────────────────────────────────────
   async function init() {
+    injectPinExtrasStyles();
     await loadFilters();
     await loadStats();
     await loadPins();
     bindFilterEvents();
     bindModalEvents();
     buildMobileFilters();
+  }
+
+  // ── Pick the right image URL for a pin ──────────────────
+  // If the current user has uploaded their own photo, show that to them;
+  // otherwise fall back to the admin-supplied image. Other users keep
+  // seeing the admin image because the server only returns `user_image`
+  // for the requesting user.
+  function pinImageUrl(pin, variant /* "thumbnail" | "full" */) {
+    if (pin.user_image) {
+      const token = encodeURIComponent(localStorage.getItem("disney-auth-token") || "");
+      // Cache-bust on filename change so replacing a photo refreshes the <img>.
+      return `/api/pins/${pin.id}/my-photo/file?token=${token}&v=${encodeURIComponent(pin.user_image)}`;
+    }
+    if (!pin.image) return null;
+    return `/api/pins/${variant === "full" ? "image" : "thumbnail"}/${encodeURIComponent(pin.image)}`;
+  }
+
+  // ── Inject animation + photo-prompt styles once at boot ─
+  function injectPinExtrasStyles() {
+    if (document.getElementById("pin-extras-styles")) return;
+    const style = document.createElement("style");
+    style.id = "pin-extras-styles";
+    style.textContent = `
+      .pin-card .pin-card-image-wrap { position: relative; }
+      @keyframes pin-collect-bounce {
+        0%   { transform: scale(1) rotate(0); }
+        25%  { transform: scale(1.18) rotate(-3deg); }
+        55%  { transform: scale(0.92) rotate(2deg); }
+        80%  { transform: scale(1.05) rotate(-1deg); }
+        100% { transform: scale(1) rotate(0); }
+      }
+      .pin-card.pin-collecting .pin-card-image-inner {
+        animation: pin-collect-bounce 0.75s cubic-bezier(.34,1.56,.64,1) both;
+      }
+      .pin-sparkle-layer {
+        position: absolute; inset: 0;
+        pointer-events: none;
+        overflow: visible;
+        z-index: 8;
+      }
+      .pin-sparkle {
+        position: absolute;
+        left: 50%; top: 50%;
+        width: 11px; height: 11px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #fff6c4 0%, #ffd447 45%, rgba(255,179,43,0) 72%);
+        box-shadow: 0 0 14px 3px rgba(255, 214, 74, 0.9), 0 0 28px 6px rgba(255, 179, 43, 0.5);
+        transform: translate(-50%, -50%) scale(0.6);
+        animation: pin-sparkle-fly 0.95s cubic-bezier(.22,.9,.42,1) forwards;
+      }
+      @keyframes pin-sparkle-fly {
+        0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+        15%  { opacity: 1; }
+        70%  { opacity: 1; }
+        100% {
+          opacity: 0;
+          transform:
+            translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+            scale(0.15);
+        }
+      }
+
+      /* Photo-prompt overlay shared by auto-prompt + modal upload */
+      .pin-photo-overlay {
+        position: fixed; inset: 0;
+        background: rgba(10, 15, 40, 0.66);
+        backdrop-filter: blur(6px);
+        z-index: 2000;
+        display: flex; align-items: center; justify-content: center;
+        padding: 1rem;
+        animation: pin-photo-fade 0.22s ease;
+      }
+      @keyframes pin-photo-fade { from { opacity: 0; } to { opacity: 1; } }
+      .pin-photo-card {
+        background: var(--cream, #fffaf0);
+        border-radius: 24px;
+        max-width: 440px; width: 100%;
+        padding: 1.75rem 1.5rem 1.5rem;
+        box-shadow: 0 32px 80px rgba(0,48,135,0.28);
+        border: 1.5px solid rgba(255,255,255,0.9);
+        text-align: center;
+        box-sizing: border-box;
+      }
+      .pin-photo-card h3 {
+        margin: 0.25rem 0 0.4rem;
+        font-family: "Mouse Memoirs", "Nunito", sans-serif;
+        font-size: 1.7rem;
+        color: var(--castle-blue, #003087);
+      }
+      .pin-photo-card p {
+        margin: 0 0 0.9rem;
+        color: var(--slate, #475569);
+        font-size: 0.92rem;
+        line-height: 1.45;
+      }
+      .pin-photo-file {
+        display: block;
+        width: 100%;
+        padding: 0.7rem 0.75rem;
+        border-radius: 12px;
+        border: 1.5px dashed #cbd5e1;
+        background: #f8fafc;
+        font-size: 0.88rem;
+        font-family: "Nunito", sans-serif;
+        cursor: pointer;
+        box-sizing: border-box;
+      }
+      .pin-photo-preview {
+        max-width: 100%;
+        max-height: 240px;
+        border-radius: 14px;
+        margin-top: 0.75rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      }
+      .pin-photo-actions {
+        display: flex;
+        gap: 0.6rem;
+        margin-top: 1.1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .pin-photo-actions button {
+        padding: 0.6rem 1.2rem;
+        border-radius: 999px;
+        border: none;
+        font-family: "Nunito", sans-serif;
+        font-weight: 800;
+        font-size: 0.88rem;
+        cursor: pointer;
+      }
+      .pin-photo-btn-primary {
+        background: var(--castle-blue, #003087);
+        color: white;
+      }
+      .pin-photo-btn-primary[disabled] { opacity: 0.5; cursor: not-allowed; }
+      .pin-photo-btn-secondary {
+        background: #e2e8f0;
+        color: var(--slate, #475569);
+      }
+      .pin-photo-btn-danger {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      /* "My Photo" section inside the pin detail modal */
+      .pin-my-photo-section {
+        margin-top: 1rem;
+        padding: 0.9rem 1rem 1rem;
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 14px;
+      }
+      .pin-my-photo-section h4 {
+        margin: 0 0 0.65rem;
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: var(--castle-blue, #003087);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: flex; align-items: center; gap: 0.35rem;
+      }
+      .pin-my-photo-current {
+        width: 100%;
+        max-height: 260px;
+        object-fit: contain;
+        border-radius: 10px;
+        background: white;
+        margin-bottom: 0.6rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      }
+      .pin-my-photo-actions {
+        display: flex; gap: 0.5rem; flex-wrap: wrap;
+      }
+      .pin-my-photo-actions button {
+        padding: 0.45rem 0.9rem;
+        border-radius: 999px;
+        border: none;
+        font-family: "Nunito", sans-serif;
+        font-weight: 700;
+        font-size: 0.78rem;
+        cursor: pointer;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // ── Sparkle/bounce animation on collect ─────────────────
+  function playCollectAnimation(card) {
+    if (!card) return;
+    const wrap = card.querySelector(".pin-card-image-wrap");
+    if (!wrap) return;
+
+    card.classList.remove("pin-collecting");
+    // Force reflow so the animation restarts if played twice in a row.
+    void card.offsetWidth;
+    card.classList.add("pin-collecting");
+
+    const layer = document.createElement("div");
+    layer.className = "pin-sparkle-layer";
+
+    const count = 14;
+    for (let i = 0; i < count; i++) {
+      const spark = document.createElement("div");
+      spark.className = "pin-sparkle";
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const dist = 70 + Math.random() * 40;
+      spark.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+      spark.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
+      spark.style.animationDelay = `${Math.random() * 0.12}s`;
+      layer.appendChild(spark);
+    }
+    wrap.appendChild(layer);
+
+    setTimeout(() => {
+      layer.remove();
+      card.classList.remove("pin-collecting");
+    }, 1100);
+  }
+
+  // ── Photo-prompt modal (shown right after a fresh collect) ──
+  function openPhotoPromptModal(pin, { mode = "prompt" } = {}) {
+    // mode: "prompt" — after collect, with Skip
+    //       "replace" — from the detail modal, no Skip
+    const overlay = document.createElement("div");
+    overlay.className = "pin-photo-overlay";
+
+    const title = mode === "prompt"
+      ? "You collected it!"
+      : "Upload Your Photo";
+    const body = mode === "prompt"
+      ? `Nice grab on <strong>${escapeHtml(pin.name)}</strong>! Want to add your own photo of it? Only you'll see it — everyone else keeps seeing the standard image.`
+      : `Upload a photo of your copy of <strong>${escapeHtml(pin.name)}</strong>. Only you will see it.`;
+    const primaryLabel = mode === "prompt" ? "Upload Photo" : "Save Photo";
+    const secondaryLabel = mode === "prompt" ? "Skip" : "Cancel";
+
+    overlay.innerHTML = `
+      <div class="pin-photo-card" role="dialog" aria-modal="true">
+        <h3>${title}</h3>
+        <p>${body}</p>
+        <input type="file" class="pin-photo-file" accept="image/*" capture="environment" />
+        <img class="pin-photo-preview" style="display:none;" alt="" />
+        <div class="pin-photo-actions">
+          <button type="button" class="pin-photo-btn-primary" disabled>${primaryLabel}</button>
+          <button type="button" class="pin-photo-btn-secondary">${secondaryLabel}</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const fileInput = overlay.querySelector(".pin-photo-file");
+    const preview = overlay.querySelector(".pin-photo-preview");
+    const primaryBtn = overlay.querySelector(".pin-photo-btn-primary");
+    const secondaryBtn = overlay.querySelector(".pin-photo-btn-secondary");
+
+    const close = () => overlay.remove();
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        primaryBtn.disabled = true;
+        preview.style.display = "none";
+        return;
+      }
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+      primaryBtn.disabled = false;
+    });
+
+    primaryBtn.addEventListener("click", async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      primaryBtn.disabled = true;
+      primaryBtn.textContent = "Uploading...";
+      try {
+        const form = new FormData();
+        form.append("photo", file);
+        const token = localStorage.getItem("disney-auth-token") || "";
+        const res = await fetch(`/api/pins/${pin.id}/my-photo`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+          body: form,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+
+        pin.user_image = data.filename;
+        refreshPinImages(pin);
+        close();
+      } catch (e) {
+        console.error("[Pins] photo upload failed:", e);
+        primaryBtn.disabled = false;
+        primaryBtn.textContent = primaryLabel;
+        alert("Upload failed: " + e.message);
+      }
+    });
+
+    secondaryBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  }
+
+  // Update all <img> elements for this pin (grid card + modal) to reflect
+  // the current pin.user_image / pin.image state, cache-busting the URL.
+  function refreshPinImages(pin) {
+    const thumb = pinImageUrl(pin, "thumbnail");
+    const full = pinImageUrl(pin, "full");
+
+    const cardImg = document.querySelector(`.pin-card[data-pin-id="${pin.id}"] .pin-card-image`);
+    if (cardImg && thumb) cardImg.src = thumb;
+
+    const detailImg = document.querySelector(".pin-detail-image");
+    const modalBtn = document.querySelector(`.pin-detail-collect-btn[data-pin-id="${pin.id}"]`);
+    if (detailImg && modalBtn && full) detailImg.src = full;
+
+    // If the detail modal is showing this pin, re-render its "My Photo" section.
+    if (modalBtn) {
+      const section = document.getElementById("pin-my-photo-section");
+      if (section) section.outerHTML = renderMyPhotoSection(pin);
+      bindMyPhotoSection(pin);
+    }
+  }
+
+  function renderMyPhotoSection(pin) {
+    if (!pin.collected) return "";
+    const hasPhoto = !!pin.user_image;
+    const token = encodeURIComponent(localStorage.getItem("disney-auth-token") || "");
+    const imgUrl = hasPhoto
+      ? `/api/pins/${pin.id}/my-photo/file?token=${token}&v=${encodeURIComponent(pin.user_image)}`
+      : "";
+
+    return `
+      <div class="pin-my-photo-section" id="pin-my-photo-section">
+        <h4><i class="ph-fill ph-camera"></i> My Photo</h4>
+        ${hasPhoto
+          ? `<img class="pin-my-photo-current" src="${imgUrl}" alt="Your photo of this pin" />
+             <div class="pin-my-photo-actions">
+               <button type="button" class="pin-photo-btn-primary" data-my-photo-action="replace">Replace</button>
+               <button type="button" class="pin-photo-btn-danger" data-my-photo-action="remove">Remove</button>
+             </div>`
+          : `<p style="margin:0 0 0.6rem; color:var(--slate,#475569); font-size:0.85rem;">Upload your own photo so you see it instead of the standard one.</p>
+             <div class="pin-my-photo-actions">
+               <button type="button" class="pin-photo-btn-primary" data-my-photo-action="upload">Upload Photo</button>
+             </div>`
+        }
+      </div>
+    `;
+  }
+
+  function bindMyPhotoSection(pin) {
+    const section = document.getElementById("pin-my-photo-section");
+    if (!section) return;
+    section.querySelectorAll("[data-my-photo-action]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const action = btn.dataset.myPhotoAction;
+        if (action === "upload" || action === "replace") {
+          openPhotoPromptModal(pin, { mode: "replace" });
+        } else if (action === "remove") {
+          if (!confirm("Remove your photo and go back to the standard image?")) return;
+          try {
+            const token = localStorage.getItem("disney-auth-token") || "";
+            const res = await fetch(`/api/pins/${pin.id}/my-photo`, {
+              method: "DELETE",
+              headers: { "Authorization": `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error((await res.json()).error || "Delete failed");
+            pin.user_image = null;
+            refreshPinImages(pin);
+          } catch (e) {
+            alert("Remove failed: " + e.message);
+          }
+        }
+      });
+    });
   }
 
   // ── Mobile Filter Bar ───────────────────────────────────
@@ -232,8 +606,9 @@
     }
 
     grid.innerHTML = pins.map(pin => {
-      const imageHtml = pin.image
-        ? `<img class="pin-card-image" src="/api/pins/thumbnail/${pin.image}" alt="${escapeHtml(pin.name)}" loading="lazy" />`
+      const thumbUrl = pinImageUrl(pin, "thumbnail");
+      const imageHtml = thumbUrl
+        ? `<img class="pin-card-image" src="${thumbUrl}" alt="${escapeHtml(pin.name)}" loading="lazy" />`
         : `<div class="pin-card-image-placeholder">&#x1F4CC;</div>`;
 
       const meta = [pin.year, pin.series].filter(Boolean).join(" · ");
@@ -298,8 +673,10 @@
     const pin = allPins.find(p => p.id === pinId);
     if (!pin) return;
 
+    const wasCollected = pin.collected;
+
     try {
-      if (pin.collected) {
+      if (wasCollected) {
         await apiFetch(`/pins/${pinId}/collect`, { method: "DELETE" });
         pin.collected = false;
       } else {
@@ -319,6 +696,28 @@
       const modalBtn = document.querySelector(".pin-detail-collect-btn");
       if (modalBtn && modalBtn.dataset.pinId === pinId) {
         updateModalCollectBtn(modalBtn, pin.collected);
+        // Re-render the "My Photo" section to appear/disappear.
+        const section = document.getElementById("pin-my-photo-section");
+        const parent = section ? section.parentNode : null;
+        if (parent) {
+          if (pin.collected) section.outerHTML = renderMyPhotoSection(pin);
+          else section.remove();
+          if (pin.collected) bindMyPhotoSection(pin);
+        } else if (pin.collected) {
+          const actions = document.querySelector(".pin-detail-actions");
+          if (actions) {
+            actions.insertAdjacentHTML("beforebegin", renderMyPhotoSection(pin));
+            bindMyPhotoSection(pin);
+          }
+        }
+      }
+
+      // On a fresh collect (not un-collect), celebrate + offer the photo upload.
+      if (!wasCollected && card) {
+        playCollectAnimation(card);
+        if (!pin.user_image) {
+          setTimeout(() => openPhotoPromptModal(pin, { mode: "prompt" }), 850);
+        }
       }
 
       loadStats();
@@ -497,8 +896,9 @@
     const overlay = document.getElementById("pin-modal-overlay");
     const content = document.getElementById("pin-modal-content");
 
-    const imageHtml = pin.image
-      ? `<img class="pin-detail-image" src="/api/pins/image/${pin.image}" alt="${escapeHtml(pin.name)}" />`
+    const detailUrl = pinImageUrl(pin, "full");
+    const imageHtml = detailUrl
+      ? `<img class="pin-detail-image" src="${detailUrl}" alt="${escapeHtml(pin.name)}" />`
       : "";
 
     const tagsHtml = [];
@@ -525,6 +925,7 @@
         <h2 class="pin-detail-name">${escapeHtml(pin.name)}</h2>
         ${tagsHtml.length ? `<div class="pin-detail-tags">${tagsHtml.join("")}</div>` : ""}
         ${renderObtainSection(pin)}
+        ${renderMyPhotoSection(pin)}
         <div class="pin-detail-actions">
           <button class="pin-detail-collect-btn ${btnClass}" data-pin-id="${pin.id}">${btnLabel}</button>
           <button class="pin-detail-favorite-btn ${favClass}" data-pin-id="${pin.id}">
@@ -539,6 +940,8 @@
 
     const favBtn = content.querySelector(".pin-detail-favorite-btn");
     favBtn.addEventListener("click", () => toggleFavorite(pin.id));
+
+    bindMyPhotoSection(pin);
 
     overlay.classList.remove("hidden");
   }
