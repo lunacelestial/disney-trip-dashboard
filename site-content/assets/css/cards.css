@@ -67,6 +67,24 @@
   box-shadow: 0 0 24px rgba(245, 158, 11, 0.2), var(--card-shadow);
 }
 
+#next-activity-card.next-act-theme-ll {
+  background: linear-gradient(135deg, #fffbf0 0%, #fff3cc 50%, #ffe98a 100%);
+  border-color: #f5a623;
+  box-shadow: 0 0 28px rgba(245, 166, 35, 0.35), var(--card-shadow);
+}
+
+.ll-prompt-yes {
+  color: var(--castle-blue);
+  font-size: 0.9rem;
+}
+
+.ll-prompt-no {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+  display: block;
+}
+
 /* Shimmer sweep animation */
 .next-act-shimmer {
   position: absolute;

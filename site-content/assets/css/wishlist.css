@@ -183,6 +183,12 @@
   background-color: #e2e8f0;
   border-bottom: 1.5px solid rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
+  cursor: zoom-in;
+  transition: opacity 0.15s ease;
+}
+
+.wishlist-card-image:hover {
+  opacity: 0.9;
 }
 
 /* Card body */
@@ -314,6 +320,138 @@
   max-width: 400px;
   margin: 0 auto;
   line-height: 1.6;
+}
+
+/* ---- Lightbox ---- */
+.wishlist-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 1.25rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.wishlist-lightbox-card {
+  position: relative;
+  background: rgba(255, 253, 244, 0.98);
+  border-radius: 20px;
+  max-width: 680px;
+  width: 100%;
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  animation: lightboxPop 0.22s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes lightboxPop {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.wishlist-lightbox-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: background 0.15s;
+}
+
+.wishlist-lightbox-close:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.wishlist-lightbox-image {
+  width: 100%;
+  max-height: 55vh;
+  object-fit: contain;
+  background: #0f172a;
+  display: block;
+}
+
+.wishlist-lightbox-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.wishlist-lightbox-title {
+  font-family: 'Mouse Memoirs', sans-serif;
+  font-size: 1.8rem;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+
+.wishlist-lightbox-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.wishlist-lightbox-desc {
+  margin: 0;
+  color: var(--slate);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.wishlist-lightbox-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  background: var(--sky-blue);
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-decoration: none;
+  align-self: flex-start;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.wishlist-lightbox-link:hover {
+  background: var(--castle-blue);
+}
+
+.wishlist-lightbox-link:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 640px) {
+  .wishlist-lightbox-image { max-height: 45vh; }
+  .wishlist-lightbox-title { font-size: 1.5rem; }
+  .wishlist-lightbox-body { padding: 1rem 1.15rem 1.25rem; }
 }
 
 /* ---- Responsive ---- */

@@ -44,7 +44,7 @@ async function renderWishlistPage() {
 
       return `
         <div class="wishlist-card${hasImage ? " has-image" : ""}">
-          ${hasImage ? `<div class="wishlist-card-image" style="background-image: url('${imageSrc}')"></div>` : ""}
+          ${hasImage ? `<div class="wishlist-card-image" data-id="${item.id}" role="button" tabindex="0" aria-label="View larger image for ${escapeHtml(item.title)}" style="background-image: url('${imageSrc}')"></div>` : ""}
           <div class="wishlist-card-body">
             <div class="wishlist-card-top">
               <span class="activity-badge ${badgeClass}">${emoji} ${escapeHtml(item.category || "Other")}</span>
@@ -76,6 +76,78 @@ async function renderWishlistPage() {
       }
     });
   });
+
+  // Wire thumbnail → lightbox
+  list.querySelectorAll(".wishlist-card-image").forEach(thumb => {
+    const open = () => {
+      const item = items.find(i => i.id === thumb.dataset.id);
+      if (item) openWishlistLightbox(item);
+    };
+    thumb.addEventListener("click", open);
+    thumb.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+    });
+  });
+}
+
+// ── Wishlist image lightbox ─────────────────────────────────
+function openWishlistLightbox(item) {
+  document.getElementById("wishlist-lightbox-overlay")?.remove();
+
+  const catEmoji = {
+    Ride: "🎢", Dining: "🍽️", Food: "🍽️", Merch: "🛍️",
+    Show: "🎭", Snack: "🍦", Resort: "🏨", Character: "📸",
+    Other: "✨"
+  };
+  const catClass = {
+    Ride: "ride", Dining: "dining", Food: "dining", Merch: "merch",
+    Show: "show", Snack: "dining", Resort: "travel", Character: "show",
+    Other: "default"
+  };
+
+  const isBase64 = item.image && item.image.startsWith("data:");
+  const isFile = item.image && !item.image.startsWith("data:") && item.image.length > 0;
+  const imageSrc = isBase64 ? item.image : isFile ? `/api/wishlist/image/${item.image}` : "";
+  const emoji = catEmoji[item.category] || "✨";
+  const badgeClass = catClass[item.category] || "default";
+  const hasUrl = item.url && item.url.trim();
+  const hasCategory = !!item.category;
+
+  const overlay = document.createElement("div");
+  overlay.id = "wishlist-lightbox-overlay";
+  overlay.className = "wishlist-lightbox-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", item.title || "Wishlist image");
+
+  overlay.innerHTML = `
+    <div class="wishlist-lightbox-card">
+      <button class="wishlist-lightbox-close" aria-label="Close">✕</button>
+      ${imageSrc ? `<img class="wishlist-lightbox-image" src="${imageSrc}" alt="${escapeHtml(item.title || "")}" />` : ""}
+      <div class="wishlist-lightbox-body">
+        <h2 class="wishlist-lightbox-title">${escapeHtml(item.title || "Untitled")}</h2>
+        ${hasCategory ? `
+          <div class="wishlist-lightbox-meta">
+            <span class="activity-badge ${badgeClass}">${emoji} ${escapeHtml(item.category)}</span>
+          </div>
+        ` : ""}
+        ${item.description ? `<p class="wishlist-lightbox-desc">${escapeHtml(item.description)}</p>` : ""}
+        ${hasUrl ? `<a class="wishlist-lightbox-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">🔗 Open Link</a>` : ""}
+      </div>
+    </div>
+  `;
+
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector(".wishlist-lightbox-close").addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+
+  document.body.appendChild(overlay);
 }
 
 function initializeWishlistPage() {

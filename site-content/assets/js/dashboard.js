@@ -75,6 +75,40 @@ async function renderNextActivityCard() {
     return;
   }
 
+  const isLL = nextActivity.title?.includes("(Lightning Lane)");
+  if (isLL) {
+    const rideName = nextActivity.title.replace(/\s*\(Lightning Lane\)\s*/i, "").trim();
+    const nextIdx = itinerary.findIndex(a => a.id === nextActivity.id);
+    const afterLL = nextIdx >= 0 ? itinerary[nextIdx + 1] : null;
+
+    if (iconEl) iconEl.textContent = "⚡";
+    if (card) {
+      card.className = card.className.replace(/next-act-theme-\w+/g, "").trim();
+      card.classList.add("next-act-theme-ll");
+    }
+
+    titleEl.innerHTML = `Did you set up a new Lightning Lane?`;
+    detailsEl.innerHTML = afterLL
+      ? `<span class="ll-prompt-yes">If so: <strong>${rideName}</strong></span><br>
+         <span class="ll-prompt-no">If not: your next reservation is <strong>${afterLL.title}</strong> at ${formatTimeForDisplay(afterLL.time)}</span>`
+      : `<span class="ll-prompt-yes">If so: <strong>${rideName}</strong></span><br>
+         <span class="ll-prompt-no">If not: no more reservations today</span>`;
+
+    if (dateEl && nextActivity.date) {
+      const [y, m, d] = nextActivity.date.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+      dateEl.textContent = dt.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    }
+    if (countdownEl) {
+      updateNextActivityCountdown(nextActivity, countdownEl);
+      if (window._nextActCountdownInterval) clearInterval(window._nextActCountdownInterval);
+      window._nextActCountdownInterval = setInterval(() => {
+        updateNextActivityCountdown(nextActivity, countdownEl);
+      }, 30000);
+    }
+    return;
+  }
+
   titleEl.textContent = nextActivity.title;
   detailsEl.textContent = `${formatTimeForDisplay(nextActivity.time)} • ${nextActivity.location}`;
 
