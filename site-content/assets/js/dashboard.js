@@ -336,7 +336,7 @@ async function renderDashboardBudgetCard() {
 
   try {
     const allTrips = await apiFetch("/trip-budgets");
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayString();
     const trip = allTrips.find(t => today >= t.start_date && today <= t.end_date)
       || allTrips.find(t => t.start_date > today)
       || allTrips[0];
@@ -594,8 +594,8 @@ async function renderWaitTimesCard() {
   const section = document.getElementById("wait-times-section");
   if (!section) return;
 
-  // Only show during active trip
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Only show during active trip — use local-time date so it matches ParkDaysDB keys
+  const todayStr = getTodayString();
   let allTrips = [];
   try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { return; }
   const activeTrip = allTrips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
@@ -775,8 +775,11 @@ async function renderRecommendationStrip() {
   const stripEl = document.getElementById("rec-strip-section");
   if (!stripEl) return;
 
-  // Only show during active trip + park day
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Only show during active trip + park day. Use local-time date so this stays
+  // consistent with ParkDaysDB keys and the rest of the dashboard — UTC was flipping
+  // todayStr to "tomorrow" after ~8pm ET and silently hiding the strip on the
+  // trip's last day.
+  const todayStr = getTodayString();
   let allTrips = [];
   try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { return; }
   const activeTrip = allTrips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);

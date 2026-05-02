@@ -691,6 +691,25 @@
     let allTrips = [];
     try { allTrips = await apiFetch("/trip-budgets"); } catch (e) { }
 
+    // If the user is currently on an active trip, the pre-trip view doesn't apply —
+    // send them to the Dashboard instead. Mirrors the membership filter in dashboard.js
+    // so admins and trip members agree on what counts as "their" active trip.
+    const user = (typeof Auth !== "undefined") ? Auth.getUser() : null;
+    let myTrips = allTrips;
+    if (user && user.role !== "admin") {
+      try {
+        const memberTrips = await apiFetch(`/users/${user.id}/trips`);
+        const memberTripIds = new Set(memberTrips.map(t => t.trip_id));
+        myTrips = allTrips.filter(t => memberTripIds.has(t.trip_id));
+      } catch (e) { }
+    }
+    const activeTrip = myTrips.find(t => todayStr >= t.start_date && todayStr <= t.end_date);
+    if (activeTrip) {
+      // #stay guards against any chance of dashboard.js bouncing back to pretrip
+      window.location.replace("index.html#stay");
+      return;
+    }
+
     // Find the next upcoming trip
     const upcomingTrips = allTrips
       .filter(t => t.start_date > todayStr)
