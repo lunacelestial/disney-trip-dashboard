@@ -1149,6 +1149,7 @@ app.put("/api/trips/:tripId/resize", (req, res) => {
       const migrateTables = [
         "trip_members", "transactions", "user_budgets",
         "budget_contributions", "trip_acknowledged", "photos",
+        "packing_items",
       ];
       for (const tbl of migrateTables) {
         db.prepare(`UPDATE ${tbl} SET trip_id = ? WHERE trip_id = ?`).run(newTripId, oldTripId);
